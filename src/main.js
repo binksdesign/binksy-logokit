@@ -1,4 +1,17 @@
 import {
+  selectedItems,
+  deliveries,
+  CATEGORIES,
+  selectedCount,
+} from "./catalog.js";
+import {
+  mountWorkshop,
+  rolePanel,
+  bindRoles,
+  resetColorChoices,
+} from "./workshop.js";
+import { t, language, setLanguage, translateDOM } from "./i18n.js";
+import {
   identity,
   home,
   readyAssets,
@@ -12,22 +25,18 @@ import { validate } from "./project";
 import "./style.css";
 import {
   project,
-  VARIANTS,
-  LABELS,
   layout,
   colors,
-  family,
   filename,
   History,
   clone,
   variantIds,
   variantName,
   clearMeasure,
-  jpegPairs,
   baseFamily,
 } from "./model";
 import { importSVG, assetMarkup, assetContent, compositionSVG } from "./svg";
-import { exportFiles, download, jpegPreview } from "./export";
+import { exportFiles, download } from "./export";
 import opentype from "opentype.js";
 const $ = (s) => document.querySelector(s),
   esc = (s) =>
@@ -48,8 +57,6 @@ let projects = [],
   view = "home",
   zoom = 1,
   selected = "icon",
-  filterType = "all",
-  filterColor = "all",
   font = null,
   saving,
   gesture = null,
@@ -67,13 +74,14 @@ try {
 }
 
 function save() {
+  p.locale = language();
   projects = projects.map((x) => (x.id === p.id ? clone(p) : x));
   clearTimeout(saving);
-  $("#save-state").textContent = "Enregistrement…";
+  $("#save-state").textContent = t("Enregistrement…");
   saving = setTimeout(() => {
     try {
       localStorage.setItem("binksy-logo-system", JSON.stringify(projects));
-      $("#save-state").textContent = "Enregistré sur cet appareil";
+      $("#save-state").textContent = t("Enregistré sur cet appareil");
     } catch {
       $("#save-state").textContent =
         "Sauvegarde impossible — exportez le projet";
@@ -92,7 +100,7 @@ function edit(fn, redraw = true) {
 function notice(message) {
   let n = $("#notice");
   if (!n) return;
-  n.textContent = message;
+  n.textContent = t(message);
   n.hidden = false;
   clearTimeout(notice.timer);
   notice.timer = setTimeout(() => (n.hidden = true), 9000);
@@ -101,7 +109,7 @@ function check(label, key, value) {
   return `<label class="check"><input type="checkbox" data-setting="${key}" ${value ? "checked" : ""}>${label}</label>`;
 }
 function number(label, key, value, min, max, step = 1, suffix = "") {
-  return `<label class="field"><span>${label}<output id="o-${key}">${Number(value).toFixed(step < 1 ? 2 : 0)}${suffix}</output></span><div class="range-row"><input aria-label="${label}" type="range" data-comp="${key}" min="${min}" max="${max}" step="${step}" value="${value}"><input aria-label="${label} précis" type="number" data-comp="${key}" min="${min}" max="${max}" step="${step}" value="${value}"></div></label>`;
+  return `<label class="field"><span>${label}<output id="o-${key}">${Number(value).toFixed(step < 1 ? 2 : 0)}${suffix}</output></span><div class="range-row"><input aria-label="${label}" type="range" data-comp="${key}" min="${min}" max="${key.endsWith("Height") ? Math.max(1000, Math.ceil(value * 2)) : max}" step="${step}" value="${value}"><input aria-label="${label} précis" type="number" data-comp="${key}" min="${min}" max="${max}" step="${step}" value="${value}"></div></label>`;
 }
 function render() {
   const scrolls = [".left", ".right", "main"].map((selector) => [
@@ -113,13 +121,16 @@ function render() {
       (view === "home" ? home(projects) : agentRules()) +
       `<footer><span id="save-state">Projets enregistrés sur cet appareil</span><span>SVG · PNG · JPEG · PDF</span></footer><div id="notice" role="status" hidden></div><input id="project-file" type="file" accept=".binksy,.json" hidden>`;
     bindLanding();
+    bindLanguage();
+    bindProjectDeletion();
+    translateDOM();
     return;
   }
 
   const c = p.compositions[p.active],
     l = layout(p);
   $("#app").innerHTML =
-    `<header><div class="identity">${identity()}</div><nav><button data-view="compose" class="${view === "compose" ? "active" : ""}"><small>01</small> Composer</button><button data-view="family" class="${view === "family" ? "active" : ""}"><small>02</small> Générer & exporter <span class="count">${family(p).length}</span></button></nav><div class="header-actions"><button data-action="undo" aria-label="Annuler" title="Annuler · ⌘Z" ${!history.past.length ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5L3 10l5 5M3 10h10a6 6 0 0 1 0 12"/></svg></button><button data-action="redo" aria-label="Rétablir" title="Rétablir · ⌘⇧Z" ${!history.future.length ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5l5 5-5 5m5-5h-10a6 6 0 0 0 0 12"/></svg></button><button class="primary" data-action="export-project">Sauvegarder .binksy ${arrow}</button></div></header><div class="workspace" data-mode="${p.mode}"><aside class="left"><section><div class="section-title">01 / PROJET <button data-action="new" title="Nouveau projet">+</button></div><select id="projects" aria-label="Projet actif">${projects.map((x) => `<option value="${esc(x.id)}" ${x.id === p.id ? "selected" : ""}>${esc(x.id === p.id ? p.brand : x.brand)}</option>`).join("")}</select><label class="field"><span>Nom de la marque</span><input id="brand" value="${esc(p.brand)}" maxlength="100"></label><button class="text-button" data-action="import-project">Importer .binksy ${arrow}</button></section><section><div class="section-title">02 / ASSETS <span>SVG</span></div>${["icon", "wordmark"].map((k) => `<label class="asset" data-drop="${k}"><input type="file" accept=".svg,image/svg+xml" data-upload="${k}" aria-label="Importer ${k === "icon" ? "le brandmark SVG" : "le logotype SVG"}" hidden><span class="asset-label">${k === "icon" ? "ICON" : "WORDMARK"}<span>${arrow}</span></span><div class="asset-preview">${p.assets[k] ? assetMarkup(p.assets[k], null, "asset-" + k) : '<span class="upload-cross">+</span>'}</div><span class="asset-name">${p.assets[k] ? esc(p.assets[k].name) : "Importer ou déposer un SVG"}</span></label>`).join("")}<details><summary>Mon SVG contient du texte</summary><p>Chargez la police exacte avant le SVG. Les textes simples seront vectorisés.</p><label class="file-button">${font ? "Police chargée ✓" : "Charger OTF / TTF"}<input id="font" type="file" accept=".otf,.ttf" hidden></label></details></section><section><div class="section-title">03 / COMPOSITIONS <span>04</span></div>${variantIds(
+    `<header><div class="identity">${identity()}</div><nav><button data-view="compose" class="${view === "compose" ? "active" : ""}"><small>01</small> Composer</button><button data-view="family" class="${view === "family" ? "active" : ""}"><small>02</small> Générer & exporter <span class="count">${p.enabled.reduce((n, v) => n + CATEGORIES.reduce((a, c) => a + selectedCount(p, v, c), 0n), 0n)}</span></button></nav><div class="header-actions"><button data-action="undo" aria-label="Annuler" title="Annuler · ⌘Z" ${!history.past.length ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5L3 10l5 5M3 10h10a6 6 0 0 1 0 12"/></svg></button><button data-action="redo" aria-label="Rétablir" title="Rétablir · ⌘⇧Z" ${!history.future.length ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5l5 5-5 5m5-5h-10a6 6 0 0 0 0 12"/></svg></button><button class="primary" data-action="export-project">Sauvegarder .binksy ${arrow}</button></div></header><div class="workspace" data-mode="${p.mode}"><aside class="left"><section><div class="section-title">01 / PROJET <button data-action="new" title="Nouveau projet">+</button></div><select id="projects" aria-label="Projet actif">${projects.map((x) => `<option value="${esc(x.id)}" ${x.id === p.id ? "selected" : ""}>${esc(x.id === p.id ? p.brand : x.brand)}</option>`).join("")}</select><label class="field"><span>Nom de la marque</span><input id="brand" value="${esc(p.brand)}" maxlength="100"></label><button class="text-button" data-action="import-project">Importer .binksy ${arrow}</button></section><section><div class="section-title">02 / ASSETS <span>SVG</span></div>${["icon", "wordmark"].map((k) => `<label class="asset" data-drop="${k}"><input type="file" accept=".svg,image/svg+xml" data-upload="${k}" aria-label="Importer ${k === "icon" ? "le brandmark SVG" : "le logotype SVG"}" hidden><span class="asset-label">${k === "icon" ? "ICON" : "WORDMARK"}<span>${arrow}</span></span><div class="asset-preview">${p.assets[k] ? assetMarkup(p.assets[k], null, "asset-" + k) : '<span class="upload-cross">+</span>'}</div><span class="asset-name">${p.assets[k] ? esc(p.assets[k].name) : "Importer ou déposer un SVG"}</span></label>`).join("")}<details><summary>Mon SVG contient du texte</summary><p>Chargez la police exacte avant le SVG. Les textes simples seront vectorisés.</p><label class="file-button">${font ? "Police chargée ✓" : "Charger OTF / TTF"}<input id="font" type="file" accept=".otf,.ttf" hidden></label></details></section><section><div class="section-title">03 / COMPOSITIONS <span>04</span></div>${variantIds(
       p,
     )
       .map(
@@ -148,25 +159,7 @@ function render() {
                 `<button class="mini ${p.active === v ? "active" : ""}" data-active="${v}"><div>${layout(p, v).parts.length ? compositionSVG(p, v) : "<span>—</span>"}</div><span>${esc(variantName(p, v))}</span></button>`,
             )
             .join("")}</div></div>`
-        : `<div class="family-heading"><div class="eyebrow">02 / GÉNÉRER & EXPORTER</div><h1>Une marque.<br>Tout son système<span class="accent">.</span></h1><p>Les bonnes compositions. Les bonnes couleurs. Prêtes à livrer.</p></div><div class="family-tools"><button class="primary" data-action="full">Full System</button><button data-action="all">Tout sélectionner</button><button data-action="none">Tout désélectionner</button><select id="filter-type" aria-label="Filtrer par composition"><option value="all">Toutes les compositions</option>${variantIds(
-            p,
-          )
-            .map(
-              (v) =>
-                `<option value="${v}" ${filterType === v ? "selected" : ""}>${esc(variantName(p, v))}</option>`,
-            )
-            .join(
-              "",
-            )}</select><select id="filter-color" aria-label="Filtrer par couleur"><option value="all">Toutes les couleurs</option>${colors(
-            p,
-          )
-            .map(
-              (col) =>
-                `<option value="${col.id}" ${filterColor === col.id ? "selected" : ""}>${esc(col.name)}</option>`,
-            )
-            .join(
-              "",
-            )}</select></div><div id="family-grid" class="family-grid"></div><div id="jpeg-pairs"></div>`
+        : `<div id="workshop"></div>`
     }</main><aside class="right" aria-label="Propriétés" tabindex="0">${view === "compose" ? `<div class="properties-title">PROPRIÉTÉS <span>${esc(variantName(p, p.active))}</span></div><section><div class="section-title">RELATION & ÉCHELLE</div>${p.active !== "wordmark" ? number("Hauteur de l’icône", "iconSize", c.iconSize, 0.25, 8, p.snap ? 0.25 : 0.01, "X") : ""}${p.active !== "icon" ? number("Échelle du logotype", "wordSize", c.wordSize, 0.25, 3, 0.05, "×") : ""}${["horizontal", "vertical"].includes(p.active) ? number("Espacement", "gap", c.gap, 0, 5, p.snap ? 0.25 : 0.01, "X") : ""}<div class="unit-note"><strong>1X</strong><span>½ hauteur visuelle du logotype<br><b id="unit-px">${l.X.toFixed(2)}</b> unités SVG</span></div></section><section><div class="section-title">ALIGNEMENT</div><div class="segmented">${["start", "center", "end"].map((v, i) => `<button data-align="${v}" class="${c.align === v ? "active" : ""}">${["Début", "Centre", "Fin"][i]}</button>`).join("")}</div><div class="segmented center-modes"><button data-center="real" class="${c.center === "real" ? "active" : ""}">Real Center</button><button data-center="optical" class="${c.center === "optical" ? "active" : ""}">Optical Center</button></div><p class="muted">${c.center === "real" ? "Centrage exact des bounding boxes." : "Centrage sur la masse opaque des formes. Ajustez librement les offsets."}</p></section><section><div class="section-title">AJUSTEMENTS MANUELS</div><div class="segmented">${["icon", "wordmark"].map((k) => `<button data-element="${k}" class="${selected === k ? "active" : ""}">${k === "icon" ? "Icône" : "Logotype"}</button>`).join("")}</div>${number("Position X", selected + "X", c[selected + "X"], -10, 10, p.snap ? 0.25 : 0.01, "X")}${number("Position Y", selected + "Y", c[selected + "Y"], -10, 10, p.snap ? 0.25 : 0.01, "X")}</section>${clearPanel(p)}<section><div class="section-title">TAILLES MINIMALES</div><div class="two-fields"><label>Print · mm<input type="number" data-comp="minPrint" value="${c.minPrint}" min="1" max="1000"></label><label>Digital · px<input type="number" data-comp="minDigital" value="${c.minDigital}" min="1" max="10000"></label></div></section>` : exportPanel()}</aside></div><footer><span id="save-state">Enregistré sur cet appareil</span><button data-view="agent">Règles agent IA</button></footer><div id="notice" role="status" hidden></div><input id="project-file" type="file" accept=".json,.binksy" hidden>`;
   if (p.mode === "ready") {
     const sections = $(".left").querySelectorAll(":scope > section");
@@ -181,16 +174,39 @@ function render() {
     if (hint) hint.textContent = "Construction importée";
     if (view === "compose") $(".right").innerHTML = readyProperties(p);
   }
+  if (view === "compose") {
+    if (p.mode !== "ready") {
+      const first = $(".right > section");
+      first.innerHTML = `<div class="section-title">RELATION & ÉCHELLE</div>${l.parts.map((q) => number(t(q.key === "icon" ? "Hauteur du brandmark · px" : "Hauteur du logotype · px"), q.key + "Height", q.h, 1, 100000, 1, " px") + `<label class="field"><span>${t(q.key === "icon" ? "Largeur du brandmark · px" : "Largeur du logotype · px")}</span><input type="number" aria-label="${t(q.key === "icon" ? "Largeur du brandmark · px" : "Largeur du logotype · px")}" data-width="${q.key}" value="${q.w.toFixed(2)}" min="1" max="100000" step="any"></label>`).join("")}<p class="muted">${t("Proportions verrouillées")}</p>${["horizontal", "vertical"].includes(p.active) ? number("Espacement", "gap", c.gap, 0, 5, p.snap ? 0.25 : 0.01, "X") : ""}<div class="unit-note"><strong>1X</strong><span>½ hauteur visuelle du logotype<br><b id="unit-px">${l.X.toFixed(2)}</b> unités SVG</span></div>`;
+    }
+    $(".right").insertAdjacentHTML("beforeend", rolePanel(p));
+  }
   bind();
   bindExtra();
+  bindLanguage();
+  bindProjectDeletion();
+  bindRoles(p, edit);
+  document.querySelectorAll("[data-width]").forEach(
+    (el) =>
+      (el.onchange = () => {
+        if (el.validity.valid) {
+          const q = layout(p).parts.find((q) => q.key === el.dataset.width);
+          edit(() => {
+            p.compositions[p.active][q.key + "Height"] =
+              (+el.value * q.asset.box.height) / q.asset.box.width;
+          });
+        }
+      }),
+  );
   for (const [selector, top] of scrolls)
     if ($(selector)) $(selector).scrollTop = top;
   if (view === "compose") drawStage();
-  else drawFamily();
+  else mountWorkshop(p, edit, runExport);
+  translateDOM();
 }
 function exportPanel() {
   const e = p.exports;
-  return `<div class="properties-title">LIVRAISON <span>FULL SYSTEM</span></div><section><div class="section-title">FORMATS</div><div class="formats">${["svg", "png", "jpeg", "pdf"].map((f) => `<label><input type="checkbox" data-format="${f}" ${e.formats.includes(f) ? "checked" : ""}>${f.toUpperCase()}</label>`).join("")}</div><p class="muted">SVG, PNG et PDF toujours transparents.</p></section><section><div class="section-title">CANVAS RASTER</div><div class="two-fields"><label>Largeur · px<input type="number" data-export="width" value="${e.width}" min="16" max="8192"></label><label>Hauteur · px<input type="number" data-export="height" value="${e.height}" min="16" max="8192"></label></div><label class="field"><span>Résolution cible · ppp</span><input type="number" data-export="dpi" value="${e.dpi}" min="72" max="1200"></label><p class="muted">Proportions conservées, logo centré dans le canvas. Résolution intégrée aux fichiers.</p><label class="field"><span>Marge JPEG · × petit côté du logo</span><input aria-label="Marge JPEG" data-export="jpegMargin" type="number" min=".1" max="3" step=".1" value="${e.jpegMargin}"></label><label class="field"><span>Contraste JPEG recommandé</span><select aria-label="Seuil de contraste JPEG" data-export="contrast">${[3, 4.5, 7].map((n) => `<option value="${n}" ${e.contrast === n ? "selected" : ""}>${n}:1</option>`).join("")}</select></label><label class="check"><input data-export="clearspace" type="checkbox" ${e.clearspace ? "checked" : ""}>Inclure les planches clearspace</label></section><section><div class="section-title">NOMMAGE</div><label class="field"><span>Modèle de nom</span><input data-naming="pattern" value="${esc(p.naming.pattern)}" maxlength="200"></label><div class="tokens">${["brand", "variant", "orientation", "color", "background", "format", "size"].map((k) => `<button data-token="${k}">{${k}}</button>`).join("")}</div><div class="two-fields"><label>Séparateur<select data-naming="separator">${["-", "_", "."].map((s) => `<option ${s === p.naming.separator ? "selected" : ""}>${s}</option>`).join("")}</select></label><label>Casse<select data-naming="uppercase"><option value="false">minuscules</option><option value="true" ${p.naming.uppercase ? "selected" : ""}>MAJUSCULES</option></select></label></div><code class="filename">${esc(filename(p, family(p)[0] || { variant: "horizontal", color: { id: "black", name: "black" } }, e.formats[0] || "svg", "transparent"))}</code></section><section><div class="section-title">ORGANISATION</div><select aria-label="Organisation du ZIP" data-export="organization"><option value="format">Par format / SVG, PNG…</option><option value="variant" ${e.organization === "variant" ? "selected" : ""}>Par variante / Horizontal…</option></select></section><div class="export-bottom"><span id="selection-count"></span><button class="primary export-button" data-action="export" ${busy ? "disabled" : ""}>Exporter la sélection ${arrow}</button><p class="muted">ZIP automatique pour plusieurs fichiers.<br>Recommandations incluses dans le ZIP.</p></div>`;
+  return `<div class="properties-title">LIVRAISON <span>FULL SYSTEM</span></div><section><div class="section-title">FORMATS</div><div class="formats">${["svg", "png", "jpeg", "pdf"].map((f) => `<label><input type="checkbox" data-format="${f}" ${e.formats.includes(f) ? "checked" : ""}>${f.toUpperCase()}</label>`).join("")}</div><p class="muted">SVG, PNG et PDF toujours transparents.</p></section><section><div class="section-title">CANVAS RASTER</div><div class="two-fields"><label>Largeur · px<input type="number" data-export="width" value="${e.width}" min="16" max="8192"></label><label>Hauteur · px<input type="number" data-export="height" value="${e.height}" min="16" max="8192"></label></div><label class="field"><span>Résolution cible · ppp</span><input type="number" data-export="dpi" value="${e.dpi}" min="72" max="1200"></label><p class="muted">Proportions conservées, logo centré dans le canvas. Résolution intégrée aux fichiers.</p><label class="field"><span>Marge JPEG · × petit côté du logo</span><input aria-label="Marge JPEG" data-export="jpegMargin" type="number" min=".1" max="3" step=".1" value="${e.jpegMargin}"></label><label class="field"><span>Contraste JPEG recommandé</span><select aria-label="Seuil de contraste JPEG" data-export="contrast">${[3, 4.5, 7].map((n) => `<option value="${n}" ${e.contrast === n ? "selected" : ""}>${n}:1</option>`).join("")}</select></label><label class="check"><input data-export="clearspace" type="checkbox" ${e.clearspace ? "checked" : ""}>Inclure les planches clearspace</label></section><section><div class="section-title">NOMMAGE</div><label class="field"><span>Modèle de nom</span><input data-naming="pattern" value="${esc(p.naming.pattern)}" maxlength="200"></label><div class="tokens">${["brand", "variant", "orientation", "color", "background", "format", "size"].map((k) => `<button data-token="${k}">{${k}}</button>`).join("")}</div><div class="two-fields"><label>Séparateur<select data-naming="separator">${["-", "_", "."].map((s) => `<option ${s === p.naming.separator ? "selected" : ""}>${s}</option>`).join("")}</select></label><label>Casse<select data-naming="uppercase"><option value="false">minuscules</option><option value="true" ${p.naming.uppercase ? "selected" : ""}>MAJUSCULES</option></select></label></div><code class="filename">${esc(filename(p, baseFamily(p)[0] || { variant: "horizontal", color: { id: "black", name: "black" } }, e.formats[0] || "svg", "transparent"))}</code></section><section><div class="section-title">ORGANISATION</div><select aria-label="Organisation du ZIP" data-export="organization"><option value="format">Par format / SVG, PNG…</option><option value="variant" ${e.organization === "variant" ? "selected" : ""}>Par variante / Horizontal…</option></select></section><div class="export-bottom"><span id="selection-count"></span><button class="primary export-button" data-action="export" ${busy ? "disabled" : ""}>Exporter la sélection ${arrow}</button><p class="muted">ZIP automatique pour plusieurs fichiers.<br>Recommandations incluses dans le ZIP.</p></div>`;
 }
 function drawStage() {
   const l = layout(p),
@@ -233,52 +249,10 @@ function drawStage() {
       });
     };
   });
+  resizeHandles();
+  translateDOM(stage);
 }
-function drawFamily() {
-  const items = family(p).filter(
-    (i) =>
-      (filterType === "all" || i.variant === filterType) &&
-      (filterColor === "all" || i.color.id === filterColor),
-  );
-  $("#family-grid").innerHTML = items.length
-    ? items
-        .map((item) => {
-          const bg =
-            item.background?.hex ||
-            (item.color.id === "white" ? "#191919" : "transparent");
-          return `<article class="delivery ${p.excluded.includes(item.id) ? "" : "selected"}"><label><input type="checkbox" aria-label="Sélectionner ${esc(variantName(p, item.variant))} · ${esc(item.color.name)} · ${item.background ? "JPEG sur " + esc(item.background.name) : "Transparent"}" data-select="${item.id}" ${p.excluded.includes(item.id) ? "" : "checked"}><span>${esc(variantName(p, item.variant))}</span><small>${esc(item.color.name)}</small><div class="delivery-preview ${bg === "transparent" ? "checker" : ""}" style="background-color:${bg}">${item.background ? jpegPreview(p, item) : compositionSVG(p, item.variant, item.color.hex)}</div></label><div class="delivery-meta"><span>${esc(item.color.name)}<small>${item.background ? `Fond ${esc(item.background.name)} · ${item.ratio.toFixed(1)}:1` : item.color.id === "white" ? "Transparent · aperçu sombre" : "Transparent"} · ${
-            item.background
-              ? "JPEG"
-              : p.exports.formats
-                  .filter((f) => f !== "jpeg")
-                  .join(" / ")
-                  .toUpperCase()
-          }</small></span><button data-single="${item.id}" title="Exporter cette déclinaison">${arrow}</button></div></article>`;
-        })
-        .join("")
-    : '<div class="empty-family">Importez vos SVG et activez les compositions pour générer votre famille.</div>';
-  drawPairs();
-  $("#selection-count").textContent =
-    `${family(p).filter((i) => !p.excluded.includes(i.id)).length} déclinaisons · ${p.exports.formats.length} formats`;
-  $("#family-grid")
-    .querySelectorAll("[data-select]")
-    .forEach(
-      (el) =>
-        (el.onchange = () =>
-          edit(() => {
-            p.excluded = el.checked
-              ? p.excluded.filter((x) => x !== el.dataset.select)
-              : [...p.excluded, el.dataset.select];
-          })),
-    );
-  $("#family-grid")
-    .querySelectorAll("[data-single]")
-    .forEach(
-      (el) =>
-        (el.onclick = () =>
-          runExport(family(p).filter((i) => i.id === el.dataset.single))),
-    );
-}
+
 function bind() {
   document.querySelectorAll("[data-view]").forEach(
     (el) =>
@@ -334,8 +308,14 @@ function bind() {
       const output = $("#o-" + key);
       if (output)
         output.textContent =
-          (+el.value).toFixed(2) + (key === "wordSize" ? "×" : "X");
+          (+el.value).toFixed(2) +
+          (key.endsWith("Height") ? " px" : key === "wordSize" ? "×" : "X");
       drawStage();
+      const part = layout(p).parts.find((q) => q.key + "Height" === key);
+      if (part) {
+        const width = document.querySelector(`[data-width="${part.key}"]`);
+        if (width) width.value = part.w.toFixed(2);
+      }
     };
     el.onchange = () => {
       gesture = null;
@@ -442,19 +422,18 @@ function bind() {
           edit(() => {
             const col = p.colors.find((c) => c.id === id);
             col[el.dataset.colorName ? "name" : "hex"] = el.value.slice(0, 100);
+            resetColorChoices(p);
           });
         }),
     );
-  document
-    .querySelectorAll("[data-delete]")
-    .forEach(
-      (el) =>
-        (el.onclick = () =>
-          edit(
-            () =>
-              (p.colors = p.colors.filter((c) => c.id !== el.dataset.delete)),
-          )),
-    );
+  document.querySelectorAll("[data-delete]").forEach(
+    (el) =>
+      (el.onclick = () =>
+        edit(() => {
+          p.colors = p.colors.filter((c) => c.id !== el.dataset.delete);
+          resetColorChoices(p);
+        })),
+  );
   document.querySelectorAll("[data-move]").forEach(
     (el) =>
       (el.onclick = () =>
@@ -518,16 +497,6 @@ function bind() {
                 p.naming.separator + "{" + el.dataset.token + "}"),
           )),
     );
-  if ($("#filter-type"))
-    $("#filter-type").onchange = (e) => {
-      filterType = e.target.value;
-      drawFamily();
-    };
-  if ($("#filter-color"))
-    $("#filter-color").onchange = (e) => {
-      filterColor = e.target.value;
-      drawFamily();
-    };
   document
     .querySelectorAll("[data-action]")
     .forEach((el) => (el.onclick = () => action(el.dataset.action)));
@@ -536,7 +505,16 @@ async function loadAsset(file, key) {
   if (!file) return;
   try {
     const asset = await importSVG(await file.text(), file.name, font);
-    edit(() => (p.assets[key] = asset));
+    edit(() => {
+      p.assets[key] = asset;
+      resetColorChoices(p);
+      for (const c of Object.values(p.compositions)) {
+        if (key === "wordmark" && c.wordmarkHeight == null)
+          c.wordmarkHeight = asset.box.height;
+        if (c.iconHeight == null)
+          c.iconHeight = (2.5 * (p.assets.wordmark?.box.height || 100)) / 2;
+      }
+    });
     notice(
       asset.hasStroke
         ? "SVG importé avec contours : limites conservatrices. Vectorisez les contours pour une grille X exacte."
@@ -547,6 +525,7 @@ async function loadAsset(file, key) {
   }
 }
 function beginDrag(e) {
+  if (e.target.closest("[data-resize]")) return;
   if (e.button !== 0) return;
   e.preventDefault();
   const el = e.currentTarget,
@@ -627,37 +606,24 @@ function action(name) {
       p.brand.replace(/[^a-z0-9]/gi, "-") + ".binksy",
     );
   if (name === "add-color")
-    edit(() =>
+    edit(() => {
       p.colors.push({
         id: crypto.randomUUID(),
         name: "Couleur " + (p.colors.length + 1),
         hex: "#ff5500",
-      }),
-    );
+      });
+      resetColorChoices(p);
+    });
   if (name === "reset")
     if (p.mode !== "ready")
       edit(() => (p.compositions[p.active] = project().compositions[p.active]));
-  if (name === "full")
-    edit(() => {
-      p.enabled = [...variantIds(p)];
-      p.excluded = [];
-    });
-  if (name === "all" || name === "none")
-    edit(() => {
-      const ids = family(p)
-        .filter(
-          (i) =>
-            (filterType === "all" || i.variant === filterType) &&
-            (filterColor === "all" || i.color.id === filterColor),
-        )
-        .map((i) => i.id);
-      p.excluded =
-        name === "all"
-          ? p.excluded.filter((x) => !ids.includes(x))
-          : [...new Set([...p.excluded, ...ids])];
-    });
-  if (name === "export")
-    runExport(family(p).filter((i) => !p.excluded.includes(i.id)));
+  if (name === "export") {
+    try {
+      runExport(deliveries(p, selectedItems(p)));
+    } catch (error) {
+      notice(error.message);
+    }
+  }
 }
 async function runExport(items) {
   if (busy) return;
@@ -711,7 +677,6 @@ function bindLanding() {
         history.past = [];
         history.future = [];
         view = "compose";
-        filterType = filterColor = "all";
         render();
         save();
       }),
@@ -746,7 +711,6 @@ async function handleProjectImport(e) {
     view = "compose";
     history.past = [];
     history.future = [];
-    filterType = filterColor = "all";
     render();
     save();
     notice("Projet importé.");
@@ -845,44 +809,162 @@ function bindExtra() {
         })),
   );
 }
-function drawPairs() {
-  const target = $("#jpeg-pairs");
-  if (!target) return;
-  if (!p.exports.formats.includes("jpeg")) {
-    target.innerHTML = "";
-    return;
-  }
-  const items = baseFamily(p).filter(
-    (i) =>
-      (filterType === "all" || i.variant === filterType) &&
-      (filterColor === "all" || i.color.id === filterColor),
-  );
-  target.innerHTML = `<section class="pair-section"><div class="section-title">ASSOCIATIONS JPEG <button id="reset-pairs">Revenir aux recommandations</button></div><p class="muted">Seuil ${p.exports.contrast}:1 · Chaque case peut forcer ou exclure une association.</p>${items
-    .map(
-      (item) =>
-        `<details class="pair-group"><summary>${esc(variantName(p, item.variant))} · ${esc(item.color.name)}</summary><div class="pair-grid">${jpegPairs(
-          p,
-          item,
-        )
-          .map(
-            (pair) =>
-              `<label class="pair-option"><input type="checkbox" data-pair="${pair.id}" ${pair.enabled ? "checked" : ""}><span class="pair-swatch" style="background:${pair.background.hex};color:${item.color.hex || "#777"}">Aa</span><span>${esc(pair.background.name)}<small>${pair.ratio.toFixed(1)}:1 · ${Object.hasOwn(p.jpegOverrides, pair.id) ? "choix manuel" : pair.recommended ? "recommandé" : "contraste faible / à vérifier"}</small></span></label>`,
-          )
-          .join("")}</div></details>`,
-    )
-    .join("")}</section>`;
-  target
-    .querySelectorAll("[data-pair]")
-    .forEach(
-      (el) =>
-        (el.onchange = () =>
-          edit(() => (p.jpegOverrides[el.dataset.pair] = el.checked))),
-    );
-  $("#reset-pairs").onclick = () => edit(() => (p.jpegOverrides = {}));
-}
 window.addEventListener("pagehide", () => {
   clearTimeout(saving);
   try {
     localStorage.setItem("binksy-logo-system", JSON.stringify(projects));
   } catch {}
 });
+
+function bindLanguage() {
+  const header = document.querySelector("header");
+  if (!header) return;
+  header.insertAdjacentHTML(
+    "beforeend",
+    `<div class="language-switch" aria-label="Language"><button data-language="fr" aria-pressed="${language() === "fr"}">FR</button><button data-language="en" aria-pressed="${language() === "en"}">EN</button></div>`,
+  );
+  header.querySelectorAll("[data-language]").forEach(
+    (el) =>
+      (el.onclick = () => {
+        setLanguage(el.dataset.language);
+        render();
+        if (projects.some((x) => x.id === p.id)) save();
+      }),
+  );
+}
+function bindProjectDeletion() {
+  document
+    .querySelectorAll("[data-open]")
+    .forEach((el) =>
+      el.insertAdjacentHTML(
+        "afterend",
+        `<button class="delete-project" data-delete-project="${el.dataset.open}" aria-label="${t("Supprimer le projet")}">${t("Supprimer")}</button>`,
+      ),
+    );
+  const picker = document.querySelector("#projects");
+  if (picker)
+    picker.insertAdjacentHTML(
+      "afterend",
+      `<button class="delete-project" data-delete-project="${p.id}">${t("Supprimer le projet")}</button>`,
+    );
+  document.querySelectorAll("[data-delete-project]").forEach(
+    (el) =>
+      (el.onclick = () => {
+        const id = el.dataset.deleteProject,
+          target = projects.find((x) => x.id === id);
+        if (!target) return;
+        const dialog = document.createElement("dialog");
+        dialog.setAttribute("aria-label", t("Supprimer le projet"));
+        dialog.innerHTML = `<form method="dialog"><h2>${esc(t("Supprimer « {name} » ?", { name: target.brand }))}</h2><p>${t("Le projet enregistré sera supprimé de cet appareil. Les fichiers .binksy déjà exportés seront conservés.")}</p><div class="dialog-actions"><button value="cancel" autofocus>${t("Annuler")}</button><button class="destructive" value="delete">${t("Supprimer")}</button></div></form>`;
+        document.body.append(dialog);
+        dialog.showModal();
+        dialog.onclose = () => {
+          if (dialog.returnValue === "delete") {
+            clearTimeout(saving);
+            const next = projects.filter((x) => x.id !== id);
+            try {
+              localStorage.setItem("binksy-logo-system", JSON.stringify(next));
+              projects = next;
+              if (p.id === id) {
+                p = project();
+                view = "home";
+                history.past = [];
+                history.future = [];
+              }
+              render();
+            } catch (error) {
+              notice(error.message);
+            }
+          }
+          dialog.remove();
+        };
+      }),
+  );
+}
+function resizeHandles() {
+  if (p.mode === "ready") return;
+  const canvas = $("#canvas");
+  if (!canvas) return;
+  const q = layout(p).parts.find((q) => q.key === selected);
+  if (!q) return;
+  const k = canvas.getScreenCTM().a,
+    size = 9 / k;
+  const group = canvas.querySelector(`[data-drag="${selected}"]`);
+  for (const [corner, x, y] of [
+    ["nw", 0, 0],
+    ["ne", q.w, 0],
+    ["se", q.w, q.h],
+    ["sw", 0, q.h],
+  ]) {
+    group.insertAdjacentHTML(
+      "beforeend",
+      `<rect data-resize="${corner}" x="${x - size / 2}" y="${y - size / 2}" width="${size}" height="${size}" fill="#fff" stroke="#ff5500" stroke-width="1" vector-effect="non-scaling-stroke" tabindex="0" role="button" aria-label="${t("Redimensionner")} ${selected} ${corner}" style="cursor:${corner === "nw" || corner === "se" ? "nwse" : "nesw"}-resize"/>`,
+    );
+  }
+  group.querySelectorAll("[data-resize]").forEach((handle) => {
+    handle.onpointerdown = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      history.push(p);
+      const matrix = canvas.getScreenCTM().inverse(),
+        start = new DOMPoint(e.clientX, e.clientY).matrixTransform(matrix),
+        corner = handle.dataset.resize;
+      const c = p.compositions[p.active],
+        initial = q.h,
+        sx = corner.includes("w") ? -1 : 1,
+        sy = corner.includes("n") ? -1 : 1,
+        ratio = q.w / q.h;
+      const frozen = canvas.getAttribute("viewBox");
+      const move = (event) => {
+        const point = new DOMPoint(
+          event.clientX,
+          event.clientY,
+        ).matrixTransform(matrix);
+        const change =
+          ((point.x - start.x) * sx * ratio + (point.y - start.y) * sy) /
+          (ratio * ratio + 1);
+        const height = Math.max(
+          1,
+          Math.min(
+            100000,
+            Math.round((initial + change) * (event.altKey ? 100 : 1)) /
+              (event.altKey ? 100 : 1),
+          ),
+        );
+        c[selected + "Height"] = height;
+        drawStage();
+        $("#canvas").setAttribute("viewBox", frozen);
+        document
+          .querySelectorAll(`[data-comp="${selected}Height"]`)
+          .forEach((n) => (n.value = height));
+        const output = $("#o-" + selected + "Height");
+        if (output) output.textContent = height + " px";
+        const width = document.querySelector(`[data-width="${selected}"]`);
+        if (width) width.value = (height * ratio).toFixed(2);
+      };
+      const end = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", end);
+        window.removeEventListener("pointercancel", end);
+        save();
+        render();
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", end, { once: true });
+      window.addEventListener("pointercancel", end, { once: true });
+    };
+    handle.onkeydown = (e) => {
+      if (["ArrowUp", "ArrowRight", "ArrowDown", "ArrowLeft"].includes(e.key)) {
+        e.preventDefault();
+        e.stopPropagation();
+        edit(
+          () =>
+            (p.compositions[p.active][selected + "Height"] = Math.max(
+              1,
+              q.h + (["ArrowUp", "ArrowRight"].includes(e.key) ? 1 : -1),
+            )),
+        );
+      }
+    };
+  });
+}

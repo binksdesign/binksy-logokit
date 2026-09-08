@@ -21,7 +21,12 @@ Cloudflare : `wrangler.jsonc` sert le dossier `dist`. Aucun déploiement n’est
 
 - `src/model.js` : géométrie, grille X, variantes, palette, contraste et historique.
 - `src/svg.js` : import sécurisé, limites vectorielles, couleurs et compositions SVG.
-- `src/project.js` : validation et migration des fichiers V1/V2.
+- `src/project.js` : validation et migration des fichiers V1/V2/V3.
+- `src/paints.js` : détection des rôles, restauration des corrections, variations OKLab et gradients.
+- `src/catalog.js` : catalogue indexé en BigInt, sélections globales et individuelles sans matérialiser le produit cartésien.
+- `src/workshop.js` : génération progressive, pagination, associations JPEG globales et sélection fichier par fichier.
+- `src/i18n.js`, `src/locales/en.js` : langue FR/EN persistante, catalogue de traduction et adaptateur des templates existants.
+- `src/agent-doc.js` : documentation opérationnelle bilingue des agents IA, à maintenir avec chaque changement d’usage (voir `AGENTS.md`).
 - `src/clearspace.js` : guides et planches vectorielles transparentes.
 - `src/export.js`, `src/raster.js` : SVG/PDF vectoriels, PNG, JPEG, résolution et ZIP.
 - `src/main.js`, `src/ui.js`, `src/style.css` : contrôles existants, accueil, modes, règles agent et panneaux indépendants.
@@ -29,7 +34,7 @@ Cloudflare : `wrangler.jsonc` sert le dossier `dist`. Aucun déploiement n’est
 
 ## Règles de livraison
 
-Les SVG, PNG et PDF sont toujours transparents. Les JPEG utilisent les associations fond/logo recommandées par le ratio de luminance sRGB (3:1 par défaut, réglable). Les choix manuels sont propres à chaque variante, couleur de logo et fond. Le fond du canvas n’influence jamais les exports.
+Les SVG, PNG et PDF sont toujours transparents. Les JPEG utilisent les associations fond/logo recommandées par le ratio de luminance sRGB (3:1 par défaut, réglable). Les choix manuels sont globaux par couleur/combinaison et fond. Les exceptions héritées des anciens projets restent conservées tant qu’une règle globale ne les remplace pas. Le fond du canvas n’influence jamais les exports.
 
 La marge JPEG, indépendante du clearspace, est une fraction du petit côté du logo. La taille raster est un canvas maximal, sans déformation. La résolution est inscrite dans les métadonnées PNG/JPEG.
 
@@ -37,7 +42,13 @@ Les planches de clearspace claire et foncée sont monochromes, sans rectangle de
 
 ## Projets
 
-La clé locale historique `binksy-logo-system` est conservée pour retrouver les anciens projets. Le fichier `.binksy` est un JSON version 2 contenant aussi les variantes importées, références du clearspace, choix JPEG et options d’export. Une référence non mesurable automatiquement dans un SVG assemblé doit être renseignée, et n’est jamais inventée.
+La clé locale historique `binksy-logo-system` est conservée. Le fichier `.binksy` V3 contient les variantes importées, dimensions indépendantes, rôles/corrections/verrous, gradients, règles de sélection, associations JPEG globales, fichiers exclus et paramètres de livraison. V1/V2 sont migrées en conservant les dimensions visibles : la dépendance historique de l’icône à l’échelle du logotype est remplacée par une hauteur absolue. Une référence non mesurable dans un SVG assemblé doit être renseignée.
+
+FR/EN est mémorisé dans `binksy-locale` et inscrit dans le projet à la sauvegarde. La préférence active de l’appareil est conservée lors de l’import. La suppression de projet passe obligatoirement par une confirmation ; elle n’efface pas les fichiers exportés.
+
+Les rôles regroupent les peintures identiques par défaut et ciblent des indices de nœuds et propriétés stables. Les rôles peuvent être nommés, corrigés, verrouillés, séparés par élément et fusionnés par peinture/verrou. Les coordonnées des gradients importés restent intactes ; les combinaisons recolorent les stops. Les gradients générés utilisent une direction linéaire. Les variations claires/foncées modifient L en OKLab à teinte constante, avec réduction de chroma dans le gamut sRGB.
+
+Le catalogue expose toutes les affectations via un index BigInt et monte 12 previews par page ouverte. Les choix de catégorie sont des règles, les choix individuels des exceptions. Les doublons d’affectations déjà représentés par l’original ou les couleurs simples sont exclus. Les changements de palette/rôles réinitialisent les choix générés. Les exports restent limités à 500 fichiers et 256 Mo par lot, sans limiter l’accès au catalogue ; la sélection finale affiche le nombre de fichiers, recommandations incluses pour un ZIP.
 
 ## Vérification
 
@@ -45,6 +56,9 @@ Les quatre tests Node couvrent les invariants géométriques et l’historique. 
 
 - `/tests/browser.html` : imports, transparence, résolution, contrastes, migration, clearspace et ZIP.
 - `/tests/ui.html` : deux parcours, sauvegarde, contrôles, associations JPEG, navigation et maintien du canvas.
+- `/tests/advanced.html` : SVG A à I, rôles, dégradés, opacités, indépendance des tailles, migration V3, sélection, exports et catalogue `5^30`.
+
+Exécuter les tests UI sur une origine locale dédiée : ils créent des projets synthétiques. Une modification d’usage exige la mise à jour simultanée de la page RÈGLES AGENT IA dans les deux langues.
 
 Les pages de tests ne font pas partie du build public.
 

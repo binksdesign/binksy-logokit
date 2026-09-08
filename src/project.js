@@ -1,8 +1,9 @@
 import { project, VARIANTS, variantIds, CLEAR_REFS } from "./model";
 import { importSVG } from "./svg";
+import { restoreRoles, hexColor } from "./paints.js";
 export async function validate(data) {
   if (
-    ![1, 2].includes(data?.version) ||
+    ![1, 2, 3].includes(data?.version) ||
     typeof data.brand !== "string" ||
     !data.assets ||
     !data.compositions
@@ -12,11 +13,13 @@ export async function validate(data) {
   result.id = typeof data.id === "string" ? data.id : result.id;
   result.brand = data.brand.slice(0, 100);
   for (const key of ["icon", "wordmark"])
-    if (data.assets[key])
+    if (data.assets[key]) {
       result.assets[key] = await importSVG(
         data.assets[key].svg,
         String(data.assets[key].name || key),
       );
+      restoreRoles(result.assets[key], data.assets[key].roles);
+    }
   for (const v of VARIANTS) {
     const c = data.compositions[v];
     if (!c) throw Error("Composition manquante.");
@@ -50,6 +53,15 @@ export async function validate(data) {
       ["center", ["real", "optical"]],
     ])
       if (allowed.includes(c[key])) result.compositions[v][key] = c[key];
+    const wordHeight =
+      (result.assets.wordmark?.box.height || 100) *
+      result.compositions[v].wordSize;
+    result.compositions[v].wordmarkHeight = Number.isFinite(c.wordmarkHeight)
+      ? Math.max(1, Math.min(100000, c.wordmarkHeight))
+      : wordHeight;
+    result.compositions[v].iconHeight = Number.isFinite(c.iconHeight)
+      ? Math.max(1, Math.min(100000, c.iconHeight))
+      : (result.compositions[v].iconSize * wordHeight) / 2;
   }
   if (VARIANTS.includes(data.active)) result.active = data.active;
   result.enabled = Array.isArray(data.enabled)
@@ -118,6 +130,7 @@ export async function validate(data) {
         item.asset.svg,
         String(item.asset.name || item.name),
       );
+      restoreRoles(asset, item.asset.roles);
       result.ready.push({
         id: item.id,
         name: String(item.name).slice(0, 100),
@@ -158,5 +171,68 @@ export async function validate(data) {
         : 120;
     }
   }
+  const booleans = (object) =>
+    Object.fromEntries(
+      Object.entries(object || {}).filter(
+        ([k, v]) =>
+          k.length < 20000 && /^[\w:-]+$/.test(k) && typeof v === "boolean",
+      ),
+    );
+  result.jpegGlobal = booleans(data.jpegGlobal);
+  result.excludedFiles = Array.isArray(data.excludedFiles)
+    ? data.excludedFiles.filter((x) => typeof x === "string" && x.length < 4000)
+    : [];
+  result.colorSelection = booleans(data.colorSelection);
+  result.selectedDescriptors = {};
+  for (const [id, item] of Object.entries(data.selectedDescriptors || {})) {
+    const color = item?.color;
+    if (
+      !color ||
+      !variantIds(result).includes(item.variant) ||
+      !["original", "mono", "multi", "gradient"].includes(item.category) ||
+      id !== item.variant + ":" + color.id ||
+      !/^[\w:-]+$/.test(id)
+    )
+      continue;
+    const mapping = Object.fromEntries(
+      Object.entries(color.mapping || {}).filter(
+        ([k, v]) => /^[\w-]+$/.test(k) && hexColor(v),
+      ),
+    );
+    const gradient =
+      color.gradient &&
+      hexColor(color.gradient.from) &&
+      hexColor(color.gradient.to)
+        ? {
+            id: String(color.gradient.id),
+            name: String(color.gradient.name).slice(0, 100),
+            from: hexColor(color.gradient.from),
+            to: hexColor(color.gradient.to),
+            angle: Number(color.gradient.angle) || 0,
+          }
+        : undefined;
+    result.selectedDescriptors[id] = {
+      id,
+      variant: item.variant,
+      category: item.category,
+      color: {
+        id: color.id,
+        name: String(color.name).slice(0, 2000),
+        hex: hexColor(color.hex),
+        mapping,
+        gradient,
+      },
+    };
+  }
+  result.gradients = (Array.isArray(data.gradients) ? data.gradients : [])
+    .filter((g) => /^[\w-]+$/.test(g.id) && hexColor(g.from) && hexColor(g.to))
+    .map((g) => ({
+      id: g.id,
+      name: String(g.name).slice(0, 100),
+      from: hexColor(g.from),
+      to: hexColor(g.to),
+      angle: Number(g.angle) || 0,
+    }));
+  result.locale = data.locale === "en" ? "en" : "fr";
   return result;
 }

@@ -1,4 +1,4 @@
-const CACHE = "binksy-logokit-v2";
+const CACHE = "binksy-logokit-v3";
 self.addEventListener("install", (event) =>
   event.waitUntil(
     caches

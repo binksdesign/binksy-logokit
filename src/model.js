@@ -1,3 +1,4 @@
+import { t } from "./i18n.js";
 export const VARIANTS = ["horizontal", "vertical", "icon", "wordmark"];
 export const LABELS = {
   horizontal: "Horizontal",
@@ -8,13 +9,16 @@ export const LABELS = {
 export const clone = (x) => structuredClone(x);
 export function project(mode = "compose") {
   return {
-    version: 2,
+    version: 3,
+    gradients: [],
+    colorSelection: {},
+    jpegGlobal: {},
     mode,
     ready: [],
     canvas: "#ffffff",
     jpegOverrides: {},
     id: crypto.randomUUID(),
-    brand: "Sans titre",
+    brand: t("Sans titre"),
     assets: { icon: null, wordmark: null },
     active: "horizontal",
     enabled: [...VARIANTS],
@@ -89,14 +93,16 @@ export function layout(p, v = p.active) {
   const c = p.compositions[v],
     w = p.assets.wordmark,
     i = p.assets.icon;
-  const X = ((w?.box.height || 100) * c.wordSize) / 2;
+  const X = (c.wordmarkHeight ?? (w?.box.height || 100) * c.wordSize) / 2;
   const parts = [];
   if (i && v !== "wordmark")
     parts.push({
       key: "icon",
       asset: i,
-      w: (i.box.width / i.box.height) * c.iconSize * X,
-      h: c.iconSize * X,
+      w:
+        (i.box.width / i.box.height) *
+        (c.iconHeight ?? (c.iconSize * (w?.box.height || 100)) / 2),
+      h: c.iconHeight ?? (c.iconSize * (w?.box.height || 100)) / 2,
       x: 0,
       y: 0,
     });
@@ -104,8 +110,10 @@ export function layout(p, v = p.active) {
     parts.push({
       key: "wordmark",
       asset: w,
-      w: w.box.width * c.wordSize,
-      h: w.box.height * c.wordSize,
+      w:
+        (w.box.width / w.box.height) *
+        (c.wordmarkHeight ?? w.box.height * c.wordSize),
+      h: c.wordmarkHeight ?? w.box.height * c.wordSize,
       x: 0,
       y: 0,
     });
@@ -155,8 +163,8 @@ export function layout(p, v = p.active) {
 export function colors(p) {
   return [
     { id: "original", name: "Original", hex: null },
-    { id: "black", name: "Noir · positif", hex: "#000000" },
-    { id: "white", name: "Blanc · négatif", hex: "#ffffff" },
+    { id: "black", name: t("Noir · positif"), hex: "#000000" },
+    { id: "white", name: t("Blanc · négatif"), hex: "#ffffff" },
     ...p.colors,
   ];
 }
@@ -275,9 +283,23 @@ export function originalPaints(p, variant) {
 }
 export function jpegPairs(p, item) {
   return backgrounds(p).map((bg) => {
-    const paints = item.color.hex
-      ? [item.color.hex]
-      : originalPaints(p, item.variant);
+    const paints = layout(p, item.variant).parts.flatMap((q) =>
+      (q.asset.roles || []).flatMap((r) =>
+        r.locked
+          ? [r.paint]
+          : item.color.gradient
+            ? []
+            : [item.color.mapping?.[r.id] || item.color.hex || r.paint],
+      ),
+    );
+    if (item.color.gradient)
+      paints.push(item.color.gradient.from, item.color.gradient.to);
+    if (!paints.length)
+      paints.push(
+        ...(item.color.hex
+          ? [item.color.hex]
+          : originalPaints(p, item.variant)),
+      );
     const ratio = paints.length
       ? Math.min(...paints.map((hex) => contrast(hex, bg.hex)))
       : 0;
@@ -288,7 +310,11 @@ export function jpegPairs(p, item) {
       background: bg,
       ratio,
       recommended: ratio >= p.exports.contrast,
-      enabled: p.jpegOverrides[id] ?? ratio >= p.exports.contrast,
+      globalId: item.color.id + ":jpeg:" + bg.id,
+      enabled:
+        p.jpegGlobal?.[item.color.id + ":jpeg:" + bg.id] ??
+        p.jpegOverrides[id] ??
+        ratio >= p.exports.contrast,
     };
   });
 }
@@ -316,7 +342,12 @@ export function clearMeasure(p, v = p.active) {
   else {
     const icon = l.parts.find((q) => q.key === "icon");
     const word = l.parts.find((q) => q.key === "wordmark");
-    const iconH = icon?.h || (p.assets.icon ? c.iconSize * l.X : 0);
+    const iconH =
+      icon?.h ||
+      (p.assets.icon
+        ? (c.iconHeight ??
+          (c.iconSize * (p.assets.wordmark?.box.height || 100)) / 2)
+        : 0);
     value =
       c.clearRef === "brandmarkWidth"
         ? icon?.w ||
@@ -326,7 +357,9 @@ export function clearMeasure(p, v = p.active) {
         : c.clearRef === "brandmarkHeight"
           ? iconH
           : word?.h ||
-            (p.assets.wordmark ? p.assets.wordmark.box.height * c.wordSize : 0);
+            (p.assets.wordmark
+              ? (c.wordmarkHeight ?? p.assets.wordmark.box.height * c.wordSize)
+              : 0);
   }
   return {
     reference: c.clearRef,

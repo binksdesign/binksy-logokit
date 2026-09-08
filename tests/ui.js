@@ -105,6 +105,71 @@ await test("3 références et quatre multiplicateurs dans les contrôles", () =>
     }
   }
 });
+await test("Dimensions numériques indépendantes, largeur, poignées et Undo", () => {
+  const input = (key, value) => {
+    const el = find(`input[type="number"][data-comp="${key}"]`);
+    el.value = value;
+    el.dispatchEvent(new frame.contentWindow.Event("input"));
+    el.dispatchEvent(new frame.contentWindow.Event("change"));
+  };
+  const height = (key) =>
+    +find(`[data-drag="${key}"] svg`).getAttribute("height");
+  const iconBefore = height("icon");
+  input("wordmarkHeight", 233);
+  assert(height("wordmark") === 233);
+  assert(height("icon") === iconBefore);
+  input("iconHeight", 177);
+  assert(height("icon") === 177);
+  assert(height("wordmark") === 233);
+  change('[data-width="wordmark"]', 800);
+  assert(height("wordmark") === 200);
+  assert(height("icon") === 177);
+  assert(doc().querySelectorAll("[data-resize]").length === 4);
+  const handle = find('[data-resize="se"]'),
+    rect = handle.getBoundingClientRect(),
+    win = frame.contentWindow;
+  handle.dispatchEvent(
+    new win.PointerEvent("pointerdown", {
+      bubbles: true,
+      button: 0,
+      clientX: rect.x,
+      clientY: rect.y,
+      pointerId: 2,
+    }),
+  );
+  win.dispatchEvent(
+    new win.PointerEvent("pointermove", {
+      clientX: rect.x + 25,
+      clientY: rect.y + 25,
+      pointerId: 2,
+    }),
+  );
+  win.dispatchEvent(new win.PointerEvent("pointerup", { pointerId: 2 }));
+  assert(height("icon") !== 177);
+  assert(height("wordmark") === 200);
+  click('[data-action="undo"]');
+  assert(height("icon") === 177);
+  click('[data-action="redo"]');
+  assert(height("icon") !== 177);
+});
+await test("FR / EN, messages et persistance", async () => {
+  click('[data-language="en"]');
+  assert(find(".right").getAttribute("aria-label") === "Properties");
+  assert(find('[data-language="en"]').getAttribute("aria-pressed") === "true");
+  click('[data-view="agent"]');
+  assert(doc().body.textContent.includes("independent"));
+  click('[data-view="home"]');
+  await new Promise((resolve) => {
+    frame.addEventListener("load", resolve, { once: true });
+    frame.contentWindow.location.reload();
+  });
+  await wait(() => find('[data-mode="compose"]'));
+  assert(find('[data-language="en"]').getAttribute("aria-pressed") === "true");
+  click('[data-language="fr"]');
+  const open = doc().querySelectorAll("[data-open]");
+  open[open.length - 1].click();
+  await wait(() => find("#stage"));
+});
 await test("Palette : ajout, couleur noire / blanche / colorée", () => {
   click('[data-action="add-color"]');
   let color = find("[data-color]");
@@ -118,17 +183,85 @@ await test("Palette : ajout, couleur noire / blanche / colorée", () => {
   inputs[1].value = "#eeeedd";
   inputs[1].dispatchEvent(new frame.contentWindow.Event("change"));
   click('[data-view="family"]');
-  assert(doc().querySelectorAll(".delivery").length === 20);
+  assert(doc().querySelectorAll(".delivery").length === 4);
 });
 await test("Associations JPEG : recommandations et forçage manuel", () => {
   change('[data-format="jpeg"]', true);
-  assert(find("#jpeg-pairs").textContent.includes("recommandé"));
-  const pair = find('[data-pair="horizontal:black:jpeg:black"]');
+  assert(find('[data-section="jpeg"]'));
+  const pair = find('[data-global-pair="black:jpeg:black"]');
   assert(!pair.checked);
   pair.checked = true;
   pair.dispatchEvent(new frame.contentWindow.Event("change"));
-  assert(find('[data-pair="horizontal:black:jpeg:black"]').checked);
-  assert(find('[data-select="horizontal:black:jpeg:black"]'));
+  assert(find('[data-global-pair="black:jpeg:black"]').checked);
+  assert(find("#selection-count").textContent.includes("fichiers"));
+});
+await test("Catégories repliables et sélection", async () => {
+  click('[data-section="multi"]>summary');
+  await wait(() => find('[data-section="multi"]').open);
+  click('[data-bulk="multi:all"]');
+  assert(
+    find('[data-section="multi"]>summary').textContent.includes(
+      "sélectionnées",
+    ),
+  );
+  click('[data-bulk="multi:none"]');
+  assert(
+    find('[data-section="multi"]>summary').textContent.includes(
+      "0 sélectionnées",
+    ),
+  );
+});
+await test("Rôles multicolores : nom, correction et verrou", async () => {
+  click('[data-view="compose"]');
+  const source = await (await fetch("./fixtures/multicolor.svg")).text();
+  await upload('[data-upload="wordmark"]', [["multicolor.svg", source]]);
+  change(
+    '[data-role-asset="wordmark"][data-role-index="0"][data-role-field="name"]',
+    "Texte principal QA",
+  );
+  change(
+    '[data-role-asset="wordmark"][data-role-index="0"][data-role-field="paint"]',
+    "#005544",
+  );
+  change(
+    '[data-role-asset="wordmark"][data-role-index="0"][data-role-field="locked"]',
+    true,
+  );
+  assert(
+    find(
+      '[data-role-asset="wordmark"][data-role-index="0"][data-role-field="locked"]',
+    ).checked,
+  );
+  assert(
+    find('[data-drag="wordmark"] path').getAttribute("fill") === "#005544",
+  );
+  click('[data-view="family"]');
+  click('[data-section="multi"]>summary');
+  // The section may already be open from the previous test; ensure it is expanded.
+  if (!find('[data-section="multi"]').open)
+    click('[data-section="multi"]>summary');
+  await wait(() => find('[data-section="multi"] [data-work-select]'));
+  assert(find('[data-section="multi"] svg path[fill="#005544"]'));
+  change('[data-section="multi"] [data-work-select]', true);
+  assert(find('[data-section="multi"] [data-work-select]').checked);
+});
+await test("Gradient : édition et sélection, sélection fichier par format", async () => {
+  click('[data-section="gradient"]>summary');
+  await wait(() => find("[data-gradient-edit]"));
+  click("[data-gradient-edit]");
+  assert(find("dialog[open]"));
+  find('dialog input[name="from"]').value = "#123456";
+  find('dialog input[name="to"]').value = "#abcdef";
+  find('dialog input[name="angle"]').value = "45";
+  click('dialog button[value="apply"]');
+  await wait(() => !find("dialog"));
+  change('[data-section="gradient"] [data-work-select]', true);
+  click('[data-section="final"]>summary');
+  change("#final-format", "svg");
+  const before = parseInt(find("#selection-count").textContent, 10);
+  change("[data-file-select]", false);
+  assert(parseInt(find("#selection-count").textContent, 10) === before - 1);
+  assert(!find("[data-file-select]").checked);
 });
 let downloaded;
 await test("Export .binksy puis réimport : réglages préservés", async () => {
@@ -142,12 +275,15 @@ await test("Export .binksy puis réimport : réglages préservés", async () => 
   assert(downloaded.name.endsWith(".binksy"));
   const json = await (await fetch(downloaded.href)).text();
   const data = JSON.parse(json);
-  assert(data.version === 2);
-  assert(data.jpegOverrides["horizontal:black:jpeg:black"] === true);
+  assert(data.version === 3);
+  assert(data.jpegGlobal["black:jpeg:black"] === true);
+  assert(data.assets.wordmark.roles[0].locked);
+  assert(data.gradients.some((g) => g.from === "#123456" && g.angle === 45));
+  assert(data.excludedFiles.length === 1);
   await upload("#project-file", [["roundtrip.binksy", json]]);
   assert(find("#brand").value === "Validation Logokit");
   click('[data-view="family"]');
-  assert(find('[data-pair="horizontal:black:jpeg:black"]').checked);
+  assert(find('[data-global-pair="black:jpeg:black"]').checked);
 });
 await test("Nouveau projet prêt : import multiple et nom personnalisé", async () => {
   click('[data-view="home"]');
@@ -193,6 +329,27 @@ await test("Réouverture après rechargement et page agent", async () => {
   });
   await wait(() => find('[data-mode="compose"]'));
   assert(doc().body.textContent.includes("Ancien projet"));
+});
+await test("Suppression avec confirmation puis annulation", async () => {
+  const buttons = doc().querySelectorAll("[data-delete-project]"),
+    count = doc().querySelectorAll("[data-open]").length;
+  buttons[buttons.length - 1].click();
+  assert(find("dialog[open]"));
+  click('dialog button[value="cancel"]');
+  await wait(() => !find("dialog"));
+  assert(doc().querySelectorAll("[data-open]").length === count);
+});
+await test("Suppression confirmée du projet de test uniquement", async () => {
+  click('[data-mode="compose"]');
+  change("#brand", "PROJET JETABLE QA");
+  click('[data-view="home"]');
+  const opens = [...doc().querySelectorAll("[data-open]")],
+    target = opens.findLast((x) => x.textContent.includes("PROJET JETABLE QA"));
+  assert(target);
+  click(`[data-delete-project="${target.dataset.open}"]`);
+  click('dialog button[value="delete"]');
+  await wait(() => !doc().querySelector("dialog"));
+  assert(!find(`[data-open="${target.dataset.open}"]`));
 });
 await test("Écran portable 1024px : panneaux et canvas séparés", async () => {
   frame.style.width = "1024px";

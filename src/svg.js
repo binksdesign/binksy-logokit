@@ -1,5 +1,6 @@
 import DOMPurify from "dompurify";
 import { layout } from "./model";
+import { detectRoles } from "./paints.js";
 export const NS = "http://www.w3.org/2000/svg";
 const serialize = (n) => new XMLSerializer().serializeToString(n);
 export function clean(source) {
@@ -127,7 +128,10 @@ export async function importSVG(source, name, font) {
       for (const prop of props) {
         const value = s.getPropertyValue(prop);
         if (value)
-          el.setAttribute(prop, value.replace(/url\(["']?[^#)]*#/g, "url(#"));
+          el.setAttribute(
+            prop,
+            value.replace(/url\(["']?[^#)]*#([^"')]+)["']?\)/g, "url(#$1)"),
+          );
       }
       el.removeAttribute("style");
       el.removeAttribute("class");
@@ -184,6 +188,8 @@ export async function importSVG(source, name, font) {
     }
     const centroid = await massCenter(markup);
     return {
+      roles: detectRoles(root),
+      hasGradient: !!root.querySelector("linearGradient,radialGradient"),
       paints: [
         ...new Set(
           [
@@ -265,31 +271,156 @@ export function svgImage(svg) {
   });
 }
 const markupCache = new WeakMap();
+function setPaint(el, prop, paint) {
+  const alpha = el
+    .getAttribute(prop)
+    ?.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/)?.[1];
+  if (alpha && /^#[0-9a-f]{6}$/i.test(paint)) {
+    const rgb = paint
+      .slice(1)
+      .match(/../g)
+      .map((n) => parseInt(n, 16));
+    el.setAttribute(prop, `rgba(${rgb.join(",")},${alpha})`);
+  } else el.setAttribute(prop, paint);
+}
 export function assetMarkup(asset, color, namespace = "") {
   let cache = markupCache.get(asset);
   if (!cache) {
     cache = new Map();
     markupCache.set(asset, cache);
   }
-  const cacheKey = (color || "original") + namespace;
+  const cacheKey = JSON.stringify([color, asset.roles, namespace]);
   if (cache.has(cacheKey)) return cache.get(cacheKey);
   let root = new DOMParser().parseFromString(
     asset.svg,
     "image/svg+xml",
   ).documentElement;
-  if (color)
-    for (const el of [root, ...root.querySelectorAll("*")]) {
-      if (el.closest("clipPath,mask")) continue;
-      for (const prop of ["fill", "stroke"])
-        if (el.getAttribute(prop) && el.getAttribute(prop) !== "none")
-          el.setAttribute(prop, color);
+  const nodes = [root, ...root.querySelectorAll("*")];
+  const spec = typeof color === "string" ? { hex: color } : color || {};
+  const roles = asset.roles || detectRoles(root);
+  for (const role of roles)
+    for (const target of role.targets) {
+      const el = nodes[target.index];
+      if (el)
+        setPaint(
+          el,
+          target.prop,
+          ((!role.locked || spec.force) &&
+            (spec.mapping?.[role.id] || spec.hex)) ||
+            role.paint,
+        );
+      if (el && spec.gradient && !role.locked && target.prop === "stop-color") {
+        const offset = el.getAttribute("offset") || "0",
+          f = Math.max(
+            0,
+            Math.min(1, parseFloat(offset) / (offset.endsWith("%") ? 100 : 1)),
+          );
+        const a = spec.gradient.from
+            .slice(1)
+            .match(/../g)
+            .map((n) => parseInt(n, 16)),
+          b = spec.gradient.to
+            .slice(1)
+            .match(/../g)
+            .map((n) => parseInt(n, 16));
+        setPaint(
+          el,
+          "stop-color",
+          "#" +
+            a
+              .map((v, i) =>
+                Math.round(v + (b[i] - v) * f)
+                  .toString(16)
+                  .padStart(2, "0"),
+              )
+              .join(""),
+        );
+      }
     }
+  if (spec.gradient) {
+    const g = spec.gradient,
+      id = "generated-gradient";
+    const defs = document.createElementNS(NS, "defs"),
+      gradient = document.createElementNS(NS, "linearGradient");
+    gradient.id = id;
+    const angle = ((Number(g.angle) || 0) * Math.PI) / 180,
+      dx = Math.cos(angle),
+      dy = Math.sin(angle);
+    const box = asset.box,
+      cx = box.x + box.width / 2,
+      cy = box.y + box.height / 2,
+      extent = (Math.abs(box.width * dx) + Math.abs(box.height * dy)) / 2;
+    gradient.setAttribute("gradientUnits", "userSpaceOnUse");
+    for (const [key, value] of Object.entries({
+      x1: cx - dx * extent,
+      y1: cy - dy * extent,
+      x2: cx + dx * extent,
+      y2: cy + dy * extent,
+    }))
+      gradient.setAttribute(key, value);
+    for (const [offset, paint] of [
+      [0, g.from],
+      [1, g.to],
+    ]) {
+      const stop = document.createElementNS(NS, "stop");
+      stop.setAttribute("offset", offset);
+      stop.setAttribute("stop-color", paint);
+      gradient.append(stop);
+    }
+    defs.append(gradient);
+    root.prepend(defs);
+    const locked = new Set(
+      roles
+        .filter((r) => r.locked)
+        .flatMap((r) => r.targets.map((t) => t.index + ":" + t.prop)),
+    );
+    const gradientLocked = roles.some(
+      (r) => r.locked && r.targets.some((t) => t.prop === "stop-color"),
+    );
+    nodes.forEach((el, index) => {
+      if (
+        !/^(path|rect|circle|ellipse|polygon|polyline|line|use)$/.test(
+          el.localName,
+        ) ||
+        el.closest("clipPath,mask,pattern,filter")
+      )
+        return;
+      for (const prop of ["fill", "stroke"]) {
+        const old = el.getAttribute(prop);
+        if (
+          old &&
+          old !== "none" &&
+          !locked.has(index + ":" + prop) &&
+          !(gradientLocked && old.includes("url("))
+        ) {
+          const alpha = old.match(
+            /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/,
+          )?.[1];
+          if (alpha)
+            el.setAttribute(
+              prop + "-opacity",
+              (+el.getAttribute(prop + "-opacity") || 1) * Number(alpha),
+            );
+          el.setAttribute(prop, `url(#${id})`);
+        }
+      }
+    });
+  }
   let str = serialize(root);
-  if (namespace)
-    str = str
-      .replace(/id="([^"]+)"/g, `id="${namespace}_$1"`)
-      .replace(/#(a[a-f0-9]+_[^\s)'"<>]+)/g, `#${namespace}_$1`);
-  cache.set(cacheKey, str);
+  if (namespace) {
+    for (const el of root.querySelectorAll("[id]")) {
+      const id = el.id,
+        escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      str = str
+        .replace(new RegExp(`id="${escaped}"`, "g"), `id="${namespace}_${id}"`)
+        .replace(
+          new RegExp(`#${escaped}(?=["')\\s])`, "g"),
+          `#${namespace}_${id}`,
+        );
+    }
+  }
+  if (cache.size >= 24) cache.clear();
+  if (str.length < 256000) cache.set(cacheKey, str);
   return str;
 }
 export function compositionSVG(p, variant, color = null, background = null) {

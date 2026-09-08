@@ -87,7 +87,7 @@ export async function renderFile(svg, format, options) {
   return withResolution(blob, options.dpi);
 }
 export function makeFile(p, item, format) {
-  return renderFile(compositionSVG(p, item.variant, item.color.hex), format, {
+  return renderFile(compositionSVG(p, item.variant, item.color), format, {
     ...p.exports,
     background: backgroundFor(p, item, format),
     margin:
@@ -95,7 +95,7 @@ export function makeFile(p, item, format) {
       p.exports.jpegMargin,
   });
 }
-export function exportPlan(p, items) {
+export function exportPlan(p, items, includeExcluded = false) {
   const root = slug(p.brand).toUpperCase(),
     jobs = [];
   for (const item of items) {
@@ -137,13 +137,22 @@ export function exportPlan(p, items) {
   }
   const names = new Set();
   for (const job of jobs) {
+    job.key = job.item
+      ? `${job.item.id}:${job.format}`
+      : `${job.variant}:clearspace:${job.tone}:${job.format}`;
     const base = job.path;
     let n = 2;
     while (names.has(job.path))
       job.path = base.replace(/\.[^.]+$/, `-${n++}.${job.format}`);
     names.add(job.path);
   }
-  return jobs;
+  return includeExcluded
+    ? jobs
+    : jobs.filter(
+        (job) =>
+          !p.excludedFiles?.includes(job.key) &&
+          !p.excludedFiles?.includes(job.path),
+      );
 }
 export async function buildFiles(p, items, progress = () => {}) {
   if (!items.length || !p.exports.formats.length)
@@ -202,5 +211,5 @@ export function jpegPreview(p, item) {
     h = l.height + 2 * margin;
   if (w / h < ratio) w = h * ratio;
   else h = w / ratio;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="${item.background.hex}"/><svg x="${(w - l.width) / 2}" y="${(h - l.height) / 2}" width="${l.width}" height="${l.height}" viewBox="${l.x} ${l.y} ${l.width} ${l.height}">${compositionSVG(p, item.variant, item.color.hex).replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="${item.background.hex}"/><svg x="${(w - l.width) / 2}" y="${(h - l.height) / 2}" width="${l.width}" height="${l.height}" viewBox="${l.x} ${l.y} ${l.width} ${l.height}">${compositionSVG(p, item.variant, item.color).replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg></svg>`;
 }

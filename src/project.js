@@ -10,7 +10,7 @@ export async function validate(data) {
     !data.compositions
   )
     throw Error("Format de projet non reconnu.");
-  const result = project(data.mode === "ready" ? "ready" : "compose");
+  const result = project(["ready", "clearspace"].includes(data.mode) ? data.mode : "compose");
   result.id = typeof data.id === "string" ? data.id : result.id;
   result.brand = data.brand.slice(0, 100);
   for (const key of ["icon", "wordmark"])
@@ -120,7 +120,7 @@ export async function validate(data) {
     ? Math.min(3, Math.max(0.1, e.jpegMargin))
     : 0.5;
   result.exports.clearspace = e.clearspace !== false;
-  if (result.mode === "ready") {
+  if (result.mode !== "compose") {
     for (const item of data.ready || []) {
       if (
         !/^v-[\w-]+$/.test(item.id) ||
@@ -149,6 +149,10 @@ export async function validate(data) {
   for (const v of variantIds(result)) {
     const old = data.compositions[v] || {};
     const c = result.compositions[v];
+    if (["auto", "part", "visual"].includes(old.clearMethod)) c.clearMethod = old.clearMethod;
+    if (Number.isFinite(old.visualMeasure?.value) && old.visualMeasure.value > 0) {
+      c.visualMeasure = { value: Math.min(1000000, old.visualMeasure.value), label: String(old.visualMeasure.label || "").slice(0, 160) };
+    } else if (c.clearMethod === "visual") c.clearMethod = "auto";
     c.clearRef = Object.hasOwn(CLEAR_REFS, old.clearRef)
       ? old.clearRef
       : "wordmarkHeight";
@@ -163,7 +167,7 @@ export async function validate(data) {
           : null,
       ]),
     );
-    if (result.mode === "ready") {
+    if (result.mode !== "compose") {
       c.minPrint = Number.isFinite(old.minPrint)
         ? Math.max(1, old.minPrint)
         : 25;
@@ -180,6 +184,7 @@ export async function validate(data) {
       ),
     );
   result.jpegGlobal = booleans(data.jpegGlobal);
+  result.jpegExceptions = booleans(data.jpegExceptions);
   result.excludedFiles = Array.isArray(data.excludedFiles)
     ? data.excludedFiles.filter((x) => typeof x === "string" && x.length < 4000)
     : [];

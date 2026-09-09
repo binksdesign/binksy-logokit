@@ -120,7 +120,7 @@ await test("Importer : preview immédiate, aucune configuration obligatoire", as
   click('.step-next [data-view="compose"]');
   assert(find(".workspace").dataset.step === "compose");
   assert(doc().querySelectorAll(".construction-choice svg").length >= 4);
-  assert(!find('[data-disclosure="composition"]').open);
+  assert(find('[data-inspector="composition"]').getAttribute("aria-selected") === "true");
   assert(!find("[data-color]"));
   assert(find('#canvas rect[fill="url(#grid)"]'), "grid visible by default");
   assert(
@@ -137,6 +137,7 @@ await test("Construction : tailles indépendantes, largeur et annulation", () =>
   assert(height("wordmark") === 233);
   input('input[type="number"][data-comp="iconHeight"]', 177);
   assert(height("wordmark") === 233);
+  click('[data-inspector="position"]');
   change('[data-width="wordmark"]', 800);
   assert(height("wordmark") === 200);
   assert(height("icon") === 177);
@@ -147,6 +148,7 @@ await test("Construction : tailles indépendantes, largeur et annulation", () =>
   assert(doc().querySelectorAll("[data-resize]").length === 4);
 });
 await test("Alignement et centrage : chaque choix montre le logo", () => {
+  click('[data-inspector="composition"]');
   assert(
     [...doc().querySelectorAll("[data-center]")].every((el) =>
       el.querySelector("svg"),
@@ -166,8 +168,9 @@ await test("Alignement et centrage : chaque choix montre le logo", () => {
   click('[data-canvas="#ffffff"]');
 });
 await test("Protection et tailles minimales : preview, puis contrôle manuel", () => {
-  assert(find(".protection-preview svg"));
-  assert(find(".minimum-preview svg"));
+  click('[data-inspector="guides"]');
+  assert(find("#clear-guides").children.length);
+  change("#clear-method", "part");
   for (const ref of ["brandmarkWidth", "brandmarkHeight", "wordmarkHeight"]) {
     change("#clear-reference", ref);
     for (const mult of [0.5, 1, 1.5, 2]) {
@@ -175,6 +178,8 @@ await test("Protection et tailles minimales : preview, puis contrôle manuel", (
       assert(find(".clear-value").textContent.includes("× " + mult));
     }
   }
+  click('[data-inspector="more"]');
+  assert(find(".minimum-preview svg"));
   input('[data-comp="minDigital"]', 140);
   assert(find('[data-comp="minDigital"]').value === "140");
 });
@@ -184,6 +189,8 @@ await test("Import multicolore : palette automatique, inspection et verrouillage
   click('nav [data-view="family"]');
   assert(find("[data-edit-color]"));
   assert(find(".delivery svg"));
+  assert(!find('[data-disclosure="logo-colors"]').open);
+  click('[data-disclosure="logo-colors"] > summary');
   const chip = find('[data-highlight-asset="wordmark"]');
   chip.click();
   assert(
@@ -217,6 +224,36 @@ await test("Galerie : filtres, sélection évidente et catalogue facultatif", ()
   click("[data-catalog-toggle]");
   assert(find(".editor-main").classList.contains("full-catalog"));
   click("[data-catalog-toggle]");
+});
+await test("Onglets : une seule catégorie visible et navigation au clavier", () => {
+  for (const category of ['original','mono','multi','gradient','jpeg']) {
+    click(`[data-gallery-filter="${category}"]`);
+    const panels=[...doc().querySelectorAll('.category-panel')].filter(el=>!el.hidden);
+    assert(panels.length===1 && panels[0].dataset.section===category);
+    assert(find(".gallery-filters").getBoundingClientRect().height > 35,"tabs collapsed with long gallery");
+  }
+  find('[data-gallery-filter="jpeg"]').dispatchEvent(new frame.contentWindow.KeyboardEvent('keydown',{key:'Home',bubbles:true}));
+  assert(find('[data-gallery-filter="original"]').getAttribute('aria-selected')==='true');
+});
+await test("JPEG : aperçu réel, choix individuel, recommandations et catalogue", () => {
+  click('[data-gallery-filter="jpeg"]');
+  assert(find('.jpeg-grid .delivery-preview svg rect[fill]'));
+  change('[data-jpeg-pair]',true);
+  assert(find('[data-jpeg-pair]').checked);
+  change('[data-jpeg-pair]',false);
+  assert(!find('[data-jpeg-pair]').checked);
+  click('#reset-global-pairs');
+  change('#jpeg-category','multi');
+  assert(find('.jpeg-grid .delivery-preview svg'));
+  assert(doc().querySelectorAll('[data-jpeg-pair]').length<=12);
+  change('#jpeg-category','selected');
+});
+await test("Système complet : toutes les combinaisons restent accessibles", () => {
+  click('#full-system');
+  click('[data-gallery-filter="multi"]');
+  assert([...doc().querySelectorAll('[data-work-select]')].every(el=>el.checked));
+  click('[data-bulk-all="recommended"]');
+  assert([...doc().querySelectorAll('[data-work-select]')].every(el=>!el.checked));
 });
 await test("Dégradés : modes visuels, stops, orientation et participation", async () => {
   click('[data-gallery-filter="gradient"]');
@@ -277,8 +314,12 @@ await test("Export : kit complet par défaut et personnalisation conservée", ()
   change('[data-export="width"]', 96);
   change('[data-export="height"]', 96);
   change('[data-export="dpi"]', 144);
+  click('nav [data-view="family"]');
+  click('[data-gallery-filter="jpeg"]');
+  change("#jpeg-category", "mono");
   change('[data-global-pair="black:jpeg:black"]', true);
   assert(find('[data-global-pair="black:jpeg:black"]').checked);
+  click('nav [data-view="delivery"]');
   const before = parseInt(find("#selection-count").textContent);
   change("[data-file-select]", false);
   assert(parseInt(find("#selection-count").textContent) === before - 1);
@@ -296,6 +337,7 @@ await test("Téléchargement réel du kit ZIP : SVG PNG JPEG PDF et recommandati
       () => downloaded || find("#notice").textContent.startsWith("PDF :"),
     );
     assert(downloaded, find("#notice").textContent);
+    await wait(() => !find("#export-kit").disabled);
     const entries = unzipSync(
       new Uint8Array(await (await fetch(downloaded.href)).arrayBuffer()),
     );
@@ -350,7 +392,9 @@ await test("Variantes assemblées : import multiple, protection automatique et e
   ]);
   assert(doc().querySelectorAll("[data-remove-variant]").length === 2);
   click('nav [data-view="compose"]');
-  assert(find(".protection-preview svg"));
+  click('[data-inspector="guides"]');
+  assert(find("#clear-guides").children.length);
+  change("#clear-method", "part");
   change("#variant-name", "Compact personnalisé");
   change("#clear-reference", "brandmarkWidth");
   change("#clear-reference-value", 80);
@@ -359,6 +403,122 @@ await test("Variantes assemblées : import multiple, protection automatique et e
   click('nav [data-view="delivery"]');
   assert(!find("#export-kit").disabled);
 });
+let measuredProject;
+await test("Accueil : exactement trois modes, dont zone de sécurité seule", () => {
+  click('[data-view="home"]');
+  assert(doc().querySelectorAll('.mode-grid [data-mode]').length === 3);
+  click('[data-mode="clearspace"]');
+  change('#brand', 'QA zone de sécurité');
+  assert(!find('.palette-panel'));
+  assert(!find('nav [data-view="family"]'));
+  assert(doc().querySelectorAll('nav [data-view]').length === 3);
+});
+await test("Zone seule : import multiple, renommage, couleurs et SVG d’origine", async () => {
+  await upload('#ready-files', [['Couleur.svg',multi],['Signature.svg',word]]);
+  assert(doc().querySelectorAll('[data-remove-variant]').length === 2);
+  click('nav [data-view="compose"]');
+  assert(!find('[data-role-field]') && !find('[data-edit-color]'));
+  assert(!find('[data-resize]') && !find('[data-drag]'));
+  assert(find('#clear-method'));
+  change('#variant-name','Version couleur');
+  assert(find('.inspector-title h2').textContent === 'Version couleur');
+  const { importSVG, compositionSVG } = await import('../src/svg.js');
+  const { validate } = await import('../src/project.js');
+  const proto=frame.contentWindow.HTMLAnchorElement.prototype, original=proto.click;
+  proto.click=function(){downloaded={href:this.href,name:this.download};};
+  click('[data-action="export-project"]');proto.click=original;
+  measuredProject=JSON.parse(await (await fetch(downloaded.href)).text());
+  assert(measuredProject.colors.length===0 && measuredProject.gradients.length===0);
+  const restored=await validate(measuredProject);
+  const asset=await importSVG(multi,'original.svg');
+  assert(JSON.stringify(asset.paints)===JSON.stringify(restored.ready[0].asset.paints));
+  const root = html => new DOMParser().parseFromString(html,'image/svg+xml').documentElement;
+  const paints = svg => [...root(svg).querySelectorAll('[fill],[stroke],[stop-color],[opacity],[fill-opacity],[stop-opacity]')].map(el => ['fill','stroke','stop-color','opacity','fill-opacity','stop-opacity'].map(a => el.getAttribute(a)?.replace(/url\(#[^)]+\)/g,'url(#id)')||'').join('|')).filter(Boolean).sort();
+  const svg=compositionSVG(restored,restored.active,{hex:'#ff00ff',force:true});
+  assert(JSON.stringify(paints(svg))===JSON.stringify(paints(compositionSVG(restored,restored.active))), 'requested recolor ignored');
+  restored.ready[0].asset.roles.forEach(r=>r.paint='#ff00ff');
+  assert(JSON.stringify(paints(svg))===JSON.stringify(paints(compositionSVG(restored,restored.active))), 'manual roles ignored in clear-space mode');
+});
+await test("Mesure canvas : carré visible, taille en direct, disparition au relâchement", async () => {
+  change('[data-setting="snap"]',false);
+  click('[data-action="measure"]');
+  const canvas=find('#canvas'), matrix=canvas.getScreenCTM();
+  const start=new frame.contentWindow.DOMPoint(15,15).matrixTransform(matrix);
+  const end=new frame.contentWindow.DOMPoint(52.5,29).matrixTransform(matrix);
+  const pointer=(type,point) => canvas.dispatchEvent(new frame.contentWindow.PointerEvent(type,{bubbles:true,clientX:point.x,clientY:point.y,pointerId:1,button:0}));
+  pointer('pointerdown',start);pointer('pointermove',end);
+  const square=find('[data-measure-overlay] rect');
+  assert(square && square.getAttribute('width')===square.getAttribute('height'));
+  assert(Math.abs(+square.getAttribute('width')-37.5)<.001);
+  assert(find('[data-measure-overlay] text').textContent.includes('37.50'));
+  pointer('pointerup',end);
+  assert(!find('[data-measure-overlay]'));
+  assert(find('.measurement-dialog[open]'));
+  input('.measurement-dialog input','hauteur du M <test>');
+  click('.measurement-dialog [value="apply"]');
+  await wait(()=>!find('dialog'));
+  assert(Math.abs(+find('#visual-value').value-37.5)<.001);
+  assert(find('#measure-name').value==='hauteur du M <test>');
+});
+await test("Mesure : undo/redo, copie choisie et mode focus", async () => {
+  click('[data-action="undo"]');assert(!find('#visual-value'));
+  click('[data-action="redo"]');assert(find('#measure-name').value==='hauteur du M <test>');
+  const target=find('[data-copy-rule]').dataset.copyRule;
+  change('[data-copy-rule]',true);click('[data-action="copy-rule"]');
+  click(`[data-active="${target}"]`);
+  assert(Math.abs(+find('#visual-value').value-37.5)<.001);
+  assert(find('#measure-name').value==='hauteur du M <test>');
+  click('[data-action="focus"]');
+  assert(find('.workspace').classList.contains('focus-mode'));
+  assert(frame.contentWindow.getComputedStyle(find('.right')).display==='none');
+  click('[data-action="focus"]');assert(!find('.workspace').classList.contains('focus-mode'));
+  click('[data-action="measure"]');
+  doc().defaultView.dispatchEvent(new frame.contentWindow.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  assert(!find('.measurement-hint'));
+});
+await test("Mesure nommée : fichier .binksy, réouverture et planches vectorielles", async () => {
+  const proto=frame.contentWindow.HTMLAnchorElement.prototype, original=proto.click;
+  proto.click=function(){downloaded={href:this.href,name:this.download};};
+  click('[data-action="export-project"]');proto.click=original;
+  const savedMeasure=await (await fetch(downloaded.href)).text();
+  const data=JSON.parse(savedMeasure);
+  assert(data.mode==='clearspace');assert(data.compositions[data.active].visualMeasure.label==='hauteur du M <test>');
+  await upload('#project-file',[['measure.binksy',savedMeasure]]);
+  assert(find('#measure-name').value==='hauteur du M <test>');
+  assert(Math.abs(+find('#visual-value').value-37.5)<.001);
+  const { validate }=await import('../src/project.js');
+  const { clearspaceSVG }=await import('../src/clearspace.js');
+  const { exportPlan, buildFiles }=await import('../src/export.js');
+  const { selectedItems }=await import('../src/catalog.js');
+  const restored=await validate(data);
+  restored.exports.width=96;restored.exports.height=96;
+  const board=clearspaceSVG(restored,restored.active);
+  assert(board.includes('hauteur du M &lt;test&gt;'));
+  assert(!board.includes('data-measure-overlay') && !board.includes('<image'));
+  const jobs=exportPlan(restored,selectedItems(restored));
+  assert(jobs.length===12 && jobs.every(j=>j.tone && j.path.includes('/Clearspace/')));
+  const files=await buildFiles(restored,selectedItems(restored));
+  assert(Object.keys(files).length===12);
+  for (const path of Object.keys(files).filter(p=>p.endsWith('.svg'))) assert(new TextDecoder().decode(files[path]).includes('hauteur du M &lt;test&gt;'));
+  click('nav [data-view="delivery"]');assert(find('.kit-metrics'));
+  assert(!find('[data-format="jpeg"]') && !find('[data-export="jpegMargin"]'));
+  assert(!find('#export-kit').disabled);
+  click('[data-export-preset="complete"]');assert(!find('[data-format="jpeg"]'));
+  click('[data-language="en"]');
+  assert(find('#export-kit').textContent==='Export clear spaces');
+  click('[data-language="fr"]');
+});
+await test("Compatibilité : mesure historique prioritaire, paramètres visuels invalides ignorés", async () => {
+  const { validate }=await import('../src/project.js');
+  const { clearMeasure }=await import('../src/model.js');
+  const data=structuredClone(measuredProject);
+  data.mode='ready';const c=data.compositions[data.active];
+  c.references.wordmarkHeight=19;c.clearRef='wordmarkHeight';
+  const legacy=await validate(data);assert(clearMeasure(legacy).value===19);
+  c.clearMethod='visual';c.visualMeasure={value:-5,label:'invalid'};
+  const fixed=await validate(data);assert(fixed.compositions[fixed.active].clearMethod==='auto');
+});
+
 await test("V1 et V2 migrent sans changer leurs choix de formats", async () => {
   for (const version of [1, 2]) {
     const p = project();
@@ -373,6 +533,7 @@ await test("V1 et V2 migrent sans changer leurs choix de formats", async () => {
       c.clear = 2;
     }
     await upload("#project-file", [["old.binksy", JSON.stringify(p)]]);
+    click('[data-inspector="guides"]');
     assert(
       find('[data-multiplier="1"]').getAttribute("aria-pressed") === "true",
     );
@@ -418,6 +579,13 @@ await test("Laptop et mobile : aucune largeur imposée, contrôles accessibles",
     await wait(() => !find("dialog"));
     assert(find('[data-edit-color][aria-label$="#123abc"]'));
     assert(doc().documentElement.scrollWidth <= w, "palette overflow " + w);
+    click('nav [data-view="family"]');
+    click('[data-gallery-filter="jpeg"]');
+    const activeTab=find('[data-gallery-filter="jpeg"]').getBoundingClientRect();
+    const tabs=find('.gallery-filters').getBoundingClientRect();
+    assert(activeTab.left>=tabs.left-1 && activeTab.right<=tabs.right+1, "active JPEG tab offscreen " + w);
+    assert(tabs.height>35, "tabs collapsed " + w);
+    assert(doc().documentElement.scrollWidth<=w, "JPEG overflow " + w);
     click('nav [data-view="compose"]');
   }
 });

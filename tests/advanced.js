@@ -657,6 +657,26 @@ await test("Simultaneous logo previews have independent gradient namespaces", ()
         );
     }
 });
+await test("Clear-space mode preserves every imported paint, stop and opacity across V3 and boards", async () => {
+  const paints = source => {
+    const root = new DOMParser().parseFromString(source,"image/svg+xml").documentElement;
+    return [root,...root.querySelectorAll("*")].map(el => ["fill","stroke","stop-color","opacity","fill-opacity","stroke-opacity","stop-opacity","style"].map(key => el.getAttribute(key)?.replace(/url\(#[^)]+\)/g,"url(#id)") || "").join("|")).filter(row => row.replaceAll("|", "")).sort();
+  };
+  for (const [name,asset] of Object.entries(assets)) {
+    const q=project("clearspace");
+    q.ready=[{id:"v-original",name,asset:structuredClone(asset)}];q.active="v-original";q.enabled=[q.active];q.compositions[q.active]=structuredClone(q.compositions.horizontal);
+    Object.assign(q.compositions[q.active],{clearMethod:"visual",visualMeasure:{value:12.25,label:"Eye < & >"}});
+    const source=paints(asset.svg);
+    q.ready[0].asset.roles.forEach(r => r.paint="#abcdef");
+    const restored=await validate(JSON.parse(JSON.stringify(q)));
+    const svg=compositionSVG(restored,restored.active,{hex:"#ff00ff",force:true});
+    assert(JSON.stringify(source)===JSON.stringify(paints(svg)), name+" original paint attributes changed");
+    const board=new DOMParser().parseFromString(clearspaceSVG(restored,restored.active),"image/svg+xml");
+    const logo=board.documentElement.querySelector(":scope > svg");
+    assert(JSON.stringify(source)===JSON.stringify(paints(new XMLSerializer().serializeToString(logo))),name+" board recolored");
+    assert(board.documentElement.textContent.includes("Eye < & >"));
+  }
+});
 output.textContent =
   lines.join("\n") +
   `\n\n${lines.filter((l) => l.startsWith("PASS")).length}/${lines.length} PASS`;

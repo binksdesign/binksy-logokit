@@ -528,13 +528,14 @@ export function assetMarkup(asset, color, namespace = "") {
 }
 let compositionNamespace = 0;
 export function compositionSVG(p, variant, color = null, background = null) {
+  if (p.mode === "clearspace") { color = null; background = null; }
   const namespace = "composition-" + ++compositionNamespace + "-";
   const l = layout(p, variant);
   return `<svg xmlns="${NS}" width="${l.width}" height="${l.height}" viewBox="${l.x} ${l.y} ${l.width} ${l.height}">${background ? `<rect x="${l.x}" y="${l.y}" width="${l.width}" height="${l.height}" fill="${background}"/>` : ""}${l.parts
     .map(
       (q) =>
         `<g transform="translate(${q.x} ${q.y}) scale(${q.w / q.asset.box.width})"><svg x="0" y="0" width="${q.asset.box.width}" height="${q.asset.box.height}" viewBox="${q.asset.box.x} ${q.asset.box.y} ${q.asset.box.width} ${q.asset.box.height}">${assetContent(
-          q.asset,
+          p.mode === "clearspace" ? { ...q.asset, roles: [] } : q.asset,
           color?.gradient && color.gradient.mode !== "shape"
             ? {
                 ...color,

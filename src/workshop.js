@@ -1,3 +1,5 @@
+import { clearspaceSVG } from "./clearspace.js";
+import { mountJpegGallery } from "./jpeg-gallery.js";
 import { editGradient } from "./gradient-editor.js";
 import {
   catalog,
@@ -15,6 +17,7 @@ import {
   colors,
   jpegPairs,
   luminance,
+  clearMeasure,
 } from "./model.js";
 import { compositionSVG, assetMarkup } from "./svg.js";
 import { exportPlan, jpegPreview } from "./export.js";
@@ -29,7 +32,7 @@ const labels = {
 const pages = {},
   opened = new Set(["original", "mono", "multi", "gradient"]);
 let workshopStep = "family",
-  galleryFilter = "all",
+  galleryFilter = "original",
   fullCatalog = false;
 let filter = "all",
   finalCategory = "all",
@@ -62,14 +65,14 @@ export function resetColorChoices(p) {
   p.excludedFiles = [];
 }
 export function assetsFor(p) {
-  return p.mode === "ready"
+  return p.mode !== "compose"
     ? p.ready.map((v) => ({ key: v.id, name: v.name, asset: v.asset }))
     : Object.entries(p.assets)
         .filter(([, asset]) => asset)
         .map(([key, asset]) => ({ key, name: key, asset }));
 }
 export function rolePanel(p) {
-  return `<section class="role-panel"><h2>${t("Couleurs du logo")}</h2><p class="auto-note">${t("Automatique · recommandé")}</p>${assetsFor(
+  return `<section class="role-panel"><h2>${t("Couleurs du logo")}</h2>${assetsFor(
     p,
   )
     .map(
@@ -199,7 +202,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
         `<option value="${v}" ${filter === v ? "selected" : ""}>${esc(variantName(p, v))}</option>`,
     )
     .join("");
-  main.innerHTML = `<div class="family-heading"><div class="eyebrow">02 / ${t("Sélection finale")}</div><h1>${t("Choisir les couleurs, puis la livraison.")}</h1></div><div class="family-tools"><button class="primary" id="full-system">Full System</button><select id="construction-filter" aria-label="${t("Toutes les constructions")}"><option value="all">${t("Toutes les constructions")}</option>${opts}</select><button data-bulk-all="all">${t("Tout sélectionner")}</button><button data-bulk-all="none">${t("Tout désélectionner")}</button><button data-bulk-all="recommended">${t("Recommandées uniquement")}</button></div>`;
+  main.innerHTML = `<div class="family-heading"><div class="eyebrow">02 / ${t("Sélection finale")}</div><h1>${t("Choisir les couleurs, puis la livraison.")}</h1></div><div class="family-tools"><button id="full-system" title="${t("Génère toutes les combinaisons possibles.")}">${t("Système complet")}</button><small>${t("Génère toutes les combinaisons possibles.")}</small><select id="construction-filter" aria-label="${t("Toutes les constructions")}"><option value="all">${t("Toutes les constructions")}</option>${opts}</select><button data-bulk-all="all">${t("Tout sélectionner")}</button><button data-bulk-all="none">${t("Tout désélectionner")}</button><button data-bulk-all="recommended">${t("Recommandées uniquement")}</button></div>`;
   main.insertAdjacentHTML(
     "beforeend",
     accordion(
@@ -253,46 +256,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
       ),
     );
   }
-  const pairItems = [
-    ...new Map(
-      [
-        ...scope(p).flatMap((v) => [
-          catalog(p, v, "original").at(0n),
-          ...colors(p)
-            .filter((c) => c.hex)
-            .map((color) => ({ variant: v, id: v + ":" + color.id, color })),
-        ]),
-        ...displayed,
-        ...Object.values(p.selectedDescriptors || {}).filter((item) =>
-          selectedItem(p, item),
-        ),
-      ]
-        .filter(Boolean)
-        .map((i) => [i.color.id, i]),
-    ).values(),
-  ];
-  main.insertAdjacentHTML(
-    "beforeend",
-    accordion(
-      "jpeg",
-      "Fonds recommandés",
-      `${Object.keys(p.jpegGlobal || {}).length}`,
-      `<p>${t("Ces choix s’appliquent à toutes les constructions compatibles.")}</p><button id="reset-global-pairs">${t("Revenir aux recommandations")}</button>${pairItems
-        .map(
-          (item, index) =>
-            `<details data-pair-preview="${index}"><summary data-no-i18n>${esc(item.color.name)}</summary><div class="pair-grid">${jpegPairs(
-              p,
-              item,
-            )
-              .map(
-                (pair) =>
-                  `<label class="pair-option"><input type="checkbox" data-global-pair="${esc(pair.globalId)}" ${pair.enabled ? "checked" : ""}><span class="pair-swatch" style="background:${pair.background.hex};color:${item.color.hex || "#888"}">Aa</span><span data-no-i18n>${esc(pair.background.name)} · ${pair.ratio.toFixed(1)}:1</span></label>`,
-              )
-              .join("")}</div></details>`,
-        )
-        .join("")}`,
-    ),
-  );
+  main.insertAdjacentHTML("beforeend", accordion("jpeg", "JPEG", "", '<div id="jpeg-gallery"></div>'));
   let items = [],
     jobs = [],
     allJobs = [],
@@ -350,7 +314,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
   main.dataset.workshopStep = step;
   main.classList.toggle("full-catalog", fullCatalog);
   main.querySelector(".family-heading").innerHTML =
-    `<div class="eyebrow">${step === "delivery" ? "04" : "03"} / ${t(step === "delivery" ? "Exporter" : "Variantes")}</div><h1>${t(step === "delivery" ? "Votre Logo Kit est prêt à partir." : "Choisissez visuellement les versions à livrer.")}</h1><p class="auto-note">${t("Automatique · recommandé")}</p>`;
+    `<div class="eyebrow">${step === "delivery" ? "04" : "03"} / ${t(step === "delivery" ? "Exporter" : "Variantes")}</div><h1>${t(step === "delivery" ? "Votre Logo Kit est prêt à partir." : "Choisissez visuellement les versions à livrer.")}</h1>`;
   const toolbar = main.querySelector(".family-tools");
   const custom = document.createElement("details");
   custom.className = "combination-tools";
@@ -363,28 +327,38 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
   main.querySelectorAll("[data-section]").forEach((el) => {
     const cat = el.dataset.section;
     if (CATEGORIES.includes(cat))
-      el.hidden =
-        step === "delivery" ||
-        (galleryFilter !== "all" && galleryFilter !== cat);
+      el.hidden = step === "delivery" || galleryFilter !== cat;
+    if ([...CATEGORIES, "jpeg"].includes(cat)) {
+      el.id = "category-" + cat;
+      el.setAttribute("role", "tabpanel");
+      el.classList.add("category-panel");
+    }
   });
   if (step === "family") {
     const nav = document.createElement("div");
     nav.className = "gallery-filters";
+    nav.setAttribute("role", "tablist");
+    nav.setAttribute("aria-label", t("Versions du logo"));
     nav.innerHTML =
       [
-        ["all", "Toutes"],
-        ["original", "Originales"],
-        ["mono", "Couleurs simples"],
-        ["multi", "Multicolores"],
+        ["original", "Original"],
+        ["mono", "Une seule couleur"],
+        ["multi", "Plusieurs couleurs"],
         ["gradient", "Dégradés"],
+        ["jpeg", "JPEG"],
       ]
         .map(
           ([id, label]) =>
-            `<button data-gallery-filter="${id}" aria-pressed="${galleryFilter === id}">${t(label)}</button>`,
+            `<button role="tab" data-gallery-filter="${id}" aria-controls="category-${id}" tabindex="${galleryFilter === id ? 0 : -1}" aria-selected="${galleryFilter === id}" aria-pressed="${galleryFilter === id}">${t(label)}</button>`,
         )
         .join("") +
-      `<button data-catalog-toggle aria-pressed="${fullCatalog}">${t(fullCatalog ? "Voir les suggestions" : "Voir toutes les combinaisons")}</button>`;
+      `<button data-catalog-toggle aria-pressed="${fullCatalog}">${t(fullCatalog ? "Suggestions" : "Tout voir")}</button>`;
     main.querySelector(".family-heading").after(nav);
+    const selectionBar = document.createElement("div");
+    selectionBar.className = "selection-bar";
+    selectionBar.innerHTML = `<strong role="status">${p.enabled.reduce((sum,v) => sum+CATEGORIES.reduce((n,c) => n+selectedCount(p,v,c),0n),0n)} ${t("versions sélectionnées")}</strong><button data-recommendations>${t("Recommandées")}</button>`;
+    nav.after(selectionBar);
+    selectionBar.querySelector("button").onclick = () => edit(() => setCategory(p,p.enabled,CATEGORIES,"recommended"));
     nav.querySelectorAll("[data-gallery-filter]").forEach(
       (el) =>
         (el.onclick = () => {
@@ -398,7 +372,16 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
       mountWorkshop(p, edit, runExport);
     };
     main.querySelector('[data-section="final"]').hidden = true;
-    main.querySelector('[data-section="jpeg"]').hidden = true;
+    main.querySelector('[data-section="jpeg"]').hidden = galleryFilter !== "jpeg";
+    if (galleryFilter === "jpeg") main.querySelector('[data-section="jpeg"]').open = true;
+    nav.querySelectorAll("[data-gallery-filter]").forEach(el => el.onkeydown = e => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+      e.preventDefault();
+      const tabs=[...nav.querySelectorAll("[data-gallery-filter]")], index=tabs.indexOf(el);
+      const next=e.key==="Home"?tabs[0]:e.key==="End"?tabs.at(-1):tabs[(index+(e.key==="ArrowRight"?1:-1)+tabs.length)%tabs.length];
+      galleryFilter=next.dataset.galleryFilter; opened.add(galleryFilter); mountWorkshop(p,edit,runExport);
+      main.querySelector(`[data-gallery-filter="${galleryFilter}"]`).focus();
+    });
   } else {
     custom.hidden = true;
     // Keep the final-file construction filter usable independently of the gallery.
@@ -412,11 +395,11 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
       .filter((v) => catalog(p, v, "original").size)
       .map(
         (v) =>
-          `<div>${compositionSVG(p, v)}<span data-no-i18n>${esc(variantName(p, v))}</span></div>`,
+          `<div>${p.mode === "clearspace" ? clearspaceSVG(p,v) : compositionSVG(p, v)}<span data-no-i18n>${esc(variantName(p, v))}</span>${p.exports.clearspace ? `<small class="summary-measure">${t("Zone de sécurité")} · ${clearMeasure(p,v).space.toFixed(2)} ${t("unités")}</small>` : ""}</div>`,
       )
       .join(
         "",
-      )}</div><h2>${t("Logo Kit complet")}</h2><p>${t("Vos variantes sélectionnées, leurs fichiers et les recommandations dans un ZIP.")}</p><div class="export-presets">${[
+      )}</div>${p.mode !== "clearspace" && p.colors.length ? `<div class="summary-colors" aria-label="${t("Palette de couleurs")}">${p.colors.map(c => `<span title="${esc(c.name)} · ${c.hex}" style="background:${c.hex}"></span>`).join("")}</div>` : ""}<div class="kit-metrics"><span><strong>${p.enabled.filter(v => catalog(p,v,"original").size).length}</strong>${t("versions du logo")}</span><span><strong>${p.enabled.reduce((sum,v) => sum+CATEGORIES.reduce((n,c) => n+selectedCount(p,v,c),0n),0n)}</strong>${t(p.mode === "clearspace" ? "zones de sécurité" : "déclinaisons")}</span><span><strong>${error ? "—" : jobs.length + (jobs.length>1?1:0)}</strong>${t("fichiers")}</span></div><h2>${t(p.mode === "clearspace" ? "Vos zones de sécurité" : "Logo Kit complet")}</h2><p>${t("Vos variantes sélectionnées, leurs fichiers et les recommandations dans un ZIP.")}</p><div class="export-presets">${[
       ["web", "Web"],
       ["print", "Print"],
       ["complete", "Complet"],
@@ -429,6 +412,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
         "",
       )}</div><p>${p.exports.formats.map((f) => f.toUpperCase()).join(" · ")} · ${p.exports.width} × ${p.exports.height} px · ${p.exports.dpi} DPI</p><button class="primary" id="export-kit" ${error || !jobs.length ? "disabled" : ""}>${t("Exporter le Logo Kit complet")}</button><p role="status">${esc(error || String(jobs.length + (jobs.length > 1 ? 1 : 0)) + " " + t("fichiers à exporter"))}</p>`;
     main.querySelector(".family-heading").after(summary);
+    if (p.mode === "clearspace") summary.querySelector("#export-kit").textContent = t("Exporter les zones de sécurité");
     summary.querySelector("#export-kit").onclick = () => runExport(items);
     summary.querySelectorAll("[data-export-preset]").forEach(
       (el) =>
@@ -441,7 +425,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
                   ? ["svg", "png"]
                   : preset === "print"
                     ? ["svg", "pdf"]
-                    : ["svg", "png", "jpeg", "pdf"],
+                    : p.mode === "clearspace" ? ["svg", "png", "pdf"] : ["svg", "png", "jpeg", "pdf"],
               width: preset === "web" ? 1600 : 3000,
               height: preset === "web" ? 1600 : 3000,
               dpi: preset === "web" ? 144 : 300,
@@ -450,7 +434,10 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
           })),
     );
   }
-  document.querySelector("#selection-count").textContent =
+  const versionCount = document.querySelector(".selected-versions");
+  if (versionCount) versionCount.textContent = `${p.enabled.reduce((sum,v) => sum+CATEGORIES.reduce((n,c) => n+selectedCount(p,v,c),0n),0n)} ${t("versions sélectionnées")}`;
+  const countTarget = document.querySelector("#selection-count");
+  if (countTarget) countTarget.textContent =
     error ||
     `${jobs.length + (jobs.length > 1 ? 1 : 0)} ${t("fichiers à exporter")}`;
   if (document.querySelector('[data-action="export"]'))
@@ -486,7 +473,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
       p.enabled = variantIds(p);
       p.excluded = [];
       p.excludedFiles = [];
-      setCategory(p, p.enabled, CATEGORIES, "recommended");
+      setCategory(p, p.enabled, CATEGORIES, "all");
     });
   const bulk = (categories, mode) =>
     edit(() => setCategory(p, scope(p), categories, mode));
@@ -539,31 +526,9 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
         mountWorkshop(p, edit, runExport);
       }),
   );
-  main.querySelectorAll("[data-global-pair]").forEach(
-    (el) =>
-      (el.onchange = () =>
-        edit(() => {
-          p.jpegGlobal ||= {};
-          p.jpegGlobal[el.dataset.globalPair] = el.checked;
-        })),
-  );
-  main.querySelectorAll("[data-pair-preview]").forEach(
-    (el) =>
-      (el.ontoggle = () => {
-        if (!el.open || el.dataset.rendered) return;
-        el.dataset.rendered = "true";
-        const item = pairItems[+el.dataset.pairPreview];
-        const pairs = jpegPairs(p, item);
-        el.querySelectorAll(".pair-swatch").forEach((swatch, index) => {
-          swatch.innerHTML = jpegPreview(p, pairs[index]);
-        });
-      }),
-  );
-  main.querySelector("#reset-global-pairs").onclick = () =>
-    edit(() => {
-      p.jpegGlobal = {};
-      p.jpegOverrides = {};
-    });
+  const jpeg = main.querySelector('[data-section="jpeg"]');
+  jpeg.hidden = p.mode === "clearspace" || step === "delivery" || galleryFilter !== "jpeg";
+  if (!jpeg.hidden) mountJpegGallery(main.querySelector("#jpeg-gallery"), p, scope(p), edit, () => mountWorkshop(p,edit,runExport));
   main.querySelectorAll("[data-gradient-edit]").forEach(
     (el) =>
       (el.onclick = () => {
@@ -615,4 +580,11 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
   };
   bindRoles(p, edit, main);
   translateDOM(main);
+  const tabs = main.querySelector(".gallery-filters");
+  const activeTab = tabs?.querySelector('[aria-selected="true"]');
+  if (activeTab) {
+    const right = activeTab.offsetLeft + activeTab.offsetWidth;
+    if (right > tabs.scrollLeft + tabs.clientWidth) tabs.scrollLeft = right - tabs.clientWidth;
+    else if (activeTab.offsetLeft < tabs.scrollLeft) tabs.scrollLeft = activeTab.offsetLeft;
+  }
 }

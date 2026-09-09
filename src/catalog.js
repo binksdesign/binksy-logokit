@@ -15,11 +15,15 @@ export function catalog(p, variant, category) {
   const parts = layout(p, variant).parts;
   if (
     !parts.length ||
-    (p.mode !== "ready" &&
+    (p.mode === "compose" &&
       ["horizontal", "vertical"].includes(variant) &&
       parts.length !== 2)
   )
     return { size: 0n, at: () => null };
+  if (p.mode === "clearspace") return category !== "original" ? { size: 0n, at: () => null } : {
+    size: 1n,
+    at: index => BigInt(index) === 0n ? { id: variant + ":original", variant, category: "original", color: {id:"original",name:"Original",hex:null}, recommended:true } : null,
+  };
   const roles = rolesFor(p, variant).filter((r) => !r.locked);
   const palette = [
     ...new Map(
@@ -119,6 +123,7 @@ export function selectedItem(p, item) {
   return s[item.id] ?? (p.excluded.includes(item.id) ? false : rule);
 }
 export function selectedCount(p, variant, category) {
+  if (p.mode === "clearspace" && category !== "original") return 0n;
   const c = catalog(p, variant, category),
     s = p.colorSelection || {},
     rule =
@@ -140,7 +145,12 @@ export function selectedCount(p, variant, category) {
             : "mono";
       if (kind === category && value !== rule) count += value ? 1n : -1n;
     }
-  return count < 0n ? 0n : count;
+  if (rule) for (const id of new Set(p.excluded || [])) {
+    if (!id.startsWith(variant + ":") || id.includes(":jpeg:") || Object.hasOwn(s,id)) continue;
+    const kind = id.includes(":g-") ? "gradient" : id.includes(":m-") ? "multi" : id.endsWith(":original") ? "original" : "mono";
+    if (kind === category) count--;
+  }
+  return count < 0n ? 0n : count > c.size ? c.size : count;
 }
 export function setCategory(p, variants, categories, mode) {
   p.colorSelection ||= {};
@@ -198,6 +208,7 @@ export function selectedItems(p, limit = 500) {
   return result;
 }
 export function deliveries(p, items) {
+  if (p.mode === "clearspace") return items.filter(i => i.color.id === "original");
   return items.flatMap((item) => [
     ...(p.exports.formats.some((f) => f !== "jpeg") ? [item] : []),
     ...(p.exports.formats.includes("jpeg")

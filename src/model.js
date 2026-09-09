@@ -17,6 +17,7 @@ export function project(mode = "compose") {
     ready: [],
     canvas: "#ffffff",
     jpegOverrides: {},
+    jpegExceptions: {},
     id: crypto.randomUUID(),
     brand: t("Sans titre"),
     assets: { icon: null, wordmark: null },
@@ -55,7 +56,7 @@ export function project(mode = "compose") {
       uppercase: false,
     },
     exports: {
-      formats: ["svg", "png", "jpeg", "pdf"],
+      formats: mode === "clearspace" ? ["svg", "png", "pdf"] : ["svg", "png", "jpeg", "pdf"],
       width: 3000,
       height: 3000,
       dpi: 300,
@@ -67,7 +68,7 @@ export function project(mode = "compose") {
   };
 }
 export function layout(p, v = p.active) {
-  if (p.mode === "ready") {
+  if (p.mode !== "compose") {
     const variant = p.ready.find((r) => r.id === v);
     if (!variant) return { X: 50, parts: [], x: 0, y: 0, width: 1, height: 1 };
     const asset = variant.asset;
@@ -161,6 +162,7 @@ export function layout(p, v = p.active) {
   };
 }
 export function colors(p) {
+  if (p.mode === "clearspace") return [{ id: "original", name: "Original", hex: null }];
   return [
     { id: "original", name: "Original", hex: null },
     { id: "black", name: t("Noir · positif"), hex: "#000000" },
@@ -173,7 +175,7 @@ export function baseFamily(p) {
     const l = layout(p, variant);
     if (
       !l.parts.length ||
-      (p.mode !== "ready" &&
+      (p.mode === "compose" &&
         ["horizontal", "vertical"].includes(variant) &&
         l.parts.length < 2)
     )
@@ -249,10 +251,10 @@ export class History {
 }
 
 export function variantIds(p) {
-  return p.mode === "ready" ? p.ready.map((r) => r.id) : VARIANTS;
+  return p.mode !== "compose" ? p.ready.map((r) => r.id) : VARIANTS;
 }
 export function variantName(p, id) {
-  return p.mode === "ready"
+  return p.mode !== "compose"
     ? p.ready.find((r) => r.id === id)?.name || "Variante"
     : t(LABELS[id] || id);
 }
@@ -317,6 +319,7 @@ export function jpegPairs(p, item) {
       recommended: ratio >= p.exports.contrast,
       globalId: item.color.id + ":jpeg:" + bg.id,
       enabled:
+        p.jpegExceptions?.[id] ??
         p.jpegGlobal?.[item.color.id + ":jpeg:" + bg.id] ??
         p.jpegOverrides[id] ??
         ratio >= p.exports.contrast,
@@ -343,7 +346,9 @@ export function clearMeasure(p, v = p.active) {
   const c = p.compositions[v] || project().compositions.horizontal,
     l = layout(p, v);
   let value;
-  if (p.mode === "ready")
+  if (c.clearMethod === "visual") value = c.visualMeasure?.value;
+  else if (c.clearMethod === "auto") value = Math.min(l.width, l.height);
+  else if (p.mode !== "compose")
     value = c.references?.[c.clearRef] || Math.min(l.width, l.height);
   else {
     const icon = l.parts.find((q) => q.key === "icon");
@@ -369,7 +374,7 @@ export function clearMeasure(p, v = p.active) {
   }
   return {
     reference: c.clearRef,
-    label: CLEAR_REFS[c.clearRef],
+    label: c.clearMethod === "visual" ? (c.visualMeasure?.label || t("Mesure dessinée")) : c.clearMethod === "auto" ? t("Petit côté du logo") : t(CLEAR_REFS[c.clearRef]),
     value: value || (l.parts.length ? Math.min(l.width, l.height) : 0),
     multiplier: c.clearMultiplier,
     space:

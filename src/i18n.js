@@ -1,4 +1,33 @@
 import { en } from "./locales/en.js";
+const vocabulary = {
+  "Variantes": "Versions du logo",
+  "Variantes du logo": "Versions du logo",
+  "Construction": "Version",
+  "Couleurs simples": "Une seule couleur",
+  "Variantes multicolores": "Plusieurs couleurs",
+  "Rôles colorimétriques": "Couleurs du logo",
+  "Fonds recommandés": "Logo sur fond",
+  "Sélection finale": "Fichiers à exporter",
+  "Clearspace": "Zone de sécurité",
+  "CLEARSPACE": "ZONE DE SÉCURITÉ",
+  "Référence": "Mesure utilisée",
+  "Centrage géométrique": "Centrage exact",
+  "Centrage optique": "Centrage visuel",
+  "Zone de protection": "Zone de sécurité",
+  "Nom de la variante": "Nom de la version",
+  "Toutes les constructions": "Toutes les versions",
+  "Ajuster la protection": "Définir la zone de sécurité",
+  "Réglages avancés": "Plus de réglages",
+  "Full System": "Système complet",
+  "Inclure les planches clearspace": "Inclure les planches de zone de sécurité",
+  "VARIANTES IMPORTÉES": "VERSIONS IMPORTÉES",
+  "Un SVG par construction. Nommez chaque variante.": "Un SVG = une version du logo.",
+  "Importez vos constructions. Générez les couleurs, clearspaces et fichiers de livraison.": "Importez vos versions assemblées. Préparez leurs couleurs et leurs fichiers.",
+  "Largeur du brandmark": "Largeur de l’icône",
+  "Hauteur du brandmark": "Hauteur de l’icône",
+  "Largeur du brandmark · px": "Largeur de l’icône · px",
+  "Continuer": "Étape suivante"
+};
 let locale = "fr";
 try {
   if (typeof window !== "undefined")
@@ -13,7 +42,7 @@ export function setLanguage(value) {
   document.documentElement.lang = locale;
 }
 export function t(message, values = {}) {
-  let text = locale === "en" ? en[message] || dynamic(message) : message;
+  let text = locale === "en" ? en[vocabulary[message] || message] || en[message] || dynamic(message) : vocabulary[message] || message;
   for (const [key, value] of Object.entries(values))
     text = text.replaceAll("{" + key + "}", String(value));
   return text;
@@ -48,7 +77,7 @@ function dynamic(text) {
 // Adapter for the existing HTML templates. New UI uses t() directly. Never translate SVG content or input values.
 export function translateDOM(root = document.querySelector("#app")) {
   document.documentElement.lang = locale;
-  if (!root || locale !== "en") return;
+  if (!root) return;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let node;
   while ((node = walker.nextNode())) {
@@ -61,6 +90,7 @@ export function translateDOM(root = document.querySelector("#app")) {
   }
   for (const el of root.querySelectorAll("[aria-label],[title],[placeholder]"))
     for (const key of ["aria-label", "title", "placeholder"]) {
+      if (el.closest("[data-no-i18n]")) continue;
       const value = el.getAttribute(key);
       if (value) el.setAttribute(key, t(value));
     }

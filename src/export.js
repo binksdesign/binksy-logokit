@@ -1,3 +1,4 @@
+import { t } from "./i18n.js";
 import { jsPDF } from "jspdf";
 import "svg2pdf.js";
 import { zipSync, strToU8 } from "fflate";
@@ -98,7 +99,7 @@ export function makeFile(p, item, format) {
 export function exportPlan(p, items, includeExcluded = false) {
   const root = slug(p.brand).toUpperCase(),
     jobs = [];
-  for (const item of items) {
+  for (const item of p.mode === "clearspace" ? [] : items) {
     const formats = item.background
       ? ["jpeg"]
       : p.exports.formats.filter((f) => f !== "jpeg");
@@ -116,7 +117,7 @@ export function exportPlan(p, items, includeExcluded = false) {
       });
     }
   }
-  if (p.exports.clearspace) {
+  if (p.exports.clearspace || p.mode === "clearspace") {
     const formats = p.exports.formats.filter((f) =>
       ["svg", "pdf", "png"].includes(f),
     );
@@ -189,12 +190,12 @@ export async function exportFiles(p, items, progress) {
     return;
   }
   files[slug(p.brand).toUpperCase() + "/RECOMMANDATIONS.txt"] = strToU8(
-    `BINKSY LOGOKIT — ${p.brand}\nSVG / PNG / PDF transparents. JPEG avec marge ${p.exports.jpegMargin} × petit côté du logo.\nContraste JPEG recommandé : ${p.exports.contrast}:1 (luminance sRGB). Couleurs RVB.\n\n` +
+    `BINKSY LOGOKIT — ${p.brand}\n${p.mode === "clearspace" ? t("Planches de zone de sécurité transparentes. Couleurs d’origine du logo conservées.") : t("SVG / PNG / PDF transparents. JPEG avec marge {margin} × petit côté du logo. Contraste conseillé : {contrast}:1 (sRGB). Couleurs RVB.", {margin:p.exports.jpegMargin,contrast:p.exports.contrast})}\n\n` +
       [...new Set(items.map((i) => i.variant))]
         .map((v) => {
           const m = clearMeasure(p, v),
             c = p.compositions[v];
-          return `${variantName(p, v)} : espace ${m.label} × ${m.multiplier} = ${m.space.toFixed(2)} unités ; minimum ${c.minPrint} mm / ${c.minDigital} px.`;
+          return `${variantName(p, v)} · ${t("Zone de sécurité")} : X = ${m.label} · ${m.multiplier}X = ${m.space.toFixed(2)} ${t("unités")}${p.mode === "clearspace" ? "" : ` ; minimum ${c.minPrint} mm / ${c.minDigital} px`}.`;
         })
         .join("\n"),
   );

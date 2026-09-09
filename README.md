@@ -2,14 +2,20 @@
 
 Atelier SVG local, sans compte ni backend. Évolution du moteur BINKSY LOGO SYSTEM, avec compatibilité des projets `.binksy` V1.
 
-## Parcours : automatique, puis modifier
+## Parcours : puissant derrière, simple devant
 
-1. **Importer** : nom de marque, icône et/ou logotype, ou variantes assemblées. Les couleurs, formes, dégradés et centres optiques sont analysés ; une preview apparaît immédiatement. Les couleurs détectées enrichissent automatiquement la palette.
-2. **Construire** : choisir une construction dans ses previews. Tailles indépendantes, espacement et choix visuels d’alignement/centrage ; positions précises, grille, snap et largeurs dans **Réglages avancés**. La protection et les tailles minimales ont leurs propres previews et corrections facultatives.
-3. **Variantes** : galerie filtrable, originales et couleurs simples sélectionnées par défaut. **Couleurs du logo** surligne les zones sélectionnées. **Ajuster les couleurs manuellement** conserve correction, verrous, séparation et fusion. **Personnaliser les combinaisons** conserve Full System et les sélections globales. **Voir toutes les combinaisons** ouvre le catalogue paginé BigInt.
-4. **Exporter** : **Exporter le Logo Kit complet** livre la sélection actuelle. Les nouveaux projets proposent les quatre formats. Presets Web (SVG/PNG, 1600 px, 144 DPI), Print (SVG/PDF, 3000 px, 300 DPI) et Complet (quatre formats, 3000 px, 300 DPI). **Personnaliser l’export** conserve tous les réglages ; **Fonds recommandés** et **Sélection finale** conservent les exceptions et exclusions individuelles.
+L’accueil propose **Variantes à créer**, **Variantes déjà prêtes** et **Juste la zone de sécurité**.
 
-Aucun passage dans les réglages avancés n’est obligatoire. Les étapes sont accessibles après le premier import. Les anciens projets conservent leurs formats et corrections.
+1. **Importer** : nom de marque, icône/logotype ou plusieurs SVG assemblés. La palette est disponible dès le départ dans les deux modes Logo Kit ; projet et police restent secondaires.
+2. **Assembler le logo** : canvas prioritaire, navigation par previews et inspecteur Composition / Position / Guides / Plus de réglages. Tailles, déplacement, poignées, positions précises, largeurs, centrages exact/visuel, grille, magnétisme et tailles minimales sont conservés. Mode focus masque les panneaux.
+3. **Versions du logo** : un seul onglet visible parmi Original, Une seule couleur, Plusieurs couleurs, Dégradés, JPEG. Recommandées présélectionne ; Tout voir ouvre le catalogue BigInt ; Système complet sélectionne toutes les combinaisons. Les réglages de rôles sont dans Modifier les couleurs du logo, l’éditeur de dégradé apparaît sur demande. JPEG montre les vrais fonds/marges avec choix individuels et associations partagées.
+4. **Exporter** : previews, nombre de versions, déclinaisons et fichiers, presets Web / Print / Complet. Personnaliser l’export conserve les réglages ; Fichiers à exporter conserve les exclusions.
+
+**Juste la zone de sécurité** réutilise le moteur des SVG assemblés, sans palette, recoloration ni génération de dégradés. Parcours Importer → Zone de sécurité → Exporter. Les planches transparentes SVG/PNG/PDF conservent les peintures d’origine. Le ton clair/foncé concerne uniquement les guides. Aucun logo recoloré ni JPEG n’est généré dans ce mode.
+
+**Mesure visuelle** : dans Guides, Définir visuellement permet de tracer un carré temporaire. Taille en direct, magnétisme sur les bords des éléments, Alt pour désactiver le magnétisme. Au relâchement, nommer la mesure puis Utiliser cette mesure. Dimension et nom sont sauvegardés, annulables et réutilisés sur les planches. Le carré n’est jamais exporté. Appliquer à d’autres versions copie la règle aux versions cochées, en unités SVG identiques ; les fichiers à échelles différentes nécessitent une vérification. Automatique, parties du logo, mesures numériques et multiplicateurs restent disponibles.
+
+Les ajouts restent dans `.binksy` V3 (`clearMethod`, `visualMeasure`, `jpegExceptions`). Les fichiers V1/V2/V3 historiques restent lisibles et conservent leurs choix. Les nouvelles exceptions JPEG individuelles priment sur les règles partagées, sans changer la priorité des anciennes exceptions.
 
 ### Éditeur de dégradé
 
@@ -55,6 +61,8 @@ Cloudflare : `wrangler.jsonc` sert le dossier `dist`. Aucun déploiement n’est
 - `src/clearspace.js` : guides et planches vectorielles transparentes.
 - `src/export.js`, `src/raster.js` : SVG/PDF vectoriels, PNG, JPEG, résolution et ZIP.
 - `src/workspace.js` : parcours contextuel Importer / Construire / Variantes / Exporter.
+- `src/visual-measure.js` : interaction de mesure, géométrie du carré et copie de règle.
+- `src/jpeg-gallery.js` : previews paginées des JPEG et choix de fonds.
 - `src/gradient.js`, `src/gradient-editor.js` : paramètres persistants et éditeur visuel de dégradés.
 - `src/main.js`, `src/ui.js`, `src/style.css` : état, événements, accueil, règles agent et espace responsive.
 - `public/brand` : logo, favicon et flèche fournis par Binks, conservés tels quels.
@@ -65,7 +73,7 @@ Les SVG, PNG et PDF sont toujours transparents. Les JPEG utilisent les associati
 
 La marge JPEG, indépendante du clearspace, est une fraction du petit côté du logo. La taille raster est un canvas maximal, sans déformation. La résolution est inscrite dans les métadonnées PNG/JPEG.
 
-Les planches de clearspace claire et foncée sont monochromes, sans rectangle de fond. Elles sont générées une fois par construction sélectionnée, dans les formats transparents choisis (SVG si JPEG seul), dans `Clearspace/`. Les recommandations de taille minimale restent séparées des logos.
+Les planches de zone de sécurité claire et foncée sont monochromes dans les deux modes Logo Kit et conservent les couleurs originales en mode Juste la zone de sécurité, sans rectangle de fond. Elles sont générées une fois par construction sélectionnée, dans les formats transparents choisis (SVG si JPEG seul), dans `Clearspace/`. Les recommandations de taille minimale restent séparées des logos.
 
 ## Projets
 

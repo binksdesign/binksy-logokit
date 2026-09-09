@@ -1,3 +1,5 @@
+import { t } from "./i18n.js";
+const escapeText = value => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[c]);
 import { layout, clearMeasure } from "./model";
 import { compositionSVG } from "./svg";
 export function clearGuides(l, s, tone = "dark") {
@@ -37,5 +39,5 @@ export function clearspaceSVG(p, v, tone = "dark") {
     h = l.height + 2 * s + 2 * pad + 85,
     ink = tone === "light" ? "#ededed" : "#333333";
   const fs = Math.min(14, w / 42);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${x} ${y} ${w} ${h}"><text x="${x + w / 2}" y="${y + 24}" text-anchor="middle" font-family="Arial" font-size="${fs}" fill="${ink}">Clearspace</text>${clearGuides(l, s, tone)}<svg x="${l.x}" y="${l.y}" width="${l.width}" height="${l.height}" viewBox="${l.x} ${l.y} ${l.width} ${l.height}">${compositionSVG(p, v, { hex: ink, force: true }).replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg><text x="${x + w / 2}" y="${y + h - 18}" text-anchor="middle" font-family="Arial" font-size="${fs}" fill="${ink}">X = ${m.label.toLowerCase()} × ${m.multiplier} · ${m.space.toFixed(2)} unités</text></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${x} ${y} ${w} ${h}"><text x="${x + w / 2}" y="${y + 24}" text-anchor="middle" font-family="Arial" font-size="${fs}" fill="${ink}">${t("Zone de sécurité")}</text>${clearGuides(l, s, tone)}<svg x="${l.x}" y="${l.y}" width="${l.width}" height="${l.height}" viewBox="${l.x} ${l.y} ${l.width} ${l.height}">${compositionSVG(p, v, { hex: ink, force: true }).replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg><text x="${x + w / 2}" y="${y + h - 18}" text-anchor="middle" font-family="Arial" font-size="${fs}" fill="${ink}">X = ${escapeText(m.label)} × ${m.multiplier} · ${m.space.toFixed(2)} ${t("unités")}</text></svg>`;
 }

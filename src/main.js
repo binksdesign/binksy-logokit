@@ -1,3 +1,4 @@
+import { editColor } from "./palette.js";
 import { workspace, hasArtwork } from "./workspace.js";
 import { selectedItems, deliveries } from "./catalog.js";
 import { mountWorkshop, bindRoles, resetColorChoices } from "./workshop.js";
@@ -357,41 +358,9 @@ function bind() {
       zoom = +e.target.value;
       drawStage();
     };
-  document
-    .querySelectorAll("[data-color],[data-color-name],[data-color-hex]")
-    .forEach(
-      (el) =>
-        (el.onchange = () => {
-          const id =
-            el.dataset.color || el.dataset.colorName || el.dataset.colorHex;
-          if (el.dataset.colorHex && !/^#[0-9a-f]{6}$/i.test(el.value)) {
-            notice("Utilisez un HEX à six chiffres, par exemple #FF5500.");
-            render();
-            return;
-          }
-          edit(() => {
-            const col = p.colors.find((c) => c.id === id);
-            col[el.dataset.colorName ? "name" : "hex"] = el.value.slice(0, 100);
-            resetColorChoices(p);
-          });
-        }),
-    );
-  document.querySelectorAll("[data-delete]").forEach(
-    (el) =>
-      (el.onclick = () =>
-        edit(() => {
-          p.colors = p.colors.filter((c) => c.id !== el.dataset.delete);
-          resetColorChoices(p);
-        })),
-  );
-  document.querySelectorAll("[data-move]").forEach(
-    (el) =>
-      (el.onclick = () =>
-        edit(() => {
-          const i = +el.dataset.move;
-          [p.colors[i - 1], p.colors[i]] = [p.colors[i], p.colors[i - 1]];
-        })),
-  );
+  document.querySelectorAll("[data-edit-color]").forEach((el) => {
+    el.onclick = () => editColor(p, el.dataset.editColor, edit);
+  });
   document
     .querySelectorAll("[data-format]")
     .forEach(
@@ -574,15 +543,7 @@ function action(name) {
       new Blob([JSON.stringify(p, null, 2)], { type: "application/json" }),
       p.brand.replace(/[^a-z0-9]/gi, "-") + ".binksy",
     );
-  if (name === "add-color")
-    edit(() => {
-      p.colors.push({
-        id: crypto.randomUUID(),
-        name: "Couleur " + (p.colors.length + 1),
-        hex: "#ff5500",
-      });
-      resetColorChoices(p);
-    });
+  if (name === "add-color") editColor(p, null, edit);
   if (name === "reset")
     if (p.mode !== "ready")
       edit(() => (p.compositions[p.active] = project().compositions[p.active]));
@@ -626,7 +587,7 @@ document.addEventListener("keydown", (e) => {
 render();
 if (import.meta.env.PROD && "serviceWorker" in navigator)
   navigator.serviceWorker
-    .register("/sw.js")
+    .register("/sw.js", { updateViaCache: "none" })
     .catch(() =>
       notice("Le cache hors ligne est indisponible dans ce navigateur."),
     );

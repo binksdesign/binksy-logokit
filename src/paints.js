@@ -169,19 +169,5 @@ export function gradientOptions(p) {
     if (index >= 0) list[index] = saved;
     else list.push(saved);
   }
-  return [
-    ...new Map(
-      list.map((g) => [
-        JSON.stringify([
-          g.from,
-          g.to,
-          g.angle || 0,
-          g.mode,
-          g.stops,
-          g.excludedRoles,
-        ]),
-        g,
-      ]),
-    ).values(),
-  ];
+  return [...new Map(list.map((g) => [g.id, g])).values()];
 }

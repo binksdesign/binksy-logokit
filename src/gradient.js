@@ -48,3 +48,26 @@ export function automaticGradientMode(asset) {
     ? "shape"
     : "global";
 }
+
+// p.gradients is authoritative. Descriptor-only legacy definitions are promoted
+// once on load; all references with the same ID then share that definition.
+export function synchronizeGradients(p) {
+  const definitions = new Map((p.gradients || []).map((g) => [g.id, g]));
+  for (const item of Object.values(p.selectedDescriptors || {})) {
+    const g = item.color?.gradient;
+    if (!g?.id) continue;
+    if (!definitions.has(g.id)) definitions.set(g.id, g);
+    item.color.gradient = definitions.get(g.id);
+  }
+  p.gradients = [...definitions.values()];
+}
+export function updateGradient(p, gradient) {
+  const g = { ...structuredClone(gradient), ...gradientSettings(gradient) };
+  g.from = g.stops[0].color;
+  g.to = g.stops.at(-1).color;
+  p.gradients ||= [];
+  const index = p.gradients.findIndex((entry) => entry.id === g.id);
+  if (index < 0) p.gradients.push(g);
+  else p.gradients[index] = g;
+  synchronizeGradients(p);
+}

@@ -2,6 +2,23 @@ import { language } from "./i18n.js";
 // Product documentation: paired FR/EN paragraphs.
 const sections = [
   [
+    ["Palette et réglages partagés", "Palette and shared settings"],
+    [
+      [
+        "La carte Palette de couleurs est visible dès Importer, sous les imports, puis dans Variantes. Cliquer sur un swatch ou Ajouter une couleur ouvre un éditeur avec sélecteur natif, HEX, nom et suppression. Appliquer valide ; Annuler abandonne. La palette peut être créée avant tout SVG. Les imports complètent les couleurs existantes sans doublon ni suppression.",
+        "The Color palette card is visible in Import below the upload blocks, and in Variants. Click a swatch or Add color to open an editor with a native picker, HEX, name and deletion. Apply saves; Cancel discards. Create the palette before any SVG. Imports supplement existing colors without duplicates or removal.",
+      ],
+      [
+        "Les nouveaux projets affichent la grille et les guides de protection par défaut. Leur désactivation reste sauvegardée, y compris dans les anciens projets. Ces options ne changent ni les mesures de clearspace ni les planches d’export.",
+        "New projects show the grid and protection guides by default. Disabling them remains saved, including in older projects. These options change neither clearspace measurements nor export boards.",
+      ],
+      [
+        "Appliquer un dégradé met à jour toutes les variantes de même gradient.id : stops, couleurs, positions, angle, mode et participation. Les IDs différents restent indépendants même à couleurs identiques. La sélection reste intacte ; Undo/Redo et la réouverture V3 conservent la définition partagée.",
+        "Applying a gradient updates every variant with the same gradient.id: stops, colors, positions, angle, mode and participation. Different IDs remain independent even with identical colors. Selection stays intact; Undo/Redo and V3 reopening preserve the shared definition.",
+      ],
+    ],
+  ],
+  [
     ["1. Automatique, puis modifier", "1. Automatic, then edit"],
     [
       [

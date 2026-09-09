@@ -1,4 +1,5 @@
-const CACHE = "binksy-logokit-v3";
+const CACHE = "binksy-logokit-v4";
+const CACHE_PREFIX = "binksy-logokit-";
 self.addEventListener("install", (event) =>
   event.waitUntil(
     caches
@@ -8,7 +9,18 @@ self.addEventListener("install", (event) =>
   ),
 );
 self.addEventListener("activate", (event) =>
-  event.waitUntil(self.clients.claim()),
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE)
+            .map((key) => caches.delete(key)),
+        ),
+      )
+      .then(() => self.clients.claim()),
+  ),
 );
 self.addEventListener("fetch", (event) => {
   if (
@@ -16,24 +28,26 @@ self.addEventListener("fetch", (event) => {
     new URL(event.request.url).origin !== self.location.origin
   )
     return;
+  const isDocument =
+    event.request.mode === "navigate" || event.request.destination === "document";
   event.respondWith(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.match(event.request, { ignoreVary: true }))
-      .then(
-        (cached) =>
-          cached ||
-          fetch(event.request).then((response) => {
-            if (response.ok) {
-              const copy = response.clone();
-              event.waitUntil(
-                caches
-                  .open(CACHE)
-                  .then((cache) => cache.put(event.request, copy)),
-              );
-            }
-            return response;
-          }),
-      ),
+    caches.open(CACHE).then(async (cache) => {
+      if (isDocument) {
+        try {
+          const response = await fetch(event.request);
+          if (response.ok) await cache.put(event.request, response.clone());
+          return response;
+        } catch {
+          return cache.match(event.request, { ignoreVary: true });
+        }
+      }
+
+      const cached = await cache.match(event.request, { ignoreVary: true });
+      if (cached) return cached;
+
+      const response = await fetch(event.request);
+      if (response.ok) await cache.put(event.request, response.clone());
+      return response;
+    }),
   );
 });

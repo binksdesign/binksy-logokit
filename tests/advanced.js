@@ -1,3 +1,4 @@
+import { updateGradient } from "../src/gradient.js";
 import { importSVG, compositionSVG, assetMarkup, mount } from "../src/svg.js";
 import { project, layout, jpegPairs, History } from "../src/model.js";
 import {
@@ -27,6 +28,88 @@ async function test(name, fn) {
   }
   output.textContent = lines.join("\n");
 }
+await test("Canvas defaults and explicit false survive V1/V2/V3 round trips", async () => {
+  for (const version of [1, 2, 3]) {
+    const p = project();
+    assert(p.grid && p.clear);
+    p.version = version;
+    p.grid = p.clear = false;
+    const loaded = await validate(JSON.parse(JSON.stringify(p)));
+    assert(!loaded.grid && !loaded.clear, "explicit false V" + version);
+    const again = await validate(JSON.parse(JSON.stringify(loaded)));
+    assert(!again.grid && !again.clear);
+  }
+});
+await test("Canonical gradients: identity, all settings, selection, history and V3", async () => {
+  let p = project();
+  const a = { id: "g-a", name: "A", from: "#ff5500", to: "#0055ff" };
+  const b = { ...a, id: "g-b", name: "B" };
+  p.gradients = [a, b];
+  p.selectedDescriptors = {};
+  for (const variant of ["horizontal", "vertical", "icon", "wordmark"]) {
+    const g = variant === "wordmark" ? b : a;
+    const id = variant + ":" + g.id;
+    p.selectedDescriptors[id] = {
+      id,
+      variant,
+      category: "gradient",
+      color: {
+        id: g.id,
+        name: g.name,
+        hex: null,
+        gradient: structuredClone(g),
+      },
+    };
+    p.colorSelection[id] = true;
+  }
+  assert(gradientOptions(p).length === 2, "identical colors do not merge IDs");
+  const selection = JSON.stringify(p.colorSelection);
+  const history = new History();
+  for (const mode of ["auto", "global", "shape"]) {
+    history.push(p);
+    updateGradient(p, {
+      ...a,
+      mode,
+      angle: 73,
+      stops: [
+        { offset: 0, color: "#123456" },
+        { offset: 0.37, color: "#abcdef" },
+        { offset: 1, color: "#654321" },
+      ],
+      excludedRoles: ["paint-a"],
+    });
+    const canonical = p.gradients.find((g) => g.id === a.id);
+    for (const item of Object.values(p.selectedDescriptors)) {
+      if (item.variant === "wordmark")
+        assert(JSON.stringify(item.color.gradient) === JSON.stringify(b));
+      else assert(item.color.gradient === canonical);
+    }
+    assert(
+      canonical.stops.length === 3 &&
+        canonical.stops[1].offset === 0.37 &&
+        canonical.angle === 73 &&
+        canonical.mode === mode &&
+        canonical.excludedRoles[0] === "paint-a",
+    );
+    assert(JSON.stringify(p.colorSelection) === selection);
+  }
+  p = history.undo(p);
+  assert(p.gradients.find((g) => g.id === "g-a").mode === "global");
+  p = history.redo(p);
+  assert(p.selectedDescriptors["icon:g-a"].color.gradient.mode === "shape");
+  // Deliberately stale descriptor: the canonical registry must win on import.
+  const serialized = JSON.parse(JSON.stringify(p));
+  serialized.selectedDescriptors["icon:g-a"].color.gradient = a;
+  p = await validate(serialized);
+  assert(
+    p.selectedDescriptors["icon:g-a"].color.gradient ===
+      p.gradients.find((g) => g.id === "g-a"),
+  );
+  assert(
+    p.selectedDescriptors["vertical:g-a"].color.gradient.stops.length === 3,
+  );
+  assert(JSON.stringify(p.colorSelection) === selection);
+});
 const svg = (body) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100">${body}</svg>`;
 const rect = (x, color) =>
@@ -62,6 +145,59 @@ for (const [key, source] of Object.entries(cases))
         .querySelector("parsererror") === null,
     );
   });
+await test("Gradient catalogs and rendered previews refresh for every linked construction", async () => {
+  const p = project();
+  p.assets.icon = assets.C;
+  p.assets.wordmark = assets.D;
+  p.colors = [{ id: "orange", name: "Orange", hex: "#ff5500" }];
+  const g = gradientOptions(p)[0];
+  const other = { ...g, id: "g-other" };
+  p.gradients = [other];
+  const stopsOf = (markup) =>
+    [
+      ...new DOMParser()
+        .parseFromString(markup, "image/svg+xml")
+        .querySelectorAll("stop"),
+    ]
+      .map((el) => el.outerHTML)
+      .join("");
+  const before = stopsOf(
+    compositionSVG(p, "wordmark", {
+      id: other.id,
+      gradient: other,
+    }),
+  );
+  updateGradient(p, {
+    ...g,
+    angle: 91,
+    mode: "global",
+    stops: [
+      { offset: 0, color: "#123456" },
+      { offset: 0.4, color: "#abcdef" },
+      { offset: 1, color: "#654321" },
+    ],
+    excludedRoles: [],
+  });
+  for (const variant of ["horizontal", "vertical", "icon"]) {
+    const c = catalog(p, variant, "gradient");
+    const items = Array.from({ length: Number(c.size) }, (_, i) =>
+      c.at(BigInt(i)),
+    );
+    const item = items.find((item) => item.color.gradient.id === g.id);
+    assert(item.color.gradient.stops.length === 3);
+    const markup = compositionSVG(p, variant, item.color);
+    assert(markup.includes("#abcdef") && markup.includes("#123456"), variant);
+  }
+  assert(
+    stopsOf(
+      compositionSVG(p, "wordmark", {
+        id: other.id,
+        gradient: p.gradients.find((x) => x.id === other.id),
+      }),
+    ) === before,
+  );
+});
+
 let p = project();
 p.assets.icon = assets.A;
 p.assets.wordmark = assets.D;

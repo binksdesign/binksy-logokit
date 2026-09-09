@@ -1894,3 +1894,108 @@ dialog input {
 .guided-workspace .canvas-footer { display:none; }
 .guided-workspace .stage-caption { display:none; }
 @media (min-width:851px) { .step-heading h1 { font-size:26px; max-width:530px; } }
+
+
+/* Shared palette: swatches stay compact; fields only appear in the editor. */
+.palette-panel h2 {
+  margin-bottom: 8px;
+}
+.palette-panel p {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.palette-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 10px;
+}
+.palette-swatch {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.palette-swatch::before {
+  content: "";
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: var(--swatch);
+  border: 1px solid #0002;
+}
+.palette-swatch span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  margin-top: 5px;
+}
+.palette-add {
+  grid-column: 1 / -1;
+  min-height: 44px;
+  border-style: dashed;
+}
+.palette-editor {
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  box-sizing: border-box;
+  padding: 20px;
+  border: 1px solid #191919;
+  border-radius: 12px;
+  background: #efefef;
+  color: #191919;
+}
+.palette-editor::backdrop {
+  background: #19191980;
+}
+.palette-editor h2 {
+  font-size: 18px;
+}
+.palette-editor .field {
+  margin-top: 14px;
+}
+.palette-editor input {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+.palette-picker {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+.palette-picker input {
+  height: 80px;
+  padding: 4px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.palette-editor .dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+.palette-editor button {
+  min-height: 40px;
+}
+.header-actions svg {
+  display: block;
+}
+.guided-workspace .left {
+  display: block;
+  grid-column: auto;
+}
+.guided-workspace .left > section {
+  min-width: 0;
+}
+.header-actions > button[data-action="undo"],
+.header-actions > button[data-action="redo"] {
+  padding: 4px;
+}
+.header-actions button svg { flex-shrink: 0; }
+@media (max-width: 850px) {
+  header nav { height: 44px; flex-basis: 100%; }
+}

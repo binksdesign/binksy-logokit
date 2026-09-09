@@ -626,7 +626,7 @@ document.addEventListener("keydown", (e) => {
 render();
 if (import.meta.env.PROD && "serviceWorker" in navigator)
   navigator.serviceWorker
-    .register("/sw.js")
+    .register("/sw.js", { updateViaCache: "none" })
     .catch(() =>
       notice("Le cache hors ligne est indisponible dans ce navigateur."),
     );

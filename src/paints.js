@@ -145,18 +145,21 @@ export function gradientOptions(p) {
         list.push({
           id: `g-${a.id}-${b.id}`,
           name: `${a.name} → ${b.name}`,
+          mode: "auto",
           from: a.hex,
           to: b.hex,
         });
     list.push({
       id: `g-${a.id}-light`,
       name: `${a.name} +`,
+      mode: "auto",
       from: a.hex,
       to: shade(a.hex, 0.16),
     });
     list.push({
       id: `g-${a.id}-dark`,
       name: `${a.name} −`,
+      mode: "auto",
       from: a.hex,
       to: shade(a.hex, -0.16),
     });
@@ -167,6 +170,18 @@ export function gradientOptions(p) {
     else list.push(saved);
   }
   return [
-    ...new Map(list.map((g) => [g.from + g.to + (g.angle || 0), g])).values(),
+    ...new Map(
+      list.map((g) => [
+        JSON.stringify([
+          g.from,
+          g.to,
+          g.angle || 0,
+          g.mode,
+          g.stops,
+          g.excludedRoles,
+        ]),
+        g,
+      ]),
+    ).values(),
   ];
 }

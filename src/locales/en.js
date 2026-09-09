@@ -1,5 +1,5 @@
 export const en = {
-  "Exporter cette déclinaison":"Export this variant",
+  "Exporter cette déclinaison": "Export this variant",
   "Tous les formats": "All formats",
   "Noir · positif": "Black · positive",
   "Blanc · négatif": "White · negative",
@@ -293,3 +293,89 @@ export const en = {
   "Lot supérieur à 256 Mo. Réduisez la sélection.":
     "Batch exceeds 256 MB. Reduce the selection.",
 };
+
+Object.assign(en, {
+  Importer: "Import",
+  Construire: "Build",
+  Variantes: "Variants",
+  Exporter: "Export",
+  "Gérer le projet": "Manage project",
+  "Importer .binksy": "Import .binksy",
+  "Sauvegarder .binksy": "Save .binksy",
+  Inclure: "Include",
+  Palette: "Palette",
+  "Personnaliser la palette": "Customize palette",
+  "Ajuster la protection": "Adjust protection",
+  "Ajuster les tailles minimales": "Adjust minimum sizes",
+  "Prêt à utiliser · ajustements facultatifs":
+    "Ready to use · optional adjustments",
+  "Réglages avancés": "Advanced settings",
+  "Taille de l’icône": "Icon size",
+  "Taille du logotype": "Wordmark size",
+  "Centrage géométrique": "Geometric centering",
+  "Centrage optique": "Optical centering",
+  "Zone de protection": "Clearspace",
+  "Tailles minimales": "Minimum sizes",
+  "Binksy prépare votre système": "Binksy prepares your system",
+  "Les formes, couleurs et dégradés sont analysés dès l’import.":
+    "Shapes, colors and gradients are analyzed as soon as you import.",
+  "Automatique · recommandé": "Automatic · recommended",
+  "Votre sélection": "Your selection",
+  "Les versions originales et les couleurs simples sont recommandées. Ajoutez les combinaisons qui vous plaisent.":
+    "Originals and simple colors are recommended. Add the combinations you like.",
+  Continuer: "Continue",
+  "Étapes du Logo Kit": "Logo Kit steps",
+  "Importez votre logo. Binksy prépare la suite.":
+    "Import your logo. Binksy handles the rest.",
+  "Votre système prend forme. Ajustez seulement si nécessaire.":
+    "Your system takes shape. Adjust only if needed.",
+  "Choisissez visuellement les versions à livrer.":
+    "Choose the versions to deliver visually.",
+  "Votre Logo Kit est prêt à partir.": "Your Logo Kit is ready to go.",
+  "Analyse terminée · votre système est prêt":
+    "Analysis complete · your system is ready",
+  "Couleurs du logo": "Logo colors",
+  Couleur: "Color",
+  "Conserver cette couleur dans les variantes": "Keep this color in variants",
+  "Ajuster les couleurs manuellement": "Adjust colors manually",
+  "Personnaliser les combinaisons": "Customize combinations",
+  Toutes: "All",
+  Originales: "Originals",
+  Multicolores: "Multicolor",
+  "Voir les suggestions": "See suggestions",
+  "Voir toutes les combinaisons": "See all combinations",
+  "Logo Kit complet": "Complete Logo Kit",
+  "Vos variantes sélectionnées, leurs fichiers et les recommandations dans un ZIP.":
+    "Your selected variants, their files and recommendations in one ZIP.",
+  "Exporter le Logo Kit complet": "Export the complete Logo Kit",
+  "Personnaliser l’export": "Customize export",
+  "Fonds recommandés": "Recommended backgrounds",
+  Automatique: "Automatic",
+  "Dégradé global": "Global gradient",
+  "Dégradé par forme": "Gradient per shape",
+  "Stops du dégradé": "Gradient stops",
+  Position: "Position",
+  "Ajouter une couleur": "Add a color",
+  "Formes participant au dégradé": "Shapes participating in the gradient",
+  "Décochez une couleur pour conserver ses formes originales.":
+    "Uncheck a color to preserve its original shapes.",
+  "Monter la couleur": "Move color up",
+  Complet: "Complete",
+  "Nouveau projet": "New project",
+  "Icon Only": "Icon",
+  "Wordmark Only": "Wordmark",
+});
+
+Object.assign(en, {
+  "Votre sélection est conservée.": "Your selection is preserved.",
+  "Revoir les variantes": "Review variants",
+  "Déposez votre premier SVG": "Drop your first SVG",
+  "Une icône, un logotype ou une variante assemblée suffit pour commencer.":
+    "An icon, a wordmark or an assembled variant is enough to start.",
+});
+
+Object.assign(en, {
+  "Analyse du SVG…": "Analyzing SVG…",
+  "Automatique : petit côté du logo. Une mesure manuelle remplace cette estimation.":
+    "Automatic: the logo’s shorter side. A manual measurement overrides this estimate.",
+});

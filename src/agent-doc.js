@@ -1,136 +1,118 @@
 import { language } from "./i18n.js";
-// Paired paragraphs keep operational instructions in both languages in one structure.
+// Product documentation: paired FR/EN paragraphs.
 const sections = [
   [
-    ["1. Décisions avant génération", "1. Decisions before generation"],
+    ["1. Automatique, puis modifier", "1. Automatic, then edit"],
     [
       [
-        "Ne jamais choisir arbitrairement un paramètre important. Une valeur par défaut ne constitue pas une validation. Réutiliser les décisions explicites ; sinon expliquer brièvement les options, recommander une option, donner la raison et demander la décision finale.",
-        "Never choose an important setting arbitrarily. A default is not user approval. Reuse explicit decisions; otherwise briefly explain the options, recommend one, give the reason and request the final decision.",
+        "Parcours : Importer → Construire → Variantes → Exporter. Binksy analyse les SVG, prépare les compositions et propose les couleurs sans configuration obligatoire. L’utilisateur vérifie les résultats puis exporte. Réutiliser ses corrections explicites ; ne jamais les remplacer silencieusement par des recommandations.",
+        "Workflow: Import → Build → Variants → Export. Binksy analyzes SVGs, prepares compositions and suggests colors without mandatory configuration. The user reviews the results and exports. Reuse explicit corrections; never silently replace them with recommendations.",
       ],
       [
-        "Avant de générer, confirmer : constructions, dimensions des deux éléments, espacement, centrage, palette, rôles et verrous, dégradés, clearspace, associations JPEG, formats, dimensions raster, nommage et fichiers retenus.",
-        "Before generating, confirm: constructions, both element dimensions, spacing, centring, palette, roles and locks, gradients, clearspace, JPEG pairings, formats, raster dimensions, naming and selected files.",
+        "Les étapes sont accessibles librement après un premier import. Réglages avancés, Ajuster les couleurs manuellement, Personnaliser les combinaisons et Personnaliser l’export sont facultatifs. Chaque choix visuel montre le vrai logo.",
+        "Steps are freely accessible after the first import. Advanced settings, Adjust colors manually, Customize combinations and Customize export are optional. Every visual choice shows the actual logo.",
       ],
     ],
   ],
   [
-    ["2. Modes et entrées", "2. Modes and inputs"],
+    ["2. Importer", "2. Import"],
     [
       [
-        "Variantes à créer : importer deux SVG, brandmark et logotype. Choisir horizontal, vertical, icône seule ou logotype seul. Variantes déjà prêtes : importer un SVG par construction, nommer chaque variante et conserver sa composition.",
-        "Build variants: import two SVGs, a brandmark and a wordmark. Choose horizontal, vertical, icon only or wordmark only. Ready-made variants: import one SVG per construction, name each variant and retain its composition.",
+        "Importer une icône et/ou un logotype séparés, ou un SVG par variante déjà assemblée. Binksy détecte les formes, couleurs, dégradés et centres optiques. Les couleurs détectées enrichissent la palette sans supprimer les couleurs existantes. Les ressources externes et images intégrées sont refusées.",
+        "Import a separate icon and/or wordmark, or one SVG per assembled variant. Binksy detects shapes, colors, gradients and optical centers. Detected colors enrich the palette without removing existing colors. External resources and embedded images are rejected.",
       ],
       [
-        "SVG locaux uniquement. Les ressources externes et images intégrées sont refusées. Un texte simple peut être vectorisé avec la police exacte OTF/TTF fournie ; demander la vectorisation des textes complexes. Les dégradés linéaires/radiaux et leurs stops sont conservés.",
-        "Local SVGs only. External resources and embedded images are rejected. Simple text can be outlined using the supplied exact OTF/TTF font; request outlines for complex text. Linear/radial gradients and their stops are preserved.",
+        "Les dégradés importés linéaires et radiaux sont conservés. Pour du texte simple, charger la police exacte OTF/TTF avant le SVG. Les textes complexes doivent être vectorisés dans le logiciel source. Les noms utilisateur ne sont pas traduits.",
+        "Imported linear and radial gradients are preserved. For simple text, load the exact OTF/TTF font before the SVG. Complex text must be outlined in the source application. User names are not translated.",
       ],
     ],
   ],
   [
-    ["3. Dimensions, grille et centrage", "3. Dimensions, grid and centring"],
+    ["3. Construire", "3. Build"],
     [
       [
-        "Les hauteurs et largeurs du brandmark et du logotype sont indépendantes, en pixels/unités SVG. Modifier une largeur recalcule uniquement la hauteur du même élément, et inversement. Les proportions restent verrouillées. Les quatre poignées de l’élément sélectionné permettent un redimensionnement au pixel ; Alt autorise les fractions de pixel. Les champs restent synchronisés. Les touches fléchées sur une poignée modifient la hauteur de 1 px.",
-        "Brandmark and wordmark heights and widths are independent, in pixels/SVG units. Editing a width recalculates only the same element’s height, and vice versa. Proportions remain locked. Four handles on the selected element resize to whole pixels; Alt allows fractional pixels. Fields stay synchronised. Arrow keys on a handle change height by 1 px.",
+        "Choisir Horizontal, Vertical, Icône ou Logotype dans les previews. Seuls les réglages de cette construction apparaissent : tailles indépendantes, espacement, alignement et centrage. Le centrage géométrique utilise les limites, le centrage optique la masse opaque. Les deux choix montrent leur résultat.",
+        "Choose Horizontal, Vertical, Icon or Wordmark in the previews. Only that construction’s controls appear: independent sizes, spacing, alignment and centering. Geometric centering uses bounds; optical centering uses opaque mass. Both show their result.",
       ],
       [
-        "X = hauteur actuelle du logotype / 2. La grille commence au bord gauche et en haut du logotype, et passe par son bas. Déplacer les éléments avec le snap ¼X ; Alt libère le déplacement. Real Center utilise les limites géométriques ; Optical Center utilise la masse opaque. Recommander le centrage géométrique pour commencer puis faire valider les compensations optiques et les offsets.",
-        "X = current wordmark height / 2. The grid starts at the wordmark’s left and top edges and passes through its bottom edge. Move elements with ¼X snapping; Alt disables snapping. Real Center uses geometric bounds; Optical Center uses opaque mass. Recommend geometric centring first, then ask approval for optical corrections and offsets.",
+        "Les proportions sont verrouillées. Une largeur recalcule seulement la hauteur du même élément. Les poignées redimensionnent au pixel ; Alt autorise les fractions. Les flèches sur une poignée changent la hauteur de 1 px. Réglages avancés contient les positions X/Y, largeurs, grille, snap et zoom. X = hauteur actuelle du logotype / 2. Le déplacement utilise le snap ¼X ; Alt le désactive. Undo/Redo conserve les réglages.",
+        "Proportions are locked. A width changes only the same element’s height. Handles resize to whole pixels; Alt allows fractions. Arrow keys on a handle change height by 1 px. Advanced settings contains X/Y positions, widths, grid, snapping and zoom. X = current wordmark height / 2. Dragging uses ¼X snapping; Alt disables it. Undo/Redo retains settings.",
       ],
     ],
   ],
   [
-    ["4. Rôles colorimétriques", "4. Colour roles"],
+    ["4. Couleurs du logo", "4. Logo colors"],
     [
       [
-        "L’import regroupe les couleurs pleines identiques des fill, stroke et stops en rôles partagés. Examiner la liste et ses éléments avant génération. Renommer les rôles pour les rendre compréhensibles. Modifier leur couleur corrige l’original. Les corrections et verrous d’un rôle partagé se propagent aux assets du même identifiant. Verrouiller un rôle empêche sa recoloration. Séparer les éléments crée des rôles indépendants ; fusionner regroupe les couleurs et états de verrouillage identiques. Les masques et tracés de découpe ne sont pas recolorés.",
-        "Import groups identical solid fill, stroke and stop colours into shared roles. Review the list and its elements before generation. Rename roles for clarity. Editing a role colour corrects the original. Shared-role corrections and locks propagate to assets with the same role identifier. Locking prevents recolouring. Split elements creates independent roles; merge groups identical colours and lock states. Masks and clipping geometry are not recoloured.",
+        "Les pastilles Couleur 1, 2, 3… regroupent les peintures identiques. Cliquer une pastille surligne les formes correspondantes dans la preview dédiée. Ajuster les couleurs manuellement permet de renommer, corriger, conserver une couleur dans les variations, séparer les éléments et fusionner les couleurs identiques ayant le même état de verrouillage.",
+        "Color 1, 2, 3… chips group identical paints. Clicking a chip highlights matching shapes in its dedicated preview. Adjust colors manually allows renaming, correcting, retaining a color in variations, splitting elements and merging identical colors with matching lock state.",
       ],
       [
-        "Demander quelles parties doivent rester fixes. Recommander le regroupement par couleur de marque lorsqu’il est voulu ; proposer la séparation pour deux éléments de même couleur qui doivent varier indépendamment. Les corrections de rôles ou de palette réinitialisent la sélection générée, pour éviter de livrer des choix périmés.",
-        "Ask which parts must remain fixed. Recommend grouping by brand colour when intended; propose splitting two same-colour elements that must vary independently. Role or palette edits reset generated selections to prevent stale delivery choices.",
+        "Le moteur conserve ses rôles et indices de nœuds ; ils ne sont pas nécessaires à l’utilisation. Une correction de couleur ou un verrou se propage aux rôles partagés de même identifiant. Séparer crée des identifiants indépendants. Les masques et tracés de découpe ne sont pas recolorés. Corriger une couleur ou la palette réinitialise les sélections générées pour éviter des choix périmés.",
+        "The engine retains roles and node indices; using the app does not require knowing them. A color correction or lock propagates to shared roles with the same identifier. Splitting creates independent identifiers. Masks and clipping geometry are not recolored. Color or palette edits reset generated selections to avoid stale choices.",
       ],
     ],
   ],
   [
-    ["5. Combinaisons et dégradés", "5. Combinations and gradients"],
+    ["5. Variantes et dégradés", "5. Variants and gradients"],
     [
       [
-        "Les catégories sont Original, Couleurs simples, Variantes multicolores et Dégradés. Les rôles non verrouillés peuvent utiliser noir, blanc et chaque couleur unique de la palette. Toutes les affectations multicolores sont accessibles par pagination, sans charger tout le produit cartésien. Les affectations déjà couvertes par les couleurs simples ou l’original sont retirées lorsqu’elles sont identiques.",
-        "Categories are Original, Single colours, Multicolour variants and Gradients. Unlocked roles can use black, white and every unique palette colour. All multicolour assignments are accessible through pagination without loading the whole Cartesian product. Assignments already covered by single colours or the original are removed when identical.",
+        "La galerie filtre Toutes, Originales, Couleurs simples, Multicolores et Dégradés. Les originales et couleurs simples sont sélectionnées par défaut. Ajouter individuellement les autres versions souhaitées. Voir toutes les combinaisons ouvre la pagination BigInt : ne jamais matérialiser le produit cartésien. Full System réactive les constructions et les recommandations ; les contrôles de sélection globale restent dans Personnaliser les combinaisons.",
+        "The gallery filters All, Originals, Single colors, Multicolor and Gradients. Originals and single colors are selected by default. Add other desired versions individually. See all combinations opens BigInt pagination: never materialize the Cartesian product. Full System restores constructions and recommendations; bulk selection controls remain in Customize combinations.",
       ],
       [
-        "Les dégradés proposés utilisent chaque paire ordonnée de la palette et chaque couleur vers une version claire ou foncée. La variation utilise OKLab, à teinte constante, avec réduction de chroma pour rester dans le gamut sRGB. Modifier les deux couleurs et l’angle si nécessaire. Un gradient importé conserve sa géométrie dans l’original et dans les recolorations de stops. Les dégradés générés couvrent chaque asset continûment dans une nouvelle direction linéaire. Un stop verrouillé conserve sa peinture et sa structure de gradient, les autres stops restent modifiables. Examiner visuellement le résultat.",
-        "Suggested gradients use every ordered palette pair and each colour towards a lighter or darker version. Variations use OKLab at constant hue, reducing chroma to fit the sRGB gamut. Edit both colours and the angle when needed. An imported gradient retains its geometry in the original and in stop recolourings. Generated gradients cover each asset continuously in a new linear direction. A locked stop retains its paint and gradient structure; other stops remain editable. Visually inspect the result.",
+        "Les dégradés suggérés utilisent les paires de palette et les variations claires/foncées OKLab à teinte constante, avec réduction de chroma dans le gamut sRGB. Modifier le dégradé ouvre un aperçu en direct, 2 à 32 stops déplaçables, leurs couleurs et positions, un angle et les presets horizontal, vertical, 45° et −45°. Les changements ne sont enregistrés qu’avec Appliquer.",
+        "Suggested gradients use palette pairs and lighter/darker OKLab variations at constant hue, reducing chroma to fit the sRGB gamut. Edit gradient opens a live preview, 2 to 32 movable stops, colors and positions, an angle and horizontal, vertical, 45° and −45° presets. Changes are saved only with Apply.",
+      ],
+      [
+        "Automatique conserve la géométrie d’un dégradé importé et recolore ses stops ; pour les aplats, il choisit un espace commun sauf si le SVG indique un dégradé par forme. Global partage les coordonnées sur la composition avec userSpaceOnUse, sans fusionner les tracés. Par forme applique le dégradé complet à chaque forme avec objectBoundingBox. Les transformations des formes sont compensées en mode global. Les couleurs verrouillées sont préservées. Formes participant au dégradé permet d’exclure une zone ; séparer d’abord ses éléments pour une exclusion individuelle.",
+        "Automatic retains imported gradient geometry and recolors stops; for solid paints it chooses a shared space unless the SVG indicates per-shape gradients. Global shares coordinates across the composition using userSpaceOnUse without merging paths. Per shape applies the complete gradient to each shape using objectBoundingBox. Shape transforms are compensated in global mode. Locked colors are preserved. Shapes participating in the gradient lets users exclude a zone; split its elements first for individual exclusion.",
       ],
     ],
   ],
   [
-    [
-      "6. JPEG, contraste et transparence",
-      "6. JPEG, contrast and transparency",
-    ],
+    ["6. Protection et tailles minimales", "6. Clearspace and minimum sizes"],
     [
       [
-        "Les associations JPEG sont globales par couleur/combinaison et fond. Valider blanc → noir s’applique à toutes les constructions compatibles. Les anciens forçages par construction restent des exceptions tant qu’ils ne sont pas remplacés par une règle globale. Revenir aux recommandations retire les forçages. Les associations de combinaisons multicolores et dégradées apparaissent avec la page de couleurs examinée.",
-        "JPEG pairings are global per colour/combination and background. Approving white → black applies to all compatible constructions. Legacy per-construction overrides remain exceptions until replaced by a global rule. Reset to recommendations removes overrides. Multicolour and gradient pairings appear for the colour page being reviewed.",
+        "Binksy propose une protection fondée sur la hauteur du logotype. Si cette référence manque, il utilise le petit côté visible du logo, notamment pour un SVG assemblé ou une icône seule. Une référence manuelle existante reste prioritaire. Les previews montrent protection et taille minimale. Ajuster la protection révèle références et multiplicateurs ; Ajuster les tailles minimales révèle mm et px. Les valeurs sont des recommandations à vérifier visuellement.",
+        "Binksy suggests clearspace based on wordmark height. If that reference is missing, it uses the visible logo’s shorter side, including assembled SVGs and standalone icons. Existing manual references take priority. Previews show clearspace and minimum size. Adjust protection reveals references and multipliers; Adjust minimum sizes reveals mm and px. Values are recommendations to review visually.",
       ],
       [
-        "Le ratio utilise la luminance sRGB linéarisée : (Lmax + 0,05) / (Lmin + 0,05). Seuils 3:1, 4,5:1 ou 7:1. Recommander 3:1 comme tri initial des signes graphiques, puis faire valider les associations. Les peintures et stops sont évalués conservativement ; effets, opacités et transitions nécessitent un contrôle visuel. Ce tri n’est pas une certification d’accessibilité.",
-        "The ratio uses linearised sRGB luminance: (Lmax + 0.05) / (Lmin + 0.05). Thresholds are 3:1, 4.5:1 or 7:1. Recommend 3:1 for initial graphic-mark filtering, then ask approval for pairings. Paints and stops are evaluated conservatively; effects, opacity and transitions require visual review. This filter is not an accessibility certification.",
-      ],
-      [
-        "Seul le JPEG a un fond opaque. SVG, PNG et PDF restent transparents. Le fond clair/sombre du canvas et la taille des previews ne changent jamais les fichiers. La marge JPEG est une fraction du petit côté du logo ; les dimensions raster définissent le canvas sans déformer le logo.",
-        "Only JPEG has an opaque background. SVG, PNG and PDF stay transparent. The light/dark canvas and preview sizing never alter the files. JPEG margin is a fraction of the logo’s shorter side; raster dimensions define the canvas without distorting the logo.",
+        "Les planches claires/foncées sont monochromes et transparentes, séparées dans Clearspace/. La protection ne change jamais les dimensions des exports du logo. Les tailles minimales sont des recommandations séparées.",
+        "Light/dark boards are monochrome and transparent, separate in Clearspace/. Clearspace never changes exported logo dimensions. Minimum sizes are separate recommendations.",
       ],
     ],
   ],
   [
-    [
-      "7. Clearspace, sélection et livraison",
-      "7. Clearspace, selection and delivery",
-    ],
+    ["7. Exporter", "7. Export"],
     [
       [
-        "Choisir largeur du brandmark, hauteur du brandmark ou hauteur du logotype, puis ×0,5 / ×1 / ×1,5 / ×2. La mesure s’applique tout autour. Pour un SVG déjà assemblé, demander la mesure de référence en coordonnées SVG ; ne pas l’inventer. Recommander une dimension reconnaissable, par exemple hauteur du logotype ×0,5, puis demander confirmation.",
-        "Choose brandmark width, brandmark height or wordmark height, then ×0.5 / ×1 / ×1.5 / ×2. The measure applies on every side. For an assembled SVG, ask for the reference measurement in SVG coordinates; do not invent it. Recommend a recognisable dimension, such as wordmark height ×0.5, then request confirmation.",
+        "Exporter le Logo Kit complet livre la sélection actuelle dans un ZIP avec recommandations. Les nouveaux projets proposent SVG, PNG, JPEG, PDF en 3000 px / 300 DPI. Les anciens projets conservent leurs formats. Presets Web : SVG/PNG, 1600 px / 144 DPI ; Print : SVG/PDF, 3000 px / 300 DPI ; Complet : les quatre formats. Personnaliser l’export donne accès aux formats, dimensions, DPI, marge JPEG, contraste, clearspace, dossiers, nommage, séparateur et casse.",
+        "Export the complete Logo Kit delivers the current selection in a ZIP with recommendations. New projects suggest SVG, PNG, JPEG and PDF at 3000 px / 300 DPI. Older projects retain their formats. Web preset: SVG/PNG, 1600 px / 144 DPI; Print: SVG/PDF, 3000 px / 300 DPI; Complete: all four formats. Customize export exposes formats, dimensions, DPI, JPEG margin, contrast, clearspace, folders, naming, separator and case.",
       ],
       [
-        "Les planches claire/foncée sont monochromes et transparentes, séparées dans Clearspace/. Elles ne modifient pas les dimensions du logo. Les recommandations de taille minimale restent des informations séparées.",
-        "Light/dark boards are monochrome and transparent, separate in Clearspace/. They do not change logo dimensions. Minimum size recommendations remain separate information.",
+        "Seul JPEG reçoit un fond et une marge. SVG, PNG et PDF sont transparents. Le canvas ne modifie pas les fichiers. Fonds recommandés conserve les associations globales couleur/fond et les anciennes exceptions. Seuil sRGB par défaut 3:1, réglable à 4,5:1 ou 7:1 ; ce tri ne certifie pas l’accessibilité. Sélection finale permet de filtrer puis exclure chaque fichier, planches comprises. Limites : 500 fichiers et 256 Mo par lot.",
+        "Only JPEG receives a background and margin. SVG, PNG and PDF are transparent. The canvas does not alter files. Recommended backgrounds retains global color/background pairings and legacy exceptions. Default sRGB threshold is 3:1, adjustable to 4.5:1 or 7:1; this filter does not certify accessibility. Final selection filters and excludes individual files, including boards. Limits: 500 files and 256 MB per batch.",
       ],
       [
-        "Les sections repliables indiquent les sélections. Tout sélectionner et Tout désélectionner respectent le filtre de construction ; Recommandées uniquement retient l’original et les couleurs simples. Les variantes multicolores et gradients demandent une sélection. Dans Sélection finale, filtrer construction, catégorie, format ou fond, puis cocher/décocher chaque fichier, y compris les planches clearspace. Les choix individuels restent modifiables et sont sauvegardés, même après un changement de nom de fichier. Choisir les formats et le clearspace dans Livraison. Vérifier le nombre exact de fichiers avant export, recommandations incluses pour un ZIP. Limites : 500 fichiers et 256 Mo par lot ; utiliser plusieurs sélections pour une famille plus grande.",
-        "Collapsible sections show selections. Select all and Deselect all respect the construction filter; Recommended only retains the original and single colours. Multicolour and gradient variants require selection. In Final selection, filter construction, category, format or background, then check/uncheck each file, including clearspace boards. Individual choices remain editable and are saved, even after file naming changes. Choose formats and clearspace in Delivery. Check the exact file count before exporting, including recommendations for a ZIP. Limits: 500 files and 256 MB per batch; use multiple selections for larger families.",
-      ],
-      [
-        "Nommage : {brand}, {variant}, {orientation}, {color}, {background}, {format}, {size}. Séparateur -, _ ou . et casse configurables. Les collisions de noms reçoivent un suffixe. ZIP : Logos/format/variante, JPEG/variante, Clearspace/variante et recommandations ; l’organisation par variante inverse les niveaux des logos.",
-        "Naming: {brand}, {variant}, {orientation}, {color}, {background}, {format}, {size}. Separator -, _ or . and letter case are configurable. Name collisions receive a suffix. ZIP: Logos/format/variant, JPEG/variant, Clearspace/variant and recommendations; variant organisation reverses the logo folder levels.",
+        "Nommage : {brand}, {variant}, {orientation}, {color}, {background}, {format}, {size}. Séparateur -, _ ou . ; casse et dossiers configurables. Les collisions reçoivent un suffixe. PDF refuse filtres, masques et motifs complexes sans secours bitmap. Les couleurs sont RVB, sans conversion ICC/CMJN ni certification Illustrator/Figma/Affinity.",
+        "Naming: {brand}, {variant}, {orientation}, {color}, {background}, {format}, {size}. Separator -, _ or .; configurable case and folders. Collisions get a suffix. PDF rejects complex filters, masks and patterns without bitmap fallback. Colors are RGB, without ICC/CMYK conversion or Illustrator/Figma/Affinity certification.",
       ],
     ],
   ],
   [
     [
-      "8. Langue, sauvegarde et vérification",
-      "8. Language, saving and verification",
+      "8. Sauvegarde, langue et vérification",
+      "8. Saving, language and verification",
     ],
     [
       [
-        "FR/EN change l’interface et reste mémorisé sur l’appareil. Les noms de marques, fichiers et rôles utilisateur ne sont pas traduits. Un .binksy V3 contient les SVG, dimensions, rôles, verrous, dégradés, sélections, associations globales, références et exports. Les V1/V2 sont migrées en préservant les dimensions visibles ; une échelle historique liée devient une dimension indépendante.",
-        "FR/EN changes the interface and is remembered on the device. User brand, file and role names are not translated. A V3 .binksy contains SVGs, dimensions, roles, locks, gradients, selections, global pairings, references and exports. V1/V2 projects migrate while preserving visible dimensions; historically linked scales become independent dimensions.",
+        "La sauvegarde locale et la clé historique binksy-logo-system restent actives. Sauvegarder .binksy conserve SVG, dimensions indépendantes, palette, rôles, verrous, dégradés et stops, exclusions, sélections et exports. Les fichiers V1/V2 migrent vers V3 en préservant leurs dimensions visibles. FR/EN est mémorisé sur l’appareil ; les noms et SVG utilisateur ne sont jamais traduits.",
+        "Local saving and the historical binksy-logo-system key remain active. Save .binksy retains SVGs, independent dimensions, palette, roles, locks, gradients and stops, exclusions, selections and exports. V1/V2 files migrate to V3 while preserving visible dimensions. FR/EN is remembered on the device; user names and SVGs are never translated.",
       ],
       [
-        "La suppression d’un projet exige une confirmation explicite. Annuler ne change rien. Exporter un .binksy avant une suppression si une sauvegarde est nécessaire. Undo/Redo couvre les modifications de composition et de couleurs ; la suppression confirmée ne s’annule pas par Undo.",
-        "Deleting a project requires explicit confirmation. Cancel changes nothing. Export a .binksy before deletion if a backup is needed. Undo/Redo covers composition and colour edits; a confirmed deletion is not reversed by Undo.",
-      ],
-      [
-        "Contrôler avant livraison : indépendance des dimensions, proportions, masses optiques, rôles verrouillés, gradients, transparence, marges JPEG, noms, liste finale, planches et réouverture .binksy. Les PDF avec filtres, masques ou motifs complexes sont refusés, sans rasterisation de secours. Couleurs RVB ; aucune promesse de CMJN ou de compatibilité Illustrator/Figma/Affinity sans test dans ces logiciels.",
-        "Before delivery check independent dimensions, proportions, optical masses, locked roles, gradients, transparency, JPEG margins, names, final list, boards and .binksy reopening. PDFs with complex filters, masks or patterns are rejected without raster fallback. RGB colours; no CMYK or Illustrator/Figma/Affinity compatibility claim without testing those applications.",
-      ],
-      [
-        "Utiliser les noms accessibles et attributs stables : data-comp pour les hauteurs/offsets, data-width, data-resize, data-role-field, data-work-select et data-global-pair. Préférer les contrôles de l’interface aux mutations de données internes. La documentation doit évoluer avec toute modification fonctionnelle.",
-        "Use accessible names and stable attributes: data-comp for heights/offsets, data-width, data-resize, data-role-field, data-work-select and data-global-pair. Prefer interface controls to internal data mutation. Documentation must evolve with every functional change.",
+        "La suppression d’un projet exige une confirmation. Annuler ne change rien. Elle ne supprime pas les fichiers exportés et ne s’annule pas avec Undo. Vérifier imports, verrous, dégradés, transparence, ZIP et réouverture .binksy avant livraison. Tester les parcours dans les deux langues, sur une origine dédiée aux projets synthétiques.",
+        "Deleting a project requires confirmation. Cancel changes nothing. Deletion does not remove exported files and cannot be undone with Undo. Verify imports, locks, gradients, transparency, ZIP and .binksy reopening before delivery. Test workflows in both languages on a dedicated origin for synthetic projects.",
       ],
     ],
   ],

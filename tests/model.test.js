@@ -46,6 +46,7 @@ test("undo and redo restore independent state", () => {
 });
 test("family and safe naming", () => {
   const p = fixture();
+  p.exports.formats = ["svg"];
   assert.equal(family(p).length, 12);
   p.brand = "Étude / Écho";
   assert.equal(

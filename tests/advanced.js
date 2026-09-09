@@ -1,4 +1,4 @@
-import { importSVG, compositionSVG, assetMarkup } from "../src/svg.js";
+import { importSVG, compositionSVG, assetMarkup, mount } from "../src/svg.js";
 import { project, layout, jpegPairs, History } from "../src/model.js";
 import {
   catalog,
@@ -345,6 +345,181 @@ await test("FR / EN", () => {
   assert(t("Propriétés") === "Properties");
   setLanguage("fr");
   assert(t("Propriétés") === "Propriétés");
+});
+
+await test("Global gradient spans separate transformed paths in one coordinate field", async () => {
+  const asset = await importSVG(
+    svg(
+      '<g transform="translate(10 0)">' +
+        rect(0, "#ff5500") +
+        '</g><g transform="translate(180 0) scale(.7)">' +
+        rect(0, "#ff5500") +
+        "</g>",
+    ),
+    "transformed.svg",
+  );
+  const q = project("ready");
+  q.ready = [{ id: "v-global", name: "Global", asset }];
+  q.active = "v-global";
+  q.enabled = ["v-global"];
+  q.compositions["v-global"] = q.compositions.horizontal;
+  const g = {
+    id: "g-test",
+    name: "Test",
+    from: "#ff5500",
+    to: "#5500ff",
+    mode: "global",
+    angle: 0,
+    stops: [
+      { offset: 0, color: "#ff5500" },
+      { offset: 0.4, color: "#00ff88" },
+      { offset: 1, color: "#5500ff" },
+    ],
+  };
+  const root = new DOMParser().parseFromString(
+    compositionSVG(q, q.active, { gradient: g }),
+    "image/svg+xml",
+  ).documentElement;
+  const dispose = mount(root);
+  try {
+    const points = [...root.querySelectorAll("rect")]
+      .filter((el) => el.getAttribute("fill")?.startsWith("url("))
+      .map((el) => {
+        const id = el.getAttribute("fill").match(/#([^)]*)/)[1],
+          grad = root.querySelector(`[id="${id}"]`);
+        assert(grad.getAttribute("gradientUnits") === "userSpaceOnUse");
+        assert(grad.querySelectorAll("stop").length === 3);
+        const matrix = root
+          .getScreenCTM()
+          .inverse()
+          .multiply(el.getScreenCTM())
+          .multiply(
+            grad.gradientTransform.baseVal.consolidate()?.matrix ||
+              root.createSVGMatrix(),
+          );
+        return new DOMPoint(
+          +grad.getAttribute("x1"),
+          +grad.getAttribute("y1"),
+        ).matrixTransform(matrix);
+      });
+    assert(points.length === 2);
+    assert(
+      Math.abs(points[0].x - points[1].x) < 0.0001,
+      "Global restarts on transformed shape",
+    );
+    assert(root.querySelectorAll("rect").length === 2, "Paths remain separate");
+  } finally {
+    dispose();
+  }
+  const perShape = new DOMParser().parseFromString(
+    compositionSVG(q, q.active, { gradient: { ...g, mode: "shape" } }),
+    "image/svg+xml",
+  );
+  assert(
+    perShape
+      .querySelector('[id*="generated-gradient"]')
+      .getAttribute("gradientUnits") === "objectBoundingBox",
+  );
+  q.gradients = [g];
+  const restored = await validate(JSON.parse(JSON.stringify(q)));
+  assert(restored.gradients[0].stops[1].color === "#00ff88");
+  assert(restored.gradients[0].mode === "global");
+});
+await test("Global gradient is shared across independently scaled icon and wordmark", async () => {
+  const q = project();
+  q.assets.icon = assets.C;
+  q.assets.wordmark = assets.E;
+  q.compositions.horizontal.iconHeight = 177;
+  q.compositions.horizontal.wordmarkHeight = 68;
+  const root = new DOMParser().parseFromString(
+    compositionSVG(q, "horizontal", {
+      gradient: { from: "#ff5500", to: "#5500ff", mode: "global" },
+    }),
+    "image/svg+xml",
+  ).documentElement;
+  const dispose = mount(root);
+  try {
+    const endpoints = [...root.querySelectorAll("rect")]
+      .filter((el) => el.getAttribute("fill")?.startsWith("url("))
+      .map((el) => {
+        const id = el.getAttribute("fill").match(/#([^)]*)/)[1],
+          grad = root.querySelector(`[id="${id}"]`);
+        const matrix = root
+          .getScreenCTM()
+          .inverse()
+          .multiply(el.getScreenCTM())
+          .multiply(
+            grad.gradientTransform.baseVal.consolidate()?.matrix ||
+              root.createSVGMatrix(),
+          );
+        return new DOMPoint(
+          +grad.getAttribute("x2"),
+          +grad.getAttribute("y2"),
+        ).matrixTransform(matrix);
+      });
+    assert(endpoints.length === 4, "Shapes: " + endpoints.length);
+    assert(
+      endpoints.every((pt) => Math.abs(pt.x - endpoints[0].x) < 0.0001),
+      JSON.stringify(endpoints.map((pt) => [pt.x, pt.y])),
+    );
+  } finally {
+    dispose();
+  }
+});
+await test("Gradient participation respects split zones and locks through V3", async () => {
+  const q = project();
+  q.assets.icon = structuredClone(assets.H);
+  q.active = "icon";
+  q.enabled = ["icon"];
+  const r = q.assets.icon.roles[0];
+  q.assets.icon.roles = r.targets.map((target, i) => ({
+    ...r,
+    id: "zone-" + i,
+    targets: [target],
+  }));
+  const g = {
+    id: "g-participation",
+    name: "Zones",
+    from: "#ff5500",
+    to: "#5500ff",
+    mode: "global",
+    excludedRoles: ["zone-0"],
+  };
+  q.gradients = [g];
+  const copy = await validate(JSON.parse(JSON.stringify(q)));
+  assert(copy.gradients[0].excludedRoles[0] === "zone-0");
+  const root = new DOMParser().parseFromString(
+    compositionSVG(copy, "icon", { gradient: copy.gradients[0] }),
+    "image/svg+xml",
+  );
+  const shapes = root.querySelectorAll("rect");
+  assert(shapes[0].getAttribute("fill") === "#ff5500");
+  assert(shapes[1].getAttribute("fill").startsWith("url("));
+  copy.assets.icon.roles[1].locked = true;
+  assert(!compositionSVG(copy, "icon", { gradient: g }).includes('fill="url('));
+});
+await test("Simultaneous logo previews have independent gradient namespaces", () => {
+  const q = project();
+  q.assets.icon = assets.C;
+  const host = document.createElement("div");
+  host.innerHTML =
+    compositionSVG(q, "icon", {
+      gradient: { from: "#ff0000", to: "#0000ff", mode: "global" },
+    }) +
+    compositionSVG(q, "icon", {
+      gradient: { from: "#00ff00", to: "#000000", mode: "shape" },
+    });
+  const ids = [...host.querySelectorAll("[id]")].map((el) => el.id);
+  assert(new Set(ids).size === ids.length, "Duplicate gradient identifiers");
+  for (const root of host.children)
+    for (const shape of root.querySelectorAll("[fill]")) {
+      const id = shape.getAttribute("fill").match(/^url\(#([^)]*)\)/)?.[1];
+      if (id)
+        assert(
+          root.querySelector(`[id="${id}"]`),
+          "Preview references another preview",
+        );
+    }
 });
 output.textContent =
   lines.join("\n") +

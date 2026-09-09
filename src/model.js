@@ -3,8 +3,8 @@ export const VARIANTS = ["horizontal", "vertical", "icon", "wordmark"];
 export const LABELS = {
   horizontal: "Horizontal",
   vertical: "Vertical",
-  icon: "Icon Only",
-  wordmark: "Wordmark Only",
+  icon: "Icône",
+  wordmark: "Logotype",
 };
 export const clone = (x) => structuredClone(x);
 export function project(mode = "compose") {
@@ -22,9 +22,9 @@ export function project(mode = "compose") {
     assets: { icon: null, wordmark: null },
     active: "horizontal",
     enabled: [...VARIANTS],
-    grid: true,
+    grid: false,
     snap: true,
-    clear: true,
+    clear: false,
     colors: [],
     compositions: Object.fromEntries(
       VARIANTS.map((v) => [
@@ -55,7 +55,7 @@ export function project(mode = "compose") {
       uppercase: false,
     },
     exports: {
-      formats: ["svg"],
+      formats: ["svg", "png", "jpeg", "pdf"],
       width: 3000,
       height: 3000,
       dpi: 300,
@@ -254,7 +254,7 @@ export function variantIds(p) {
 export function variantName(p, id) {
   return p.mode === "ready"
     ? p.ready.find((r) => r.id === id)?.name || "Variante"
-    : LABELS[id] || id;
+    : t(LABELS[id] || id);
 }
 export function backgrounds(p) {
   return [
@@ -293,7 +293,12 @@ export function jpegPairs(p, item) {
       ),
     );
     if (item.color.gradient)
-      paints.push(item.color.gradient.from, item.color.gradient.to);
+      paints.push(
+        ...(item.color.gradient.stops?.map((s) => s.color) || [
+          item.color.gradient.from,
+          item.color.gradient.to,
+        ]),
+      );
     if (!paints.length)
       paints.push(
         ...(item.color.hex
@@ -338,7 +343,8 @@ export function clearMeasure(p, v = p.active) {
   const c = p.compositions[v] || project().compositions.horizontal,
     l = layout(p, v);
   let value;
-  if (p.mode === "ready") value = c.references?.[c.clearRef];
+  if (p.mode === "ready")
+    value = c.references?.[c.clearRef] || Math.min(l.width, l.height);
   else {
     const icon = l.parts.find((q) => q.key === "icon");
     const word = l.parts.find((q) => q.key === "wordmark");
@@ -364,8 +370,10 @@ export function clearMeasure(p, v = p.active) {
   return {
     reference: c.clearRef,
     label: CLEAR_REFS[c.clearRef],
-    value: value || 0,
+    value: value || (l.parts.length ? Math.min(l.width, l.height) : 0),
     multiplier: c.clearMultiplier,
-    space: (value || 0) * c.clearMultiplier,
+    space:
+      (value || (l.parts.length ? Math.min(l.width, l.height) : 0)) *
+      c.clearMultiplier,
   };
 }

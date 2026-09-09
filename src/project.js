@@ -1,3 +1,4 @@
+import { gradientSettings } from "./gradient.js";
 import { project, VARIANTS, variantIds, CLEAR_REFS } from "./model";
 import { importSVG } from "./svg";
 import { restoreRoles, hexColor } from "./paints.js";
@@ -209,6 +210,7 @@ export async function validate(data) {
             from: hexColor(color.gradient.from),
             to: hexColor(color.gradient.to),
             angle: Number(color.gradient.angle) || 0,
+            ...gradientSettings(color.gradient),
           }
         : undefined;
     result.selectedDescriptors[id] = {
@@ -232,6 +234,7 @@ export async function validate(data) {
       from: hexColor(g.from),
       to: hexColor(g.to),
       angle: Number(g.angle) || 0,
+      ...gradientSettings(g),
     }));
   result.locale = data.locale === "en" ? "en" : "fr";
   return result;

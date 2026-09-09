@@ -1,3 +1,8 @@
+import {
+  gradientSettings,
+  gradientVector,
+  automaticGradientMode,
+} from "./gradient.js";
 import DOMPurify from "dompurify";
 import { layout } from "./model";
 import { detectRoles } from "./paints.js";
@@ -186,9 +191,37 @@ export async function importSVG(source, name, font) {
           `#${prefix}_${index}`,
         );
     }
+    const paintTransforms = {};
+    const rootMatrix = root.getScreenCTM();
+    if (rootMatrix)
+      [root, ...root.querySelectorAll("*")].forEach((el, index) => {
+        if (!el.getScreenCTM) return;
+        const matrix = el.getScreenCTM();
+        if (!matrix) return;
+        const relative = rootMatrix.inverse().multiply(matrix);
+        if (
+          [
+            relative.a,
+            relative.b,
+            relative.c,
+            relative.d,
+            relative.e,
+            relative.f,
+          ].every(Number.isFinite)
+        )
+          paintTransforms[index] = [
+            relative.a,
+            relative.b,
+            relative.c,
+            relative.d,
+            relative.e,
+            relative.f,
+          ];
+      });
     const centroid = await massCenter(markup);
     return {
       roles: detectRoles(root),
+      paintTransforms,
       hasGradient: !!root.querySelector("linearGradient,radialGradient"),
       paints: [
         ...new Set(
@@ -309,17 +342,34 @@ export function assetMarkup(asset, color, namespace = "") {
             (spec.mapping?.[role.id] || spec.hex)) ||
             role.paint,
         );
-      if (el && spec.gradient && !role.locked && target.prop === "stop-color") {
+      if (
+        el &&
+        spec.gradient &&
+        !role.locked &&
+        !spec.gradient.excludedRoles?.includes(role.id) &&
+        target.prop === "stop-color"
+      ) {
         const offset = el.getAttribute("offset") || "0",
           f = Math.max(
             0,
             Math.min(1, parseFloat(offset) / (offset.endsWith("%") ? 100 : 1)),
           );
-        const a = spec.gradient.from
+        const stops = gradientSettings(spec.gradient).stops;
+        const high = stops.findIndex((s) => s.offset >= f);
+        const bStop = stops[high < 0 ? stops.length - 1 : high],
+          aStop = stops[Math.max(0, high < 0 ? stops.length - 1 : high - 1)];
+        const blend =
+          bStop.offset === aStop.offset
+            ? 0
+            : Math.max(
+                0,
+                Math.min(1, (f - aStop.offset) / (bStop.offset - aStop.offset)),
+              );
+        const a = aStop.color
             .slice(1)
             .match(/../g)
             .map((n) => parseInt(n, 16)),
-          b = spec.gradient.to
+          b = bStop.color
             .slice(1)
             .match(/../g)
             .map((n) => parseInt(n, 16));
@@ -329,7 +379,7 @@ export function assetMarkup(asset, color, namespace = "") {
           "#" +
             a
               .map((v, i) =>
-                Math.round(v + (b[i] - v) * f)
+                Math.round(v + (b[i] - v) * blend)
                   .toString(16)
                   .padStart(2, "0"),
               )
@@ -343,25 +393,21 @@ export function assetMarkup(asset, color, namespace = "") {
     const defs = document.createElementNS(NS, "defs"),
       gradient = document.createElementNS(NS, "linearGradient");
     gradient.id = id;
-    const angle = ((Number(g.angle) || 0) * Math.PI) / 180,
-      dx = Math.cos(angle),
-      dy = Math.sin(angle);
-    const box = asset.box,
-      cx = box.x + box.width / 2,
-      cy = box.y + box.height / 2,
-      extent = (Math.abs(box.width * dx) + Math.abs(box.height * dy)) / 2;
-    gradient.setAttribute("gradientUnits", "userSpaceOnUse");
-    for (const [key, value] of Object.entries({
-      x1: cx - dx * extent,
-      y1: cy - dy * extent,
-      x2: cx + dx * extent,
-      y2: cy + dy * extent,
-    }))
+    const settings = gradientSettings(g);
+    const mode =
+      settings.mode === "auto" ? automaticGradientMode(asset) : settings.mode;
+    const box = g.box || asset.box;
+    gradient.setAttribute(
+      "gradientUnits",
+      mode === "shape" ? "objectBoundingBox" : "userSpaceOnUse",
+    );
+    const vector = gradientVector(
+      mode === "shape" ? { x: 0, y: 0, width: 1, height: 1 } : box,
+      Number(g.angle) || 0,
+    );
+    for (const [key, value] of Object.entries(vector))
       gradient.setAttribute(key, value);
-    for (const [offset, paint] of [
-      [0, g.from],
-      [1, g.to],
-    ]) {
+    for (const { offset, color: paint } of settings.stops) {
       const stop = document.createElementNS(NS, "stop");
       stop.setAttribute("offset", offset);
       stop.setAttribute("stop-color", paint);
@@ -371,11 +417,13 @@ export function assetMarkup(asset, color, namespace = "") {
     root.prepend(defs);
     const locked = new Set(
       roles
-        .filter((r) => r.locked)
+        .filter((r) => r.locked || settings.excludedRoles.includes(r.id))
         .flatMap((r) => r.targets.map((t) => t.index + ":" + t.prop)),
     );
     const gradientLocked = roles.some(
-      (r) => r.locked && r.targets.some((t) => t.prop === "stop-color"),
+      (r) =>
+        (r.locked || settings.excludedRoles.includes(r.id)) &&
+        r.targets.some((t) => t.prop === "stop-color"),
     );
     nodes.forEach((el, index) => {
       if (
@@ -391,7 +439,10 @@ export function assetMarkup(asset, color, namespace = "") {
           old &&
           old !== "none" &&
           !locked.has(index + ":" + prop) &&
-          !(gradientLocked && old.includes("url("))
+          !(
+            (gradientLocked || settings.mode === "auto") &&
+            old.includes("url(")
+          )
         ) {
           const alpha = old.match(
             /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/,
@@ -401,10 +452,62 @@ export function assetMarkup(asset, color, namespace = "") {
               prop + "-opacity",
               (+el.getAttribute(prop + "-opacity") || 1) * Number(alpha),
             );
-          el.setAttribute(prop, `url(#${id})`);
+          let paintId = id;
+          const transform = asset.paintTransforms?.[index];
+          if (
+            mode !== "shape" &&
+            transform &&
+            transform.some(
+              (n, i) => Math.abs(n - [1, 0, 0, 1, 0, 0][i]) > 1e-10,
+            )
+          ) {
+            paintId = id + "-" + index;
+            if (!defs.querySelector(`[id="${paintId}"]`)) {
+              const copy = gradient.cloneNode(true),
+                inverse = new DOMMatrix(transform).inverse();
+              copy.id = paintId;
+              copy.setAttribute(
+                "gradientTransform",
+                `matrix(${[inverse.a, inverse.b, inverse.c, inverse.d, inverse.e, inverse.f].join(" ")})`,
+              );
+              defs.append(copy);
+            }
+          }
+          el.setAttribute(prop, `url(#${paintId})`);
         }
       }
     });
+  }
+  if (spec.highlight) {
+    const role = roles.find((r) => r.id === spec.highlight);
+    const marked = new Set(
+      role?.targets.map((t) => nodes[t.index]).filter(Boolean),
+    );
+    for (const stop of [...marked])
+      if (stop.localName === "stop") {
+        const id = stop.parentElement.id;
+        nodes
+          .filter((el) =>
+            ["fill", "stroke"].some((prop) =>
+              el.getAttribute(prop)?.includes(`#${id}`),
+            ),
+          )
+          .forEach((el) => marked.add(el));
+      }
+    for (const el of nodes)
+      if (
+        /^(path|rect|circle|ellipse|polygon|polyline|line|use)$/.test(
+          el.localName,
+        ) &&
+        !el.closest("defs,clipPath,mask")
+      ) {
+        el.setAttribute("opacity", marked.has(el) ? "1" : ".12");
+        if (marked.has(el)) {
+          el.setAttribute("stroke", "#ff5500");
+          el.setAttribute("stroke-width", "2");
+          el.setAttribute("vector-effect", "non-scaling-stroke");
+        }
+      }
   }
   let str = serialize(root);
   if (namespace) {
@@ -423,9 +526,33 @@ export function assetMarkup(asset, color, namespace = "") {
   if (str.length < 256000) cache.set(cacheKey, str);
   return str;
 }
+let compositionNamespace = 0;
 export function compositionSVG(p, variant, color = null, background = null) {
+  const namespace = "composition-" + ++compositionNamespace + "-";
   const l = layout(p, variant);
-  return `<svg xmlns="${NS}" width="${l.width}" height="${l.height}" viewBox="${l.x} ${l.y} ${l.width} ${l.height}">${background ? `<rect x="${l.x}" y="${l.y}" width="${l.width}" height="${l.height}" fill="${background}"/>` : ""}${l.parts.map((q) => `<g transform="translate(${q.x} ${q.y}) scale(${q.w / q.asset.box.width})"><svg x="0" y="0" width="${q.asset.box.width}" height="${q.asset.box.height}" viewBox="${q.asset.box.x} ${q.asset.box.y} ${q.asset.box.width} ${q.asset.box.height}">${assetContent(q.asset, color, q.key)}</svg></g>`).join("")}</svg>`;
+  return `<svg xmlns="${NS}" width="${l.width}" height="${l.height}" viewBox="${l.x} ${l.y} ${l.width} ${l.height}">${background ? `<rect x="${l.x}" y="${l.y}" width="${l.width}" height="${l.height}" fill="${background}"/>` : ""}${l.parts
+    .map(
+      (q) =>
+        `<g transform="translate(${q.x} ${q.y}) scale(${q.w / q.asset.box.width})"><svg x="0" y="0" width="${q.asset.box.width}" height="${q.asset.box.height}" viewBox="${q.asset.box.x} ${q.asset.box.y} ${q.asset.box.width} ${q.asset.box.height}">${assetContent(
+          q.asset,
+          color?.gradient && color.gradient.mode !== "shape"
+            ? {
+                ...color,
+                gradient: {
+                  ...color.gradient,
+                  box: {
+                    x: q.asset.box.x + (l.x - q.x) / (q.w / q.asset.box.width),
+                    y: q.asset.box.y + (l.y - q.y) / (q.h / q.asset.box.height),
+                    width: l.width / (q.w / q.asset.box.width),
+                    height: l.height / (q.h / q.asset.box.height),
+                  },
+                },
+              }
+            : color,
+          namespace + q.key,
+        )}</svg></g>`,
+    )
+    .join("")}</svg>`;
 }
 
 export function assetContent(asset, color, namespace) {

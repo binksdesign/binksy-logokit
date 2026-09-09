@@ -1,41 +1,22 @@
-import {
-  selectedItems,
-  deliveries,
-  CATEGORIES,
-  selectedCount,
-} from "./catalog.js";
-import {
-  mountWorkshop,
-  rolePanel,
-  bindRoles,
-  resetColorChoices,
-} from "./workshop.js";
+import { workspace, hasArtwork } from "./workspace.js";
+import { selectedItems, deliveries } from "./catalog.js";
+import { mountWorkshop, bindRoles, resetColorChoices } from "./workshop.js";
 import { t, language, setLanguage, translateDOM } from "./i18n.js";
-import {
-  identity,
-  home,
-  readyAssets,
-  readyProperties,
-  clearPanel,
-  agentRules,
-  arrow,
-} from "./ui";
+import { home, agentRules, arrow } from "./ui";
 import { clearspaceSVG, clearGuides } from "./clearspace";
 import { validate } from "./project";
 import "./style.css";
 import {
   project,
   layout,
-  colors,
   filename,
   History,
   clone,
-  variantIds,
   variantName,
   clearMeasure,
   baseFamily,
 } from "./model";
-import { importSVG, assetMarkup, assetContent, compositionSVG } from "./svg";
+import { importSVG, assetContent, compositionSVG } from "./svg";
 import { exportFiles, download } from "./export";
 import opentype from "opentype.js";
 const $ = (s) => document.querySelector(s),
@@ -105,10 +86,8 @@ function notice(message) {
   clearTimeout(notice.timer);
   notice.timer = setTimeout(() => (n.hidden = true), 9000);
 }
-function check(label, key, value) {
-  return `<label class="check"><input type="checkbox" data-setting="${key}" ${value ? "checked" : ""}>${label}</label>`;
-}
 function number(label, key, value, min, max, step = 1, suffix = "") {
+  label = t(label);
   return `<label class="field"><span>${label}<output id="o-${key}">${Number(value).toFixed(step < 1 ? 2 : 0)}${suffix}</output></span><div class="range-row"><input aria-label="${label}" type="range" data-comp="${key}" min="${min}" max="${key.endsWith("Height") ? Math.max(1000, Math.ceil(value * 2)) : max}" step="${step}" value="${value}"><input aria-label="${label} précis" type="number" data-comp="${key}" min="${min}" max="${max}" step="${step}" value="${value}"></div></label>`;
 }
 function render() {
@@ -127,60 +106,23 @@ function render() {
     return;
   }
 
-  const c = p.compositions[p.active],
-    l = layout(p);
-  $("#app").innerHTML =
-    `<header><div class="identity">${identity()}</div><nav><button data-view="compose" class="${view === "compose" ? "active" : ""}"><small>01</small> Composer</button><button data-view="family" class="${view === "family" ? "active" : ""}"><small>02</small> Générer & exporter <span class="count">${p.enabled.reduce((n, v) => n + CATEGORIES.reduce((a, c) => a + selectedCount(p, v, c), 0n), 0n)}</span></button></nav><div class="header-actions"><button data-action="undo" aria-label="Annuler" title="Annuler · ⌘Z" ${!history.past.length ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5L3 10l5 5M3 10h10a6 6 0 0 1 0 12"/></svg></button><button data-action="redo" aria-label="Rétablir" title="Rétablir · ⌘⇧Z" ${!history.future.length ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5l5 5-5 5m5-5h-10a6 6 0 0 0 0 12"/></svg></button><button class="primary" data-action="export-project">Sauvegarder .binksy ${arrow}</button></div></header><div class="workspace" data-mode="${p.mode}"><aside class="left"><section><div class="section-title">01 / PROJET <button data-action="new" title="Nouveau projet">+</button></div><select id="projects" aria-label="Projet actif">${projects.map((x) => `<option value="${esc(x.id)}" ${x.id === p.id ? "selected" : ""}>${esc(x.id === p.id ? p.brand : x.brand)}</option>`).join("")}</select><label class="field"><span>Nom de la marque</span><input id="brand" value="${esc(p.brand)}" maxlength="100"></label><button class="text-button" data-action="import-project">Importer .binksy ${arrow}</button></section><section><div class="section-title">02 / ASSETS <span>SVG</span></div>${["icon", "wordmark"].map((k) => `<label class="asset" data-drop="${k}"><input type="file" accept=".svg,image/svg+xml" data-upload="${k}" aria-label="Importer ${k === "icon" ? "le brandmark SVG" : "le logotype SVG"}" hidden><span class="asset-label">${k === "icon" ? "ICON" : "WORDMARK"}<span>${arrow}</span></span><div class="asset-preview">${p.assets[k] ? assetMarkup(p.assets[k], null, "asset-" + k) : '<span class="upload-cross">+</span>'}</div><span class="asset-name">${p.assets[k] ? esc(p.assets[k].name) : "Importer ou déposer un SVG"}</span></label>`).join("")}<details><summary>Mon SVG contient du texte</summary><p>Chargez la police exacte avant le SVG. Les textes simples seront vectorisés.</p><label class="file-button">${font ? "Police chargée ✓" : "Charger OTF / TTF"}<input id="font" type="file" accept=".otf,.ttf" hidden></label></details></section><section><div class="section-title">03 / COMPOSITIONS <span>04</span></div>${variantIds(
-      p,
-    )
-      .map(
-        (v, i) =>
-          `<div class="variant-row ${p.active === v ? "active" : ""}"><input aria-label="Activer ${esc(variantName(p, v))}" type="checkbox" data-variant="${v}" ${p.enabled.includes(v) ? "checked" : ""}><button data-active="${v}"><span class="variant-icon">${["▰ ▬", "▰", "◆", "▬"][i]}</span>${esc(variantName(p, v))}</button><span class="tiny">0${i + 1}</span></div>`,
-      )
-      .join(
-        "",
-      )}</section><section><div class="section-title">04 / COULEURS <button data-action="add-color" title="Ajouter une couleur">+</button></div><div class="system-colors"><span><i style="background:#000"></i>Noir</span><span><i style="background:#fff"></i>Blanc</span><small>SYSTÈME</small></div>${p.colors
-      .map(
-        (col, i) =>
-          `<div class="color-row"><input type="color" aria-label="Couleur ${esc(col.name)}" data-color="${col.id}" value="${col.hex}"><input aria-label="Nom de couleur" data-color-name="${col.id}" value="${esc(col.name)}"><button data-move="${i}" title="Monter la couleur" ${!i ? "disabled" : ""}><img class="arrow arrow-up" src="/brand/arrow.svg" alt="" aria-hidden="true"></button><button data-delete="${col.id}" title="Supprimer la couleur">×</button><input class="hex" aria-label="HEX" data-color-hex="${col.id}" value="${col.hex}" maxlength="7"><small>RGB ${col.hex
-            .match(/\w\w/g)
-            .map((n) => parseInt(n, 16))
-            .join(" / ")}</small></div>`,
-      )
-      .join(
-        "",
-      )}${!p.colors.length ? '<p class="muted">Ajoutez les couleurs de votre marque.<br>Une couleur, une déclinaison.</p>' : ""}</section><div class="local-note"><span class="status-dot"></span> LOCAL & PRIVÉ<p>Vos fichiers restent dans ce navigateur.</p></div></aside><main class="editor-main">${
-      view === "compose"
-        ? `<div class="canvas-toolbar"><div><span class="eyebrow">PLAN DE TRAVAIL /</span> <strong>${esc(variantName(p, p.active))}</strong></div><div><div class="canvas-colors" aria-label="Fond du canvas"><button data-canvas="#ffffff" aria-label="Canvas blanc" aria-pressed="${p.canvas === "#ffffff"}">Clair</button><button data-canvas="#000000" aria-label="Canvas noir" aria-pressed="${p.canvas === "#000000"}">Sombre</button></div>${check("Grille", "grid", p.grid)}${check("Snap", "snap", p.snap)}<select id="zoom" aria-label="Zoom">${[0.5, 0.75, 1, 1.5, 2].map((n) => `<option value="${n}" ${zoom === n ? "selected" : ""}>${n * 100}%</option>`).join("")}</select></div></div><div id="stage" class="stage"></div><div class="canvas-footer"><span id="measure">X = ${l.X.toFixed(2)} unités SVG</span><span>Glisser pour déplacer · Alt : réglage libre</span><button data-action="reset">Réinitialiser la composition</button></div><div class="overview"><div class="section-title">VOTRE SYSTÈME <button data-view="family">Générer les fichiers ${arrow}</button></div><div class="mini-grid">${variantIds(
-            p,
-          )
-            .map(
-              (v) =>
-                `<button class="mini ${p.active === v ? "active" : ""}" data-active="${v}"><div>${layout(p, v).parts.length ? compositionSVG(p, v) : "<span>—</span>"}</div><span>${esc(variantName(p, v))}</span></button>`,
-            )
-            .join("")}</div></div>`
-        : `<div id="workshop"></div>`
-    }</main><aside class="right" aria-label="Propriétés" tabindex="0">${view === "compose" ? `<div class="properties-title">PROPRIÉTÉS <span>${esc(variantName(p, p.active))}</span></div><section><div class="section-title">RELATION & ÉCHELLE</div>${p.active !== "wordmark" ? number("Hauteur de l’icône", "iconSize", c.iconSize, 0.25, 8, p.snap ? 0.25 : 0.01, "X") : ""}${p.active !== "icon" ? number("Échelle du logotype", "wordSize", c.wordSize, 0.25, 3, 0.05, "×") : ""}${["horizontal", "vertical"].includes(p.active) ? number("Espacement", "gap", c.gap, 0, 5, p.snap ? 0.25 : 0.01, "X") : ""}<div class="unit-note"><strong>1X</strong><span>½ hauteur visuelle du logotype<br><b id="unit-px">${l.X.toFixed(2)}</b> unités SVG</span></div></section><section><div class="section-title">ALIGNEMENT</div><div class="segmented">${["start", "center", "end"].map((v, i) => `<button data-align="${v}" class="${c.align === v ? "active" : ""}">${["Début", "Centre", "Fin"][i]}</button>`).join("")}</div><div class="segmented center-modes"><button data-center="real" class="${c.center === "real" ? "active" : ""}">Real Center</button><button data-center="optical" class="${c.center === "optical" ? "active" : ""}">Optical Center</button></div><p class="muted">${c.center === "real" ? "Centrage exact des bounding boxes." : "Centrage sur la masse opaque des formes. Ajustez librement les offsets."}</p></section><section><div class="section-title">AJUSTEMENTS MANUELS</div><div class="segmented">${["icon", "wordmark"].map((k) => `<button data-element="${k}" class="${selected === k ? "active" : ""}">${k === "icon" ? "Icône" : "Logotype"}</button>`).join("")}</div>${number("Position X", selected + "X", c[selected + "X"], -10, 10, p.snap ? 0.25 : 0.01, "X")}${number("Position Y", selected + "Y", c[selected + "Y"], -10, 10, p.snap ? 0.25 : 0.01, "X")}</section>${clearPanel(p)}<section><div class="section-title">TAILLES MINIMALES</div><div class="two-fields"><label>Print · mm<input type="number" data-comp="minPrint" value="${c.minPrint}" min="1" max="1000"></label><label>Digital · px<input type="number" data-comp="minDigital" value="${c.minDigital}" min="1" max="10000"></label></div></section>` : exportPanel()}</aside></div><footer><span id="save-state">Enregistré sur cet appareil</span><button data-view="agent">Règles agent IA</button></footer><div id="notice" role="status" hidden></div><input id="project-file" type="file" accept=".json,.binksy" hidden>`;
-  if (p.mode === "ready") {
-    const sections = $(".left").querySelectorAll(":scope > section");
-    sections[1].outerHTML = readyAssets(p);
-    sections[2].remove();
+  const opened = [...document.querySelectorAll("[data-disclosure][open]")].map(
+    (el) => el.dataset.disclosure,
+  );
+  $("#app").innerHTML = workspace(p, {
+    view,
+    projects,
+    number,
+    exportPanel,
+    selected,
+    font,
+    history,
+    busy,
+  });
+  for (const id of opened)
     document
-      .querySelectorAll('[data-setting="snap"],[data-setting="grid"]')
-      .forEach((el) => (el.closest("label").hidden = true));
-    const reset = document.querySelector('[data-action="reset"]');
-    if (reset) reset.hidden = true;
-    const hint = document.querySelector(".canvas-footer>span:nth-child(2)");
-    if (hint) hint.textContent = "Construction importée";
-    if (view === "compose") $(".right").innerHTML = readyProperties(p);
-  }
-  if (view === "compose") {
-    if (p.mode !== "ready") {
-      const first = $(".right > section");
-      first.innerHTML = `<div class="section-title">RELATION & ÉCHELLE</div>${l.parts.map((q) => number(t(q.key === "icon" ? "Hauteur du brandmark · px" : "Hauteur du logotype · px"), q.key + "Height", q.h, 1, 100000, 1, " px") + `<label class="field"><span>${t(q.key === "icon" ? "Largeur du brandmark · px" : "Largeur du logotype · px")}</span><input type="number" aria-label="${t(q.key === "icon" ? "Largeur du brandmark · px" : "Largeur du logotype · px")}" data-width="${q.key}" value="${q.w.toFixed(2)}" min="1" max="100000" step="any"></label>`).join("")}<p class="muted">${t("Proportions verrouillées")}</p>${["horizontal", "vertical"].includes(p.active) ? number("Espacement", "gap", c.gap, 0, 5, p.snap ? 0.25 : 0.01, "X") : ""}<div class="unit-note"><strong>1X</strong><span>½ hauteur visuelle du logotype<br><b id="unit-px">${l.X.toFixed(2)}</b> unités SVG</span></div>`;
-    }
-    $(".right").insertAdjacentHTML("beforeend", rolePanel(p));
-  }
+      .querySelector(`[data-disclosure="${id}"]`)
+      ?.setAttribute("open", "");
   bind();
   bindExtra();
   bindLanguage();
@@ -200,8 +142,8 @@ function render() {
   );
   for (const [selector, top] of scrolls)
     if ($(selector)) $(selector).scrollTop = top;
-  if (view === "compose") drawStage();
-  else mountWorkshop(p, edit, runExport);
+  if (["import", "compose"].includes(view)) drawStage();
+  else mountWorkshop(p, edit, runExport, view);
   translateDOM();
 }
 function exportPanel() {
@@ -213,7 +155,13 @@ function drawStage() {
     c = p.compositions[p.active],
     stage = $("#stage");
   if (!l.parts.length) {
-    stage.innerHTML = `<div class="empty"><span class="empty-mark">${arrow}</span><div class="eyebrow">VOTRE PROCHAIN SYSTÈME COMMENCE ICI</div><h1>${p.mode === "ready" ? "Vos variantes.<br>Une livraison complète." : "Deux SVG.<br>Un système complet."}</h1><p>${p.mode === "ready" ? "Ajoutez vos constructions SVG à gauche.<br>Réglez les couleurs et leur clearspace." : "Importez votre icône et votre logotype à gauche.<br>Composez, ajustez, puis préparez toute la livraison."}</p><div class="steps"><span>01 IMPORTER</span><span>02 COMPOSER</span><span>03 EXPORTER</span></div></div>`;
+    stage.innerHTML = `<div class="empty import-empty"><span class="empty-mark">${arrow}</span><h2>${t("Déposez votre premier SVG")}</h2><p>${t("Une icône, un logotype ou une variante assemblée suffit pour commencer.")}</p></div>`;
+    return;
+  }
+  if (view === "import") {
+    stage.style.background = p.canvas;
+    stage.innerHTML = `<div class="import-logo-preview">${compositionSVG(p, p.active)}</div><span class="auto-note">${t("Analyse terminée · votre système est prêt")}</span>`;
+    $("#measure").textContent = "";
     return;
   }
   const margin = Math.max(l.X * 1.5, clearMeasure(p).space + 25),
@@ -221,7 +169,7 @@ function drawStage() {
     h = (l.height + margin * 2) / zoom,
     x = l.x + l.width / 2 - w / 2,
     y = l.y + l.height / 2 - h / 2;
-  stage.innerHTML = `<span class="stage-label">${esc(p.brand)} <span>/ ${esc(variantName(p, p.active))}</span></span><svg id="canvas" xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${w} ${h}"><defs><pattern id="grid" x="${l.parts.find((q) => q.key === "wordmark")?.x || 0}" y="${l.parts.find((q) => q.key === "wordmark")?.y || 0}" width="${l.X}" height="${l.X}" patternUnits="userSpaceOnUse"><path d="M ${l.X} 0 L 0 0 0 ${l.X}" fill="none" stroke="#c6c6c6" stroke-width=".6" vector-effect="non-scaling-stroke"/></pattern></defs>${p.grid ? `<rect x="${x - w}" y="${y - h}" width="${w * 3}" height="${h * 3}" fill="url(#grid)"/>` : ""}<g id="clear-guides">${p.clear ? clearGuides(l, clearMeasure(p).space, p.canvas === "#000000" ? "light" : "dark") : ""}</g>${l.parts.map((q) => `<g data-drag="${q.key}" transform="translate(${q.x} ${q.y})" tabindex="0" role="button" aria-label="Déplacer ${q.key}"><svg width="${q.w}" height="${q.h}" viewBox="${q.asset.box.x} ${q.asset.box.y} ${q.asset.box.width} ${q.asset.box.height}" overflow="visible">${assetContent(q.asset, null, "stage-" + q.key)}</svg><rect width="${q.w}" height="${q.h}" fill="transparent" stroke="${selected === q.key ? "#ff5500" : "transparent"}" stroke-width="1" vector-effect="non-scaling-stroke"/></g>`).join("")}</svg><span class="stage-caption">${c.center === "real" ? "REAL CENTER" : "OPTICAL CENTER"} <span> / </span> ${p.snap ? "SNAP ¼X" : "AJUSTEMENT LIBRE"}</span>`;
+  stage.innerHTML = `<span class="stage-label">${esc(p.brand)} <span>/ ${esc(variantName(p, p.active))}</span></span><svg id="canvas" xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${w} ${h}"><defs><pattern id="grid" x="${l.parts.find((q) => q.key === "wordmark")?.x || 0}" y="${l.parts.find((q) => q.key === "wordmark")?.y || 0}" width="${l.X}" height="${l.X}" patternUnits="userSpaceOnUse"><path d="M ${l.X} 0 L 0 0 0 ${l.X}" fill="none" stroke="#c6c6c6" stroke-width=".6" vector-effect="non-scaling-stroke"/></pattern></defs>${p.grid ? `<rect x="${x - w}" y="${y - h}" width="${w * 3}" height="${h * 3}" fill="url(#grid)"/>` : ""}<g id="clear-guides">${p.clear ? clearGuides(l, clearMeasure(p).space, p.canvas === "#000000" ? "light" : "dark") : ""}</g>${l.parts.map((q) => `<g data-drag="${q.key}" transform="translate(${q.x} ${q.y})" tabindex="0" role="button" aria-label="Déplacer ${q.key}"><svg width="${q.w}" height="${q.h}" viewBox="${q.asset.box.x} ${q.asset.box.y} ${q.asset.box.width} ${q.asset.box.height}" overflow="visible">${assetContent(q.asset, null, "stage-" + q.key)}</svg><rect width="${q.w}" height="${q.h}" fill="transparent" stroke="${selected === q.key ? "#ff5500" : "transparent"}" stroke-width="1" vector-effect="non-scaling-stroke"/></g>`).join("")}</svg><span class="stage-caption">${t(c.center === "real" ? "Centrage géométrique" : "Centrage optique")} <span> / </span> ${p.snap ? "SNAP ¼X" : "AJUSTEMENT LIBRE"}</span>`;
   $("#measure").textContent =
     `X = ${l.X.toFixed(2)} unités SVG · Logo ${l.width.toFixed(1)} × ${l.height.toFixed(1)}`;
   if ($("#unit-px")) $("#unit-px").textContent = l.X.toFixed(2);
@@ -361,18 +309,20 @@ function bind() {
       loadAsset(e.dataTransfer.files[0], el.dataset.drop);
     };
   });
-  $("#brand").onchange = (e) =>
-    edit(() => (p.brand = e.target.value.trim() || "Sans titre"));
-  $("#projects").onchange = async (e) => {
-    try {
-      p = await validate(projects.find((x) => x.id === e.target.value));
-      history.past = [];
-      history.future = [];
-      render();
-    } catch (error) {
-      notice(error.message);
-    }
-  };
+  if ($("#brand"))
+    $("#brand").onchange = (e) =>
+      edit(() => (p.brand = e.target.value.trim() || "Sans titre"));
+  if ($("#projects"))
+    $("#projects").onchange = async (e) => {
+      try {
+        p = await validate(projects.find((x) => x.id === e.target.value));
+        history.past = [];
+        history.future = [];
+        render();
+      } catch (error) {
+        notice(error.message);
+      }
+    };
   if ($("#font"))
     $("#font").onchange = async (e) => {
       try {
@@ -391,7 +341,7 @@ function bind() {
       const imported = await validate(JSON.parse(await file.text()));
       imported.id = crypto.randomUUID();
       p = imported;
-      view = "compose";
+      view = hasArtwork(p) ? "compose" : "import";
       projects.push(p);
       history.past = [];
       history.future = [];
@@ -501,12 +451,31 @@ function bind() {
     .querySelectorAll("[data-action]")
     .forEach((el) => (el.onclick = () => action(el.dataset.action)));
 }
+function prepareImportedAsset(asset) {
+  for (const role of asset.roles || []) {
+    if (
+      ["#000000", "#ffffff"].includes(role.paint) ||
+      p.colors.some((c) => c.hex.toLowerCase() === role.paint)
+    )
+      continue;
+    p.colors.push({
+      id: crypto.randomUUID(),
+      name: t("Couleur") + " " + (p.colors.length + 1),
+      hex: role.paint,
+    });
+  }
+}
 async function loadAsset(file, key) {
   if (!file) return;
   try {
+    notice("Analyse du SVG…");
     const asset = await importSVG(await file.text(), file.name, font);
     edit(() => {
       p.assets[key] = asset;
+      prepareImportedAsset(asset);
+      if (!p.assets.wordmark) p.active = "icon";
+      else if (!p.assets.icon) p.active = "wordmark";
+      else if (["icon", "wordmark"].includes(p.active)) p.active = "horizontal";
       resetColorChoices(p);
       for (const c of Object.values(p.compositions)) {
         if (key === "wordmark" && c.wordmarkHeight == null)
@@ -629,7 +598,7 @@ async function runExport(items) {
   if (busy) return;
   busy = true;
   document
-    .querySelectorAll('[data-action="export"]')
+    .querySelectorAll('[data-action="export"], #export-kit')
     .forEach((el) => (el.disabled = true));
   const snapshot = clone(p);
   try {
@@ -676,7 +645,7 @@ function bindLanding() {
         projects.push(p);
         history.past = [];
         history.future = [];
-        view = "compose";
+        view = "import";
         render();
         save();
       }),
@@ -686,7 +655,7 @@ function bindLanding() {
       (el.onclick = async () => {
         try {
           p = await validate(projects.find((p) => p.id === el.dataset.open));
-          view = "compose";
+          view = hasArtwork(p) ? "compose" : "import";
           history.past = [];
           history.future = [];
           render();
@@ -708,7 +677,7 @@ async function handleProjectImport(e) {
     p = await validate(JSON.parse(await file.text()));
     p.id = crypto.randomUUID();
     projects.push(p);
-    view = "compose";
+    view = hasArtwork(p) ? "compose" : "import";
     history.past = [];
     history.future = [];
     render();
@@ -785,6 +754,7 @@ function bindExtra() {
         edit(() => {
           for (const variant of imported) {
             p.ready.push(variant);
+            prepareImportedAsset(variant.asset);
             p.enabled.push(variant.id);
             p.compositions[variant.id] = clone(
               project().compositions.horizontal,

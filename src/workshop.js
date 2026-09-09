@@ -1,3 +1,4 @@
+import { editGradient } from "./gradient-editor.js";
 import {
   catalog,
   CATEGORIES,
@@ -15,9 +16,8 @@ import {
   jpegPairs,
   luminance,
 } from "./model.js";
-import { compositionSVG } from "./svg.js";
+import { compositionSVG, assetMarkup } from "./svg.js";
 import { exportPlan, jpegPreview } from "./export.js";
-import { gradientOptions } from "./paints.js";
 import { esc } from "./ui.js";
 import { t, translateDOM } from "./i18n.js";
 const labels = {
@@ -27,7 +27,10 @@ const labels = {
   gradient: "Dégradés",
 };
 const pages = {},
-  opened = new Set(["constructions", "original"]);
+  opened = new Set(["original", "mono", "multi", "gradient"]);
+let workshopStep = "family",
+  galleryFilter = "all",
+  fullCatalog = false;
 let filter = "all",
   finalCategory = "all",
   finalBg = "all",
@@ -41,7 +44,12 @@ function previewBackground(p, item) {
       : item.color.mapping?.[r.id] || item.color.hex || r.paint,
   );
   if (item.color.gradient)
-    paints.push(item.color.gradient.from, item.color.gradient.to);
+    paints.push(
+      ...(item.color.gradient.stops?.map((s) => s.color) || [
+        item.color.gradient.from,
+        item.color.gradient.to,
+      ]),
+    );
   if (paints.length && paints.every((c) => luminance(c) > 0.6))
     return "#333333";
   if (paints.some((c) => luminance(c) > 0.6)) return "#999999";
@@ -61,19 +69,35 @@ export function assetsFor(p) {
         .map(([key, asset]) => ({ key, name: key, asset }));
 }
 export function rolePanel(p) {
-  return `<section class="role-panel"><div class="section-title">${t("Rôles colorimétriques")}</div><p class="muted">${t("Les rôles de même identifiant sont partagés entre les constructions. Les stops restent dans leurs dégradés.")}</p>${assetsFor(
+  return `<section class="role-panel"><h2>${t("Couleurs du logo")}</h2><p class="auto-note">${t("Automatique · recommandé")}</p>${assetsFor(
     p,
   )
     .map(
       ({ key, name, asset }) =>
-        `<details><summary data-no-i18n>${esc(name)} · ${asset.roles?.length || 0}</summary>${(asset.roles || []).map((r, i) => `<div class="role-row" data-role-row="${esc(r.id)}"><input aria-label="${t("Couleur du rôle")}" type="color" data-role-asset="${key}" data-role-index="${i}" data-role-field="paint" value="${r.paint}"><input aria-label="${t("Nom du rôle")}" data-role-asset="${key}" data-role-index="${i}" data-role-field="name" value="${esc(r.name)}"><label><input type="checkbox" data-role-asset="${key}" data-role-index="${i}" data-role-field="locked" ${r.locked ? "checked" : ""}>${t("Verrouiller")}</label><details><summary>${t("Éléments")} · ${r.targets.length}</summary><small>${r.targets.map((x) => `${x.index} / ${x.prop}`).join(", ")}</small>${r.targets.length > 1 ? `<button data-split-role="${key}:${i}">${t("Séparer les éléments")}</button>` : ""}</details></div>`).join("")}<button data-merge-roles="${key}">${t("Fusionner les couleurs identiques")}</button></details>`,
+        `<div class="asset-colours"><h3 data-no-i18n>${esc(key === "icon" ? t("Icône") : key === "wordmark" ? t("Logotype") : name)}</h3><div class="colour-inspection" data-inspection="${key}">${assetMarkup(asset, null, "inspect-" + key)}</div><div class="colour-chips">${(asset.roles || []).map((r, i) => `<button data-highlight-asset="${key}" data-highlight-role="${esc(r.id)}" aria-pressed="false"><i class="paint-dot" style="background:${r.paint}"></i>${t("Couleur")} ${i + 1}${r.locked ? " 🔒" : ""}</button>`).join("")}</div><details class="optional" data-disclosure="roles-${key}"><summary>${t("Ajuster les couleurs manuellement")}</summary>${(asset.roles || []).map((r, i) => `<div class="role-row" data-role-row="${esc(r.id)}"><input aria-label="${t("Couleur")} ${i + 1}" type="color" data-role-asset="${key}" data-role-index="${i}" data-role-field="paint" value="${r.paint}"><input aria-label="${t("Nom de couleur")}" data-role-asset="${key}" data-role-index="${i}" data-role-field="name" value="${esc(r.name)}"><label><input type="checkbox" data-role-asset="${key}" data-role-index="${i}" data-role-field="locked" ${r.locked ? "checked" : ""}>${t("Conserver cette couleur dans les variantes")}</label>${r.targets.length > 1 ? `<button data-split-role="${key}:${i}">${t("Séparer les éléments")}</button>` : ""}</div>`).join("")}<button data-merge-roles="${key}">${t("Fusionner les couleurs identiques")}</button></details></div>`,
     )
-    .join(
-      "",
-    )}<p class="muted">${t("Les modifications des rôles ou de la palette réinitialisent les choix de couleurs générées.")}</p></section>`;
+    .join("")}</section>`;
 }
 export function bindRoles(p, edit, root = document) {
   const asset = (key) => assetsFor(p).find((a) => a.key === key)?.asset;
+  root.querySelectorAll("[data-highlight-role]").forEach(
+    (el) =>
+      (el.onclick = () => {
+        const key = el.dataset.highlightAsset,
+          active = el.getAttribute("aria-pressed") !== "true";
+        root
+          .querySelectorAll(`[data-highlight-asset="${key}"]`)
+          .forEach((b) =>
+            b.setAttribute("aria-pressed", String(b === el && active)),
+          );
+        root.querySelector(`[data-inspection="${key}"]`).innerHTML =
+          assetMarkup(
+            asset(key),
+            active ? { highlight: el.dataset.highlightRole } : null,
+            "inspect-" + key,
+          );
+      }),
+  );
   root.querySelectorAll("[data-role-field]").forEach(
     (el) =>
       (el.onchange = () =>
@@ -137,6 +161,17 @@ function scope(p) {
 function count(p, cat) {
   return scope(p).reduce((sum, v) => sum + selectedCount(p, v, cat), 0n);
 }
+function suggestedItems(p, cat) {
+  const variants = scope(p),
+    result = [];
+  for (let i = 0n; result.length < 12 && i < 12n; i++) {
+    for (const v of variants) {
+      const item = catalog(p, v, cat).at(i);
+      if (item && result.length < 12) result.push(item);
+    }
+  }
+  return result;
+}
 function pageItems(p, cat, page) {
   let offset = page * PAGE;
   const out = [];
@@ -153,8 +188,11 @@ function pageItems(p, cat, page) {
   }
   return out;
 }
-export function mountWorkshop(p, edit, runExport) {
+export function mountWorkshop(p, edit, runExport, step = workshopStep) {
+  workshopStep = step;
+  if (filter !== "all" && !variantIds(p).includes(filter)) filter = "all";
   const main = document.querySelector(".editor-main");
+  const toolsOpen = main.querySelector(".combination-tools")?.open;
   const opts = variantIds(p)
     .map(
       (v) =>
@@ -190,7 +228,14 @@ export function mountWorkshop(p, edit, runExport) {
     let page = pages[cat] || 0n;
     if (page > max) page = max;
     pages[cat] = page;
-    const items = opened.has(cat) ? pageItems(p, cat, page) : [];
+    const visible =
+      step !== "delivery" && (galleryFilter === "all" || galleryFilter === cat);
+    const items =
+      visible && opened.has(cat)
+        ? fullCatalog
+          ? pageItems(p, cat, page)
+          : suggestedItems(p, cat)
+        : [];
     displayed.push(...items);
     const cards = items
       .map(
@@ -203,7 +248,7 @@ export function mountWorkshop(p, edit, runExport) {
       accordion(
         cat,
         labels[cat],
-        `${count(p, cat)} ${t("sélectionnées")} / ${total}`,
+        `${count(p, cat)} ${t("sélectionnées")}${fullCatalog ? " / " + total : ""}`,
         `<div class="family-tools"><button data-bulk="${cat}:all">${t("Tout sélectionner")}</button><button data-bulk="${cat}:none">${t("Tout désélectionner")}</button></div><div class="family-grid">${cards || t("Aucune variante dans cette catégorie.")}</div><div class="pagination"><button data-page="${cat}:-1" ${!page ? "disabled" : ""}>${t("Précédente")}</button><label>${t("Page")} <input data-page-input="${cat}" aria-label="${t("Aller à la page")}" inputmode="numeric" value="${page + 1n}"> / ${max + 1n}</label><button data-page="${cat}:1" ${page === max ? "disabled" : ""}>${t("Suivante")}</button></div>`,
       ),
     );
@@ -218,6 +263,9 @@ export function mountWorkshop(p, edit, runExport) {
             .map((color) => ({ variant: v, id: v + ":" + color.id, color })),
         ]),
         ...displayed,
+        ...Object.values(p.selectedDescriptors || {}).filter((item) =>
+          selectedItem(p, item),
+        ),
       ]
         .filter(Boolean)
         .map((i) => [i.color.id, i]),
@@ -227,7 +275,7 @@ export function mountWorkshop(p, edit, runExport) {
     "beforeend",
     accordion(
       "jpeg",
-      "Associations JPEG",
+      "Fonds recommandés",
       `${Object.keys(p.jpegGlobal || {}).length}`,
       `<p>${t("Ces choix s’appliquent à toutes les constructions compatibles.")}</p><button id="reset-global-pairs">${t("Revenir aux recommandations")}</button>${pairItems
         .map(
@@ -299,13 +347,117 @@ export function mountWorkshop(p, edit, runExport) {
         )}</div><div class="pagination"><button id="final-prev" ${!finalPage ? "disabled" : ""}>${t("Précédente")}</button><span>${finalPage + 1} / ${Math.max(1, Math.ceil(finalJobs.length / 60))}</span><button id="final-next" ${(finalPage + 1) * 60 >= finalJobs.length ? "disabled" : ""}>${t("Suivante")}</button></div>`,
     ),
   );
+  main.dataset.workshopStep = step;
+  main.classList.toggle("full-catalog", fullCatalog);
+  main.querySelector(".family-heading").innerHTML =
+    `<div class="eyebrow">${step === "delivery" ? "04" : "03"} / ${t(step === "delivery" ? "Exporter" : "Variantes")}</div><h1>${t(step === "delivery" ? "Votre Logo Kit est prêt à partir." : "Choisissez visuellement les versions à livrer.")}</h1><p class="auto-note">${t("Automatique · recommandé")}</p>`;
+  const toolbar = main.querySelector(".family-tools");
+  const custom = document.createElement("details");
+  custom.className = "combination-tools";
+  custom.innerHTML = `<summary>${t("Personnaliser les combinaisons")}</summary>`;
+  toolbar.before(custom);
+  custom.append(toolbar);
+  custom.open = !!toolsOpen;
+  custom.append(main.querySelector('[data-section="constructions"]'));
+  main.querySelector('[data-section="roles"]').remove();
+  main.querySelectorAll("[data-section]").forEach((el) => {
+    const cat = el.dataset.section;
+    if (CATEGORIES.includes(cat))
+      el.hidden =
+        step === "delivery" ||
+        (galleryFilter !== "all" && galleryFilter !== cat);
+  });
+  if (step === "family") {
+    const nav = document.createElement("div");
+    nav.className = "gallery-filters";
+    nav.innerHTML =
+      [
+        ["all", "Toutes"],
+        ["original", "Originales"],
+        ["mono", "Couleurs simples"],
+        ["multi", "Multicolores"],
+        ["gradient", "Dégradés"],
+      ]
+        .map(
+          ([id, label]) =>
+            `<button data-gallery-filter="${id}" aria-pressed="${galleryFilter === id}">${t(label)}</button>`,
+        )
+        .join("") +
+      `<button data-catalog-toggle aria-pressed="${fullCatalog}">${t(fullCatalog ? "Voir les suggestions" : "Voir toutes les combinaisons")}</button>`;
+    main.querySelector(".family-heading").after(nav);
+    nav.querySelectorAll("[data-gallery-filter]").forEach(
+      (el) =>
+        (el.onclick = () => {
+          galleryFilter = el.dataset.galleryFilter;
+          opened.add(galleryFilter);
+          mountWorkshop(p, edit, runExport);
+        }),
+    );
+    nav.querySelector("[data-catalog-toggle]").onclick = () => {
+      fullCatalog = !fullCatalog;
+      mountWorkshop(p, edit, runExport);
+    };
+    main.querySelector('[data-section="final"]').hidden = true;
+    main.querySelector('[data-section="jpeg"]').hidden = true;
+  } else {
+    custom.hidden = true;
+    // Keep the final-file construction filter usable independently of the gallery.
+    main
+      .querySelector('[data-section="final"] .family-tools')
+      .prepend(main.querySelector("#construction-filter"));
+    main.querySelector('[data-section="constructions"]').hidden = true;
+    const summary = document.createElement("section");
+    summary.className = "kit-summary";
+    summary.innerHTML = `<div class="kit-previews">${p.enabled
+      .filter((v) => catalog(p, v, "original").size)
+      .map(
+        (v) =>
+          `<div>${compositionSVG(p, v)}<span data-no-i18n>${esc(variantName(p, v))}</span></div>`,
+      )
+      .join(
+        "",
+      )}</div><h2>${t("Logo Kit complet")}</h2><p>${t("Vos variantes sélectionnées, leurs fichiers et les recommandations dans un ZIP.")}</p><div class="export-presets">${[
+      ["web", "Web"],
+      ["print", "Print"],
+      ["complete", "Complet"],
+    ]
+      .map(
+        ([id, label]) =>
+          `<button data-export-preset="${id}">${t(label)}</button>`,
+      )
+      .join(
+        "",
+      )}</div><p>${p.exports.formats.map((f) => f.toUpperCase()).join(" · ")} · ${p.exports.width} × ${p.exports.height} px · ${p.exports.dpi} DPI</p><button class="primary" id="export-kit" ${error || !jobs.length ? "disabled" : ""}>${t("Exporter le Logo Kit complet")}</button><p role="status">${esc(error || String(jobs.length + (jobs.length > 1 ? 1 : 0)) + " " + t("fichiers à exporter"))}</p>`;
+    main.querySelector(".family-heading").after(summary);
+    summary.querySelector("#export-kit").onclick = () => runExport(items);
+    summary.querySelectorAll("[data-export-preset]").forEach(
+      (el) =>
+        (el.onclick = () =>
+          edit(() => {
+            const preset = el.dataset.exportPreset;
+            Object.assign(p.exports, {
+              formats:
+                preset === "web"
+                  ? ["svg", "png"]
+                  : preset === "print"
+                    ? ["svg", "pdf"]
+                    : ["svg", "png", "jpeg", "pdf"],
+              width: preset === "web" ? 1600 : 3000,
+              height: preset === "web" ? 1600 : 3000,
+              dpi: preset === "web" ? 144 : 300,
+              clearspace: true,
+            });
+          })),
+    );
+  }
   document.querySelector("#selection-count").textContent =
     error ||
     `${jobs.length + (jobs.length > 1 ? 1 : 0)} ${t("fichiers à exporter")}`;
-  document.querySelector('[data-action="export"]').onclick = () => {
-    if (error) return;
-    runExport(deliveries(p, selectedItems(p)));
-  };
+  if (document.querySelector('[data-action="export"]'))
+    document.querySelector('[data-action="export"]').onclick = () => {
+      if (error) return;
+      runExport(deliveries(p, selectedItems(p)));
+    };
   main.querySelectorAll("[data-section]").forEach(
     (el) =>
       (el.ontoggle = () => {
@@ -415,28 +567,10 @@ export function mountWorkshop(p, edit, runExport) {
   main.querySelectorAll("[data-gradient-edit]").forEach(
     (el) =>
       (el.onclick = () => {
-        const g = gradientOptions(p).find(
-          (g) => g.id === el.dataset.gradientEdit,
-        );
-        const dialog = document.createElement("dialog");
-        dialog.innerHTML = `<form method="dialog"><h2>${t("Modifier le dégradé")}</h2><label>${t("Début du dégradé")}<input name="from" type="color" value="${g.from}"></label><label>${t("Fin du dégradé")}<input name="to" type="color" value="${g.to}"></label><label>${t("Angle du dégradé")}<input name="angle" type="number" value="${g.angle || 0}" min="-360" max="360"></label><button value="cancel">${t("Annuler")}</button><button class="primary" value="apply">${t("Appliquer")}</button></form>`;
-        document.body.append(dialog);
-        dialog.showModal();
-        dialog.onclose = () => {
-          if (dialog.returnValue === "apply") {
-            const f = dialog.querySelector("form");
-            edit(() => {
-              p.gradients = p.gradients.filter((x) => x.id !== g.id);
-              p.gradients.push({
-                ...g,
-                from: f.elements.from.value,
-                to: f.elements.to.value,
-                angle: +f.elements.angle.value,
-              });
-            });
-          }
-          dialog.remove();
-        };
+        const id = el.closest(".delivery").querySelector("[data-work-select]")
+          .dataset.workSelect;
+        const item = displayed.find((i) => i.id === id);
+        if (item) editGradient(p, item, edit);
       }),
   );
   const remove = (paths) =>

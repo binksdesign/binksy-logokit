@@ -25,7 +25,7 @@ async function test(name, fn) {
     li.className = "pass";
   } catch (e) {
     failures++;
-    li.textContent = "FAIL · " + name + " · " + e.message;
+    li.textContent = "FAIL · " + name + " · " + e.stack;
     li.className = "fail";
   }
 }
@@ -79,9 +79,42 @@ await test("Importer : preview immédiate, aucune configuration obligatoire", as
   assert(find(".workspace").dataset.step === "import");
   change("#brand", "QA parcours Logo Kit");
   assert(find('[data-view="compose"]').disabled);
+  assert(find(".left .palette-panel"), "palette visible before import");
+  assert(!find(".palette-panel").closest("details"));
+  for (const [hex, name] of [
+    ["#123456", "Manuelle"],
+    ["#abcdef", "À supprimer"],
+  ]) {
+    click('[data-action="add-color"]');
+    input('.palette-editor [name="hex"]', hex);
+    input('.palette-editor [name="name"]', name);
+    click('.palette-editor [value="apply"]');
+    await wait(() => !find("dialog"));
+  }
+  click("[data-edit-color]");
+  input('.palette-editor [name="hex"]', "#654321");
+  click('.palette-editor [value="apply"]');
+  await wait(() => !find("dialog"));
+  assert(
+    find("[data-edit-color]").getAttribute("aria-label").includes("#654321"),
+  );
+  doc().querySelectorAll("[data-edit-color]")[1].click();
+  click('.palette-editor [value="delete"]');
+  await wait(() => !find("dialog"));
+  assert(doc().querySelectorAll("[data-edit-color]").length === 1);
   await upload('[data-upload="icon"]', [["icon.svg", icon]]);
   assert(find(".import-logo-preview svg"));
   await upload('[data-upload="wordmark"]', [["wordmark.svg", word]]);
+  assert(
+    find('[data-edit-color][aria-label="Manuelle · #654321"]'),
+    "manual color survives both imports",
+  );
+  const count = doc().querySelectorAll("[data-edit-color]").length;
+  await upload('[data-upload="icon"]', [["icon.svg", icon]]);
+  assert(
+    doc().querySelectorAll("[data-edit-color]").length === count,
+    "no duplicate on reimport",
+  );
   assert(!find('[data-view="compose"]').disabled);
   assert(!find('[data-comp="iconX"]'));
   click('.step-next [data-view="compose"]');
@@ -89,6 +122,11 @@ await test("Importer : preview immédiate, aucune configuration obligatoire", as
   assert(doc().querySelectorAll(".construction-choice svg").length >= 4);
   assert(!find('[data-disclosure="composition"]').open);
   assert(!find("[data-color]"));
+  assert(find('#canvas rect[fill="url(#grid)"]'), "grid visible by default");
+  assert(
+    find("#clear-guides").children.length,
+    "protection visible by default",
+  );
 });
 await test("Construction : tailles indépendantes, largeur et annulation", () => {
   const height = (key) =>
@@ -144,7 +182,7 @@ await test("Import multicolore : palette automatique, inspection et verrouillage
   click('nav [data-view="import"]');
   await upload('[data-upload="wordmark"]', [["multi.svg", multi]]);
   click('nav [data-view="family"]');
-  assert(find("[data-color]"));
+  assert(find("[data-edit-color]"));
   assert(find(".delivery svg"));
   const chip = find('[data-highlight-asset="wordmark"]');
   chip.click();
@@ -182,6 +220,9 @@ await test("Galerie : filtres, sélection évidente et catalogue facultatif", ()
 });
 await test("Dégradés : modes visuels, stops, orientation et participation", async () => {
   click('[data-gallery-filter="gradient"]');
+  change('[data-section="gradient"] [data-work-select]', true);
+  const selectedId = find('[data-section="gradient"] [data-work-select]')
+    .dataset.workSelect;
   click("[data-gradient-edit]");
   assert(find("dialog[open]"));
   assert(doc().querySelectorAll("[data-mode-preview]").length === 3);
@@ -208,7 +249,20 @@ await test("Dégradés : modes visuels, stops, orientation et participation", as
   click('[data-gradient-mode="global"]');
   click('dialog button[value="apply"]');
   await wait(() => !find("dialog"));
-  change('[data-section="gradient"] [data-work-select]', true);
+  assert(
+    find(`[data-work-select="${selectedId}"]`).checked,
+    "selection preserved",
+  );
+  const editedStops = () =>
+    find(`[data-work-select="${selectedId}"]`)
+      .closest(".delivery")
+      .querySelectorAll("linearGradient stop").length;
+  const after = editedStops();
+  assert(after >= 3);
+  click('[data-action="undo"]');
+  assert(editedStops() < after, "undo restores gradient preview");
+  click('[data-action="redo"]');
+  assert(editedStops() === after, "redo refreshes gradient preview");
 });
 await test("Export : kit complet par défaut et personnalisation conservée", () => {
   click('nav [data-view="delivery"]');
@@ -349,8 +403,22 @@ await test("Laptop et mobile : aucune largeur imposée, contrôles accessibles",
       requestAnimationFrame(() => requestAnimationFrame(r)),
     );
     assert(doc().documentElement.scrollWidth <= w, "Débordement à " + w);
+    const navBox = find('header nav').getBoundingClientRect();
+    assert(navBox.bottom <= find('header').getBoundingClientRect().bottom + 1, "navigation overlaps canvas " + w);
     assert(find("#stage").getBoundingClientRect().height > 70, "Canvas à " + w);
     assert(find(".right").getBoundingClientRect().width <= w);
+    click('nav [data-view="import"]');
+    assert(find(".palette-panel").getBoundingClientRect().width <= w);
+    click('[data-action="add-color"]');
+    const box = find(".palette-editor").getBoundingClientRect();
+    assert(box.left >= 0 && box.right <= w, "picker overflow " + w);
+    assert(find(".palette-picker input").getBoundingClientRect().height >= 44);
+    input('.palette-editor [name="hex"]', "#123abc");
+    click('.palette-editor [value="apply"]');
+    await wait(() => !find("dialog"));
+    assert(find('[data-edit-color][aria-label$="#123abc"]'));
+    assert(doc().documentElement.scrollWidth <= w, "palette overflow " + w);
+    click('nav [data-view="compose"]');
   }
 });
 await test("Suppression : annuler protège le projet de test", async () => {

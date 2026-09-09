@@ -1,4 +1,4 @@
-import { gradientSettings } from "./gradient.js";
+import { gradientSettings, synchronizeGradients } from "./gradient.js";
 import { project, VARIANTS, variantIds, CLEAR_REFS } from "./model";
 import { importSVG } from "./svg";
 import { restoreRoles, hexColor } from "./paints.js";
@@ -236,6 +236,7 @@ export async function validate(data) {
       angle: Number(g.angle) || 0,
       ...gradientSettings(g),
     }));
+  synchronizeGradients(result);
   result.locale = data.locale === "en" ? "en" : "fr";
   return result;
 }

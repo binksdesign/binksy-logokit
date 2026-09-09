@@ -22,9 +22,9 @@ export function project(mode = "compose") {
     assets: { icon: null, wordmark: null },
     active: "horizontal",
     enabled: [...VARIANTS],
-    grid: false,
+    grid: true,
     snap: true,
-    clear: false,
+    clear: true,
     colors: [],
     compositions: Object.fromEntries(
       VARIANTS.map((v) => [

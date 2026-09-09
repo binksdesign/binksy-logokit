@@ -1,4 +1,7 @@
 export const en = {
+  "Palette de couleurs": "Color palette",
+  "Les couleurs détectées dans le logo sont ajoutées automatiquement.": "Colors detected in the logo are added automatically.",
+  "Modifier la couleur": "Edit color",
   "Exporter cette déclinaison": "Export this variant",
   "Tous les formats": "All formats",
   "Noir · positif": "Black · positive",

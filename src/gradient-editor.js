@@ -1,11 +1,13 @@
 import { compositionSVG } from "./svg.js";
-import { gradientSettings } from "./gradient.js";
+import { gradientSettings, updateGradient } from "./gradient.js";
 import { rolesFor } from "./catalog.js";
 import { t } from "./i18n.js";
 import { esc } from "./ui.js";
 
 export function editGradient(p, item, edit) {
-  const original = item.color.gradient;
+  const original =
+    p.gradients.find((g) => g.id === item.color.gradient.id) ||
+    item.color.gradient;
   const g = structuredClone({ ...original, ...gradientSettings(original) });
   const dialog = document.createElement("dialog");
   dialog.className = "gradient-editor";
@@ -174,13 +176,7 @@ export function editGradient(p, item, edit) {
         .forEach((el) => (g.stops[+el.dataset.stopColor].color = el.value));
       g.angle = +dialog.querySelector('[name="angle"]').value;
       update();
-      edit(() => {
-        p.gradients = p.gradients.filter((x) => x.id !== g.id);
-        p.gradients.push(g);
-        for (const descriptor of Object.values(p.selectedDescriptors || {}))
-          if (descriptor.color?.gradient?.id === g.id)
-            descriptor.color.gradient = structuredClone(g);
-      });
+      edit(() => updateGradient(p, g));
     }
     dialog.remove();
   };

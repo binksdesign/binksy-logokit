@@ -2,10 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   gradientSettings,
+  updateGradient,
   gradientVector,
   automaticGradientMode,
 } from "../src/gradient.js";
-import { project, clearMeasure } from "../src/model.js";
+import { project, clearMeasure, History } from "../src/model.js";
 test("Gradient V3 additions normalize and preserve legacy endpoints", () => {
   assert.deepEqual(gradientSettings({ from: "#000000", to: "#ffffff" }), {
     mode: "global",
@@ -67,4 +68,49 @@ test("New kit defaults and automatic ready clearspace do not require configurati
   assert.equal(clearMeasure(p).space, 40);
   p.compositions["v-test"].references.wordmarkHeight = 30;
   assert.equal(clearMeasure(p).space, 15);
+});
+
+test("New projects enable canvas grid and protection guides", () => {
+  for (const mode of ["compose", "ready"]) {
+    assert.equal(project(mode).grid, true);
+    assert.equal(project(mode).clear, true);
+  }
+});
+
+test("Shared gradient updates preserve identity boundaries and undo/redo", () => {
+  let p = project();
+  const original = { id: "g-a", name: "A", from: "#123456", to: "#abcdef" };
+  const other = { ...original, id: "g-b" };
+  p.gradients = [original, other];
+  p.selectedDescriptors = Object.fromEntries(
+    ["horizontal", "vertical", "icon"].map((variant) => [
+      variant,
+      { color: { gradient: structuredClone(original) } },
+    ]),
+  );
+  const history = new History();
+  history.push(p);
+  updateGradient(p, {
+    ...original,
+    mode: "shape",
+    angle: 45,
+    excludedRoles: ["paint-a"],
+    stops: [
+      { offset: 0, color: "#000000" },
+      { offset: 0.35, color: "#ff5500" },
+      { offset: 1, color: "#ffffff" },
+    ],
+  });
+  for (const item of Object.values(p.selectedDescriptors))
+    assert.equal(item.color.gradient, p.gradients[0]);
+  assert.deepEqual(p.gradients[1], other);
+  assert.equal(p.gradients[0].stops[1].offset, 0.35);
+  assert.equal(p.gradients[0].angle, 45);
+  assert.equal(p.gradients[0].mode, "shape");
+  assert.deepEqual(p.gradients[0].excludedRoles, ["paint-a"]);
+  p = history.undo(p);
+  assert.deepEqual(p.gradients[0], original);
+  p = history.redo(p);
+  assert.equal(p.selectedDescriptors.icon.color.gradient, p.gradients[0]);
+  assert.equal(p.gradients[0].stops.length, 3);
 });

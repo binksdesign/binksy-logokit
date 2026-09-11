@@ -1,3 +1,4 @@
+import { editFraming } from "./format-editor.js";
 import { clearspaceSVG } from "./clearspace.js";
 import { mountJpegGallery } from "./jpeg-gallery.js";
 import { editGradient } from "./gradient-editor.js";
@@ -41,10 +42,10 @@ let filter = "all",
   finalPage = 0;
 const PAGE = 12n;
 function previewBackground(p, item) {
-  const paints = rolesFor(p, item.variant).map((r) =>
+  const paints = rolesFor(p, item.variant).flatMap((r) =>
     r.locked
       ? r.paint
-      : item.color.mapping?.[r.id] || item.color.hex || r.paint,
+      : r.sources.map(key=>item.color.partColors?.[key] || item.color.mapping?.[r.id] || item.color.hex || r.paint),
   );
   if (item.color.gradient)
     paints.push(
@@ -65,11 +66,12 @@ export function resetColorChoices(p) {
   p.excludedFiles = [];
 }
 export function assetsFor(p) {
-  return p.mode !== "compose"
-    ? p.ready.map((v) => ({ key: v.id, name: v.name, asset: v.asset }))
-    : Object.entries(p.assets)
-        .filter(([, asset]) => asset)
-        .map(([key, asset]) => ({ key, name: key, asset }));
+  return [
+    ...(p.mode === "compose" ? Object.entries(p.assets)
+      .filter(([, asset]) => asset)
+      .map(([key, asset]) => ({ key, name: key, asset })) : []),
+    ...(p.ready || []).map((v) => ({ key: v.id, name: v.name, asset: v.asset })),
+  ];
 }
 export function rolePanel(p) {
   return `<section class="role-panel"><h2>${t("Couleurs du logo")}</h2>${assetsFor(
@@ -235,7 +237,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
       step !== "delivery" && (galleryFilter === "all" || galleryFilter === cat);
     const items =
       visible && opened.has(cat)
-        ? fullCatalog
+        ? fullCatalog || cat === "mono" || cat === "original"
           ? pageItems(p, cat, page)
           : suggestedItems(p, cat)
         : [];
@@ -243,7 +245,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
     const cards = items
       .map(
         (item) =>
-          `<article class="delivery ${selectedItem(p, item) ? "selected" : ""}"><label><input type="checkbox" aria-label="${esc(variantName(p, item.variant))} · ${esc(item.color.name)}" data-work-select="${esc(item.id)}" ${selectedItem(p, item) ? "checked" : ""}><span data-no-i18n>${esc(variantName(p, item.variant))}</span><small data-no-i18n>${esc(item.color.name)}</small><div class="delivery-preview checker" style="background-color:${previewBackground(p, item)}">${compositionSVG(p, item.variant, item.color)}</div></label><button data-work-single="${esc(item.id)}">${t("Exporter cette déclinaison")}</button>${item.color.gradient ? `<button data-gradient-edit="${item.color.id}">${t("Modifier le dégradé")}</button>` : ""}</article>`,
+          `<article class="delivery ${selectedItem(p, item) ? "selected" : ""}"><label><input type="checkbox" aria-label="${esc(variantName(p, item.variant))} · ${esc(item.color.name)}" data-work-select="${esc(item.id)}" ${selectedItem(p, item) ? "checked" : ""}><span data-no-i18n>${esc(variantName(p, item.variant))}</span><small data-no-i18n>${esc(item.color.name)}</small><div class="delivery-preview checker" style="background-color:${previewBackground(p, item)}">${compositionSVG(p, item.variant, item.color)}</div></label><button data-framing="${esc(item.id)}">${t("Taille du logo dans l’image")}</button><button data-work-single="${esc(item.id)}">${t("Exporter cette déclinaison")}</button>${item.color.gradient ? `<button data-gradient-edit="${item.color.id}">${t("Modifier le dégradé")}</button>` : ""}</article>`,
       )
       .join("");
     main.insertAdjacentHTML(
@@ -352,7 +354,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
             `<button role="tab" data-gallery-filter="${id}" aria-controls="category-${id}" tabindex="${galleryFilter === id ? 0 : -1}" aria-selected="${galleryFilter === id}" aria-pressed="${galleryFilter === id}">${t(label)}</button>`,
         )
         .join("") +
-      `<button data-catalog-toggle aria-pressed="${fullCatalog}">${t(fullCatalog ? "Suggestions" : "Tout voir")}</button>`;
+      `<button data-catalog-toggle ${["original", "mono", "jpeg"].includes(galleryFilter) ? "hidden" : ""} aria-pressed="${fullCatalog}">${t(fullCatalog ? "Suggestions" : "Tout voir")}</button>`;
     main.querySelector(".family-heading").after(nav);
     const selectionBar = document.createElement("div");
     selectionBar.className = "selection-bar";
@@ -399,40 +401,10 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
       )
       .join(
         "",
-      )}</div>${p.mode !== "clearspace" && p.colors.length ? `<div class="summary-colors" aria-label="${t("Palette de couleurs")}">${p.colors.map(c => `<span title="${esc(c.name)} · ${c.hex}" style="background:${c.hex}"></span>`).join("")}</div>` : ""}<div class="kit-metrics"><span><strong>${p.enabled.filter(v => catalog(p,v,"original").size).length}</strong>${t("versions du logo")}</span><span><strong>${p.enabled.reduce((sum,v) => sum+CATEGORIES.reduce((n,c) => n+selectedCount(p,v,c),0n),0n)}</strong>${t(p.mode === "clearspace" ? "zones de sécurité" : "déclinaisons")}</span><span><strong>${error ? "—" : jobs.length + (jobs.length>1?1:0)}</strong>${t("fichiers")}</span></div><h2>${t(p.mode === "clearspace" ? "Vos zones de sécurité" : "Logo Kit complet")}</h2><p>${t("Vos variantes sélectionnées, leurs fichiers et les recommandations dans un ZIP.")}</p><div class="export-presets">${[
-      ["web", "Web"],
-      ["print", "Print"],
-      ["complete", "Complet"],
-    ]
-      .map(
-        ([id, label]) =>
-          `<button data-export-preset="${id}">${t(label)}</button>`,
-      )
-      .join(
-        "",
-      )}</div><p>${p.exports.formats.map((f) => f.toUpperCase()).join(" · ")} · ${p.exports.width} × ${p.exports.height} px · ${p.exports.dpi} DPI</p><button class="primary" id="export-kit" ${error || !jobs.length ? "disabled" : ""}>${t("Exporter le Logo Kit complet")}</button><p role="status">${esc(error || String(jobs.length + (jobs.length > 1 ? 1 : 0)) + " " + t("fichiers à exporter"))}</p>`;
+      )}</div>${p.mode !== "clearspace" && p.colors.length ? `<div class="summary-colors" aria-label="${t("Palette de couleurs")}">${p.colors.map(c => `<span title="${esc(c.name)} · ${c.hex}" style="background:${c.hex}"></span>`).join("")}</div>` : ""}<div class="kit-metrics"><span><strong>${p.enabled.filter(v => catalog(p,v,"original").size).length}</strong>${t("versions du logo")}</span><span><strong>${p.enabled.reduce((sum,v) => sum+CATEGORIES.reduce((n,c) => n+selectedCount(p,v,c),0n),0n)}</strong>${t(p.mode === "clearspace" ? "zones de sécurité" : "déclinaisons")}</span><span><strong>${error ? "—" : jobs.length + (jobs.length>1?1:0)}</strong>${t("fichiers")}</span></div><h2>${t(p.mode === "clearspace" ? "Vos zones de sécurité" : "Logo Kit complet")}</h2><p>${t("Vos variantes sélectionnées, leurs fichiers et les recommandations dans un ZIP.")}</p><p>${p.exports.formats.map((f) => f.toUpperCase()).join(" · ")} · WEB · 72 DPI / PRINT · 300 DPI</p><button class="primary" id="export-kit" ${error || !jobs.length ? "disabled" : ""}>${t("Exporter le Logo Kit complet")}</button><p role="status">${esc(error || String(jobs.length + (jobs.length > 1 ? 1 : 0)) + " " + t("fichiers à exporter"))}</p>`;
     main.querySelector(".family-heading").after(summary);
     if (p.mode === "clearspace") summary.querySelector("#export-kit").textContent = t("Exporter les zones de sécurité");
     summary.querySelector("#export-kit").onclick = () => runExport(items);
-    summary.querySelectorAll("[data-export-preset]").forEach(
-      (el) =>
-        (el.onclick = () =>
-          edit(() => {
-            const preset = el.dataset.exportPreset;
-            Object.assign(p.exports, {
-              formats:
-                preset === "web"
-                  ? ["svg", "png"]
-                  : preset === "print"
-                    ? ["svg", "pdf"]
-                    : p.mode === "clearspace" ? ["svg", "png", "pdf"] : ["svg", "png", "jpeg", "pdf"],
-              width: preset === "web" ? 1600 : 3000,
-              height: preset === "web" ? 1600 : 3000,
-              dpi: preset === "web" ? 144 : 300,
-              clearspace: true,
-            });
-          })),
-    );
   }
   const versionCount = document.querySelector(".selected-versions");
   if (versionCount) versionCount.textContent = `${p.enabled.reduce((sum,v) => sum+CATEGORIES.reduce((n,c) => n+selectedCount(p,v,c),0n),0n)} ${t("versions sélectionnées")}`;
@@ -529,6 +501,15 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
   const jpeg = main.querySelector('[data-section="jpeg"]');
   jpeg.hidden = p.mode === "clearspace" || step === "delivery" || galleryFilter !== "jpeg";
   if (!jpeg.hidden) mountJpegGallery(main.querySelector("#jpeg-gallery"), p, scope(p), edit, () => mountWorkshop(p,edit,runExport));
+  main.querySelectorAll('[data-framing]').forEach(el=>el.onclick=()=>{const item=displayed.find(i=>i.id===el.dataset.framing);if(item)editFraming(p,item,edit);});
+  if(step === 'family' && galleryFilter === 'gradient') {
+    const button=document.createElement('button');button.className='primary';button.dataset.createGradient='';button.textContent=t('Créer un dégradé');
+    main.querySelector('.selection-bar').after(button);
+    button.onclick=()=>{const variant=scope(p).find(v=>rolesFor(p,v).some(r=>!r.locked));if(!variant)return;
+      const from=p.colors[0]?.hex||'#000000',to=p.colors[1]?.hex||from;
+      editGradient(p,{variant,color:{id:'draft',gradient:{id:'g-'+crypto.randomUUID(),name:t('Dégradé')+' '+(p.gradients.length+1),from,to,mode:'global',angle:0}}},edit);
+    };
+  }
   main.querySelectorAll("[data-gradient-edit]").forEach(
     (el) =>
       (el.onclick = () => {

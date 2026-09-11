@@ -1,5 +1,5 @@
 import { identity, arrow, esc, readyAssets, clearPanel } from "./ui.js";
-import { layout, variantIds, variantName } from "./model.js";
+import { layout, variantIds, variantName, isReadyVariant } from "./model.js";
 import { compositionSVG, assetMarkup } from "./svg.js";
 import { rolePanel } from "./workshop.js";
 import { t } from "./i18n.js";
@@ -13,7 +13,7 @@ export const steps = [
 export const hasArtwork = (p) =>
   p.mode !== "compose"
     ? p.ready.length > 0
-    : !!(p.assets.icon || p.assets.wordmark);
+    : !!(p.assets.icon || p.assets.wordmark || p.ready?.length);
 export function disclosure(id, label, body) {
   return `<details class="optional" data-disclosure="${id}"><summary>${t(label)}</summary>${body}</details>`;
 }
@@ -22,7 +22,7 @@ function projectPanel(p, projects) {
 }
 function imports(p, font) {
   if (p.mode !== "compose") return readyAssets(p);
-  return `<section class="import-assets">${["icon", "wordmark"].map((key) => `<label class="asset" data-drop="${key}"><input type="file" accept=".svg,image/svg+xml" data-upload="${key}" aria-label="${t(key === "icon" ? "Importer le brandmark SVG" : "Importer le logotype SVG")}" hidden><span class="asset-label">${t(key === "icon" ? "Icône" : "Logotype")}${arrow}</span><div class="asset-preview">${p.assets[key] ? assetMarkup(p.assets[key], null, "import-" + key) : '<span class="upload-cross">+</span>'}</div><span class="asset-name" data-no-i18n>${p.assets[key] ? esc(p.assets[key].name) : t("Importer ou déposer un SVG")}</span></label>`).join("")}${disclosure("font", "Mon SVG contient du texte", `<p>${t("Chargez la police exacte avant le SVG. Les textes simples seront vectorisés.")}</p><label class="file-button">${t(font ? "Police chargée ✓" : "Charger OTF / TTF")}<input id="font" type="file" accept=".otf,.ttf" hidden></label>`)}</section>`;
+  return `<section class="import-assets">${["icon", "wordmark"].map((key) => `<label class="asset" data-drop="${key}"><input type="file" accept=".svg,image/svg+xml" data-upload="${key}" aria-label="${t(key === "icon" ? "Importer le brandmark SVG" : "Importer le logotype SVG")}" hidden><span class="asset-label">${t(key === "icon" ? "Icône" : "Logotype")}${arrow}</span><div class="asset-preview">${p.assets[key] ? assetMarkup(p.assets[key], null, "import-" + key) : '<span class="upload-cross">+</span>'}</div><span class="asset-name" data-no-i18n>${p.assets[key] ? esc(p.assets[key].name) : t("Importer ou déposer un SVG")}</span></label>`).join("")}${disclosure("font", "Mon SVG contient du texte", `<p>${t("Chargez la police exacte avant le SVG. Les textes simples seront vectorisés.")}</p><label class="file-button">${t(font ? "Police chargée ✓" : "Charger OTF / TTF")}<input id="font" type="file" accept=".otf,.ttf" hidden></label>`)}</section>${readyAssets(p)}`;
 }
 function constructions(p) {
   return `<section class="construction-list"><h2>${t("Variantes du logo")}</h2>${variantIds(
@@ -40,7 +40,7 @@ export function palettePanel(p) {
 function properties(p, number, selected, inspector) {
   const c = p.compositions[p.active],
     l = layout(p);
-  const advanced = `<section><div class="segmented">${l.parts.map((q) => `<button data-element="${q.key}" aria-pressed="${selected === q.key}">${t(q.key === "icon" ? "Icône" : "Logotype")}</button>`).join("")}</div>${p.mode !== "compose" ? "" : number("Position X", selected + "X", c[selected + "X"], -10, 10, 0.01, "X") + number("Position Y", selected + "Y", c[selected + "Y"], -10, 10, 0.01, "X")}${l.parts
+  const advanced = `<section><div class="segmented">${l.parts.map((q) => `<button data-element="${q.key}" aria-pressed="${selected === q.key}">${t(q.key === "icon" ? "Icône" : "Logotype")}</button>`).join("")}</div>${isReadyVariant(p) || p.mode !== "compose" ? "" : number("Position X", selected + "X", c[selected + "X"], -10, 10, 0.01, "X") + number("Position Y", selected + "Y", c[selected + "Y"], -10, 10, 0.01, "X")}${l.parts
     .filter((q) => q.key !== "ready")
     .map(
       (q) =>
@@ -63,7 +63,7 @@ function properties(p, number, selected, inspector) {
       })
       .join("")}</div>`;
   const tabs =
-    p.mode === "compose"
+    p.mode === "compose" && !isReadyVariant(p)
       ? [
           ["composition", "Composition"],
           ["position", "Position"],
@@ -91,7 +91,7 @@ function properties(p, number, selected, inspector) {
       ),
     )
     .join("")}${
-    p.mode === "compose" && l.parts.length === 2
+    p.mode === "compose" && !isReadyVariant(p) && l.parts.length === 2
       ? number("Espacement", "gap", c.gap, 0, 5, 0.01, "X") +
         visual("align", [
           ["start", "Début"],
@@ -105,7 +105,7 @@ function properties(p, number, selected, inspector) {
       : ""
   }</section>`;
   const guides = `<section><div class="canvas-expert">${["grid", "snap"].map((key, i) => `<label class="check"><input type="checkbox" data-setting="${key}" ${p[key] ? "checked" : ""}>${t(["Grille", "Magnétisme"][i])}</label>`).join("")}</div>${clearPanel(p)}</section>`;
-  return `<section class="inspector-title"><h2 data-no-i18n>${esc(variantName(p, p.active))}</h2>${p.mode !== "compose" ? `<label class="field">${t("Nom de la version")}<input id="variant-name" value="${esc(p.ready.find((v) => v.id === p.active)?.name || "")}" maxlength="100"></label>` : ""}</section><div class="inspector-tabs" role="tablist" aria-label="${t("Réglages de la version")}">${tabs
+  return `<section class="inspector-title"><h2 data-no-i18n>${esc(variantName(p, p.active))}</h2>${isReadyVariant(p) || p.mode !== "compose" ? `<label class="field">${t("Nom de la version")}<input id="variant-name" value="${esc(p.ready.find((v) => v.id === p.active)?.name || "")}" maxlength="100"></label>` : ""}</section><div class="inspector-tabs" role="tablist" aria-label="${t("Réglages de la version")}">${tabs
     .filter(([id]) => p.mode !== "clearspace" || id === "guides")
     .map(
       ([id, label]) =>
@@ -113,7 +113,7 @@ function properties(p, number, selected, inspector) {
     )
     .join(
       "",
-    )}</div><div class="inspector-content" role="tabpanel">${inspector === "composition" ? composition : inspector === "position" ? advanced : inspector === "guides" ? guides : minimum + `<section><button data-action="reset">${t("Réinitialiser la composition")}</button></section>`}</div>`;
+    )}</div><div class="inspector-content" role="tabpanel">${inspector === "composition" ? composition : inspector === "position" ? advanced : inspector === "guides" ? guides : minimum + (isReadyVariant(p) ? "" : `<section><button data-action="reset">${t("Réinitialiser la composition")}</button></section>`)}</div>`;
 }
 
 export function workspace(

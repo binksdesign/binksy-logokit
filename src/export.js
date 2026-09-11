@@ -1,3 +1,10 @@
+import {
+  rasterTargets,
+  bitmapRect,
+  paletteText,
+  normalizeFormats,
+  framing,
+} from "./export-formats.js";
 import { t } from "./i18n.js";
 import { jsPDF } from "jspdf";
 import "svg2pdf.js";
@@ -62,20 +69,21 @@ export async function renderFile(svg, format, options) {
     ctx.fillStyle = options.background;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
-  const margin = format === "jpeg" ? options.margin : 0;
-  const scale = Math.min(
-      canvas.width / (l.width + 2 * margin),
-      canvas.height / (l.height + 2 * margin),
-    ),
-    w = l.width * scale,
-    h = l.height * scale;
-  ctx.drawImage(
-    await svgImage(svg),
-    (canvas.width - w) / 2,
-    (canvas.height - h) / 2,
-    w,
-    h,
+  const margin = format === "jpeg" ? options.margin || 0 : 0;
+  const occupancy =
+    options.scale ??
+    Math.min(
+      l.width / (l.width + 2 * margin),
+      l.height / (l.height + 2 * margin),
+    );
+  const rect = bitmapRect(
+    canvas.width,
+    canvas.height,
+    l.width,
+    l.height,
+    occupancy,
   );
+  ctx.drawImage(await svgImage(svg), rect.x, rect.y, rect.width, rect.height);
   const blob = await new Promise((resolve) =>
     canvas.toBlob(
       resolve,
@@ -87,9 +95,10 @@ export async function renderFile(svg, format, options) {
   if (!blob) throw Error("Mémoire insuffisante pour cet export.");
   return withResolution(blob, options.dpi);
 }
-export function makeFile(p, item, format) {
+export function makeFile(p, item, format, target = {}) {
   return renderFile(compositionSVG(p, item.variant, item.color), format, {
     ...p.exports,
+    ...target,
     background: backgroundFor(p, item, format),
     margin:
       Math.min(layout(p, item.variant).width, layout(p, item.variant).height) *
@@ -97,7 +106,7 @@ export function makeFile(p, item, format) {
   });
 }
 export function exportPlan(p, items, includeExcluded = false) {
-  const root = slug(p.brand).toUpperCase(),
+  const root = slug(p.brand).toUpperCase() + " LOGOKIT",
     jobs = [];
   for (const item of p.mode === "clearspace" ? [] : items) {
     const formats = item.background
@@ -105,16 +114,30 @@ export function exportPlan(p, items, includeExcluded = false) {
       : p.exports.formats.filter((f) => f !== "jpeg");
     for (const format of formats) {
       if (!p.exports.formats.includes(format)) continue;
-      const category = format === "jpeg" ? "JPEG" : "Logos";
-      const folder =
-        p.exports.organization === "variant"
-          ? `${slug(variantName(p, item.variant))}/${format.toUpperCase()}`
-          : `${format.toUpperCase()}/${slug(variantName(p, item.variant))}`;
-      jobs.push({
-        item,
-        format,
-        path: `${root}/${category}/${format === "jpeg" ? slug(variantName(p, item.variant)) : folder}/${filename(p, item, format, backgroundFor(p, item, format))}`,
-      });
+      const targets = ["png", "jpeg"].includes(format)
+        ? rasterTargets(p.exports)
+        : [{ destination: format === "pdf" ? "PRINT" : "WEB" }];
+      for (const target of targets) {
+        const folder = `${root}/LOGOS/${safeFolder(variantName(p, item.variant))}/${target.destination}`;
+        const suffix = target.id
+          ? `-${target.kind === "use" ? slug(target.name) + "-" : ""}${p.naming.pattern.includes("{size}") ? "" : target.width + "x" + target.height}`.replace(
+              /-$/,
+              "",
+            )
+          : "";
+        const name = filename(
+          { ...p, exports: { ...p.exports, ...target } },
+          item,
+          format,
+          backgroundFor(p, item, format),
+        ).replace(/\.[^.]+$/, suffix + "." + format);
+        jobs.push({
+          item,
+          format,
+          target,
+          path: `${folder}/${target.destination === "WEB" ? format.toUpperCase() + "/" : ""}${name}`,
+        });
+      }
     }
   }
   if (p.exports.clearspace || p.mode === "clearspace") {
@@ -132,14 +155,14 @@ export function exportPlan(p, items, includeExcluded = false) {
             variant,
             tone,
             format,
-            path: `${root}/Clearspace/${slug(variantName(p, variant))}/${slug(p.brand)}-${slug(variantName(p, variant))}-clearspace-${tone === "light" ? "clair" : "fonce"}.${format}`,
+            path: `${root}/CLEARSPACE/${safeFolder(variantName(p, variant))}/${slug(p.brand)}-${slug(variantName(p, variant))}-clearspace-${tone === "light" ? "clair" : "fonce"}.${format}`,
           });
         }
   }
   const names = new Set();
   for (const job of jobs) {
     job.key = job.item
-      ? `${job.item.id}:${job.format}`
+      ? `${job.item.id}:${job.format}${job.target?.id ? ":" + job.target.destination + ":" + job.target.id : ""}`
       : `${job.variant}:clearspace:${job.tone}:${job.format}`;
     const base = job.path;
     let n = 2;
@@ -152,6 +175,10 @@ export function exportPlan(p, items, includeExcluded = false) {
     : jobs.filter(
         (job) =>
           !p.excludedFiles?.includes(job.key) &&
+          !(
+            job.item &&
+            p.excludedFiles?.includes(`${job.item.id}:${job.format}`)
+          ) &&
           !p.excludedFiles?.includes(job.path),
       );
 }
@@ -173,7 +200,7 @@ export async function buildFiles(p, items, progress = () => {}) {
       ? await renderFile(clearspaceSVG(p, job.variant, job.tone), job.format, {
           ...p.exports,
         })
-      : await makeFile(p, job.item, job.format);
+      : await makeFile(p, job.item, job.format, job.target);
     bytes += blob.size;
     if (bytes > 256e6)
       throw Error("Lot supérieur à 256 Mo. Réduisez la sélection.");
@@ -189,15 +216,18 @@ export async function exportFiles(p, items, progress) {
     download(new Blob([data]), name.split("/").pop());
     return;
   }
-  files[slug(p.brand).toUpperCase() + "/RECOMMANDATIONS.txt"] = strToU8(
-    `BINKSY LOGOKIT — ${p.brand}\n${p.mode === "clearspace" ? t("Planches de zone de sécurité transparentes. Couleurs d’origine du logo conservées.") : t("SVG / PNG / PDF transparents. JPEG avec marge {margin} × petit côté du logo. Contraste conseillé : {contrast}:1 (sRGB). Couleurs RVB.", {margin:p.exports.jpegMargin,contrast:p.exports.contrast})}\n\n` +
+  files[slug(p.brand).toUpperCase() + " LOGOKIT/RECOMMANDATIONS.txt"] = strToU8(
+    `BINKSY LOGOKIT — ${p.brand}\n${p.mode === "clearspace" ? t("Planches de zone de sécurité transparentes. Couleurs d’origine du logo conservées.") : t("SVG / PNG / PDF transparents. JPEG avec fond. Cadrage centré partagé par format. Couleurs RVB.")}\n\n` +
       [...new Set(items.map((i) => i.variant))]
         .map((v) => {
           const m = clearMeasure(p, v),
             c = p.compositions[v];
           return `${variantName(p, v)} · ${t("Zone de sécurité")} : X = ${m.label} · ${m.multiplier}X = ${m.space.toFixed(2)} ${t("unités")}${p.mode === "clearspace" ? "" : ` ; minimum ${c.minPrint} mm / ${c.minDigital} px`}.`;
         })
-        .join("\n"),
+        .join("\n") +
+      "\n\nPALETTE\n\n" +
+      paletteText(p.colors) +
+      "\n\nCMJN : approximation sans profil ICC. / CMYK: approximation without ICC profile.\nWEB : 72 DPI · PRINT : 300 DPI\n",
   );
   download(
     new Blob([zipSync(files, { level: 0 })], { type: "application/zip" }),
@@ -206,11 +236,25 @@ export async function exportFiles(p, items, progress) {
 }
 export function jpegPreview(p, item) {
   const l = layout(p, item.variant),
-    margin = Math.min(l.width, l.height) * p.exports.jpegMargin;
-  const ratio = p.exports.width / p.exports.height;
-  let w = l.width + 2 * margin,
-    h = l.height + 2 * margin;
-  if (w / h < ratio) w = h * ratio;
-  else h = w / ratio;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="${item.background.hex}"/><svg x="${(w - l.width) / 2}" y="${(h - l.height) / 2}" width="${l.width}" height="${l.height}" viewBox="${l.x} ${l.y} ${l.width} ${l.height}">${compositionSVG(p, item.variant, item.color).replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg></svg>`;
+    f = normalizeFormats(p.exports).selected[0] || {
+      width: p.exports.width,
+      height: p.exports.height,
+    };
+  const r = bitmapRect(
+    f.width,
+    f.height,
+    l.width,
+    l.height,
+    framing(p.exports, f.id),
+  );
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${f.width} ${f.height}"><rect width="${f.width}" height="${f.height}" fill="${item.background.hex}"/><svg x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}" viewBox="${l.x} ${l.y} ${l.width} ${l.height}">${compositionSVG(p, item.variant, item.color).replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg></svg>`;
+}
+
+function safeFolder(name) {
+  return (
+    String(name)
+      .replace(/[\\/:*?"<>|\x00-\x1f]/g, "-")
+      .replace(/^\.+$/, "logo")
+      .trim() || "Logo"
+  );
 }

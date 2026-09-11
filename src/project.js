@@ -1,7 +1,8 @@
+import { customFormats } from "./export-formats.js";
 import { gradientSettings, synchronizeGradients } from "./gradient.js";
-import { project, VARIANTS, variantIds, CLEAR_REFS } from "./model";
+import { project, VARIANTS, variantIds, isReadyVariant, CLEAR_REFS } from "./model";
 import { importSVG } from "./svg";
-import { restoreRoles, hexColor } from "./paints.js";
+import { restoreRoles, hexColor, shade } from "./paints.js";
 export async function validate(data) {
   if (
     ![1, 2, 3].includes(data?.version) ||
@@ -107,8 +108,10 @@ export async function validate(data) {
   ])
     if (Number.isFinite(e[key]))
       result.exports[key] = Math.round(Math.min(max, Math.max(min, e[key])));
-  result.exports.organization =
-    e.organization === "variant" ? "variant" : "format";
+  result.exports.customFormats = customFormats(e);
+  result.exports.rasterFormats = Array.isArray(e.rasterFormats) ? e.rasterFormats.filter(id=>typeof id === "string") : undefined;
+  result.exports.destinations = Array.isArray(e.destinations) ? [...new Set(e.destinations.filter(d=>["WEB","PRINT"].includes(d)))] : ["WEB","PRINT"];
+  result.exports.framing = Object.fromEntries(Object.entries(e.framing || {}).filter(([id,n])=>/^[\w-]+$/.test(id)&&Number.isFinite(n)&&n>=.05&&n<=1));
   result.canvas = data.canvas === "#000000" ? "#000000" : "#ffffff";
   result.jpegOverrides = Object.fromEntries(
     Object.entries(data.jpegOverrides || {}).filter(
@@ -120,10 +123,11 @@ export async function validate(data) {
     ? Math.min(3, Math.max(0.1, e.jpegMargin))
     : 0.5;
   result.exports.clearspace = e.clearspace !== false;
-  if (result.mode !== "compose") {
+  {
+    if (data.ready != null && !Array.isArray(data.ready)) throw Error("Variantes invalides.");
     for (const item of data.ready || []) {
       if (
-        !/^v-[\w-]+$/.test(item.id) ||
+        !item || !/^v-[\w-]+$/.test(item.id) ||
         result.ready.some((v) => v.id === item.id)
       )
         throw Error("Identifiant de variante invalide.");
@@ -139,12 +143,10 @@ export async function validate(data) {
       });
       result.compositions[item.id] = { ...project().compositions.horizontal };
     }
-    result.active = result.ready.some((v) => v.id === data.active)
+    result.active = variantIds(result).includes(data.active)
       ? data.active
-      : result.ready[0]?.id || "horizontal";
-    result.enabled = result.ready
-      .map((v) => v.id)
-      .filter((id) => data.enabled?.includes(id));
+      : variantIds(result)[0] || "horizontal";
+    result.enabled = variantIds(result).filter((id) => !Array.isArray(data.enabled) || data.enabled.includes(id));
   }
   for (const v of variantIds(result)) {
     const old = data.compositions[v] || {};
@@ -167,7 +169,7 @@ export async function validate(data) {
           : null,
       ]),
     );
-    if (result.mode !== "compose") {
+    if (isReadyVariant(result, v)) {
       c.minPrint = Number.isFinite(old.minPrint)
         ? Math.max(1, old.minPrint)
         : 25;
@@ -224,6 +226,7 @@ export async function validate(data) {
       category: item.category,
       color: {
         id: color.id,
+        partColors: Object.fromEntries(Object.entries(color.partColors || {}).filter(([key,value])=>["icon","wordmark"].includes(key)&&hexColor(value))),
         name: String(color.name).slice(0, 2000),
         hex: hexColor(color.hex),
         mapping,
@@ -242,6 +245,19 @@ export async function validate(data) {
       ...gradientSettings(g),
     }));
   synchronizeGradients(result);
+  // Promote previously selected automatic gradients once; new projects never
+  // generate gradients. Unselected legacy suggestions are intentionally omitted.
+  if (!Array.isArray(e.rasterFormats) && result.mode !== "clearspace") {
+    const palette=[...new Map(result.colors.map(c=>[c.hex,c])).values()];
+    const retain = g => {
+      const selected=result.enabled.some(v=>result.colorSelection[v+":"+g.id] ?? result.colorSelection[v+":gradient"]);
+      if(selected && !result.gradients.some(saved=>saved.id===g.id)) result.gradients.push({...g,...gradientSettings(g)});
+    };
+    for(const a of palette) {
+      for(const b of palette) if(a.hex!==b.hex) retain({id:`g-${a.id}-${b.id}`,name:`${a.name} → ${b.name}`,from:a.hex,to:b.hex,mode:"auto"});
+      for(const [suffix,delta] of [["light",.16],["dark",-.16]]) retain({id:`g-${a.id}-${suffix}`,name:`${a.name} ${delta>0?"+":"−"}`,from:a.hex,to:shade(a.hex,delta),mode:"auto"});
+    }
+  }
   result.locale = data.locale === "en" ? "en" : "fr";
   return result;
 }

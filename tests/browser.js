@@ -267,9 +267,9 @@ await test("ZIP final : logos / JPEG / Clearspace, sans doublons", async () => {
   );
   const files = await buildFiles(p, items);
   const names = Object.keys(unzipSync(zipSync(files)));
-  assert(names.some((n) => n.includes("/Logos/SVG/")));
+  assert(names.some((n) => n.includes("/WEB/SVG/")));
   assert(names.some((n) => n.includes("/JPEG/")));
-  assert(names.filter((n) => n.includes("/Clearspace/")).length === 2);
+  assert(names.filter((n) => n.includes("/CLEARSPACE/")).length === 2);
   assert(new Set(names).size === names.length);
 });
 document.title = `${failures ? "FAIL" : "PASS"} — Tests BINKSY`;

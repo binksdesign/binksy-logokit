@@ -150,7 +150,7 @@ await test("Gradient catalogs and rendered previews refresh for every linked con
   p.assets.icon = assets.C;
   p.assets.wordmark = assets.D;
   p.colors = [{ id: "orange", name: "Orange", hex: "#ff5500" }];
-  const g = gradientOptions(p)[0];
+  const g = {id:"g-created",name:"Created",from:"#ff5500",to:"#0055ff",mode:"global"};
   const other = { ...g, id: "g-other" };
   p.gradients = [other];
   const stopsOf = (markup) =>
@@ -280,17 +280,17 @@ await test("Gradient généré vectoriel et stroke", () => {
 await test("Toutes les combinaisons, sans doublons de peintures", () => {
   p.enabled = ["horizontal"];
   const c = catalog(p, "horizontal", "multi");
-  assert(c.size === 19n, "5² - 5 monochromes - 1 original");
+  assert(c.size === 12n, "6 role assignments + 6 independent component pairs, got " + c.size);
   const signatures = new Set();
   for (let i = 0n; i < c.size; i++) {
     const item = c.at(i),
-      sig = JSON.stringify(item.color.mapping);
+      sig = JSON.stringify(item.color.partColors || item.color.mapping);
     assert(!signatures.has(sig));
     signatures.add(sig);
   }
   assert(c.at(c.size) === null);
 });
-await test("Pagination avec 5^30 possibilités", () => {
+await test("Pagination avec 3^30 possibilités", () => {
   const q = structuredClone(p);
   q.assets.wordmark.roles = Array.from({ length: 30 }, (_, i) => ({
     id: "r" + i,
@@ -301,7 +301,7 @@ await test("Pagination avec 5^30 possibilités", () => {
   q.assets.icon.roles = [];
   const start = performance.now(),
     c = catalog(q, "horizontal", "multi");
-  assert(c.size === 5n ** 30n - 5n);
+  assert(c.size === 3n ** 30n - 3n);
   assert(c.at(c.size - 1n));
   assert(performance.now() - start < 100);
 });
@@ -309,8 +309,8 @@ await test("Sélection globale, individuelle et clairsemée", () => {
   setCategory(p, p.enabled, ["original", "mono", "multi", "gradient"], "none");
   assert(selectedItems(p).length === 0);
   setCategory(p, p.enabled, ["multi"], "all");
-  assert(selectedCount(p, "horizontal", "multi") === 19n);
-  assert(selectedItems(p).length === 19);
+  assert(selectedCount(p, "horizontal", "multi") === 12n);
+  assert(selectedItems(p).length === 12);
   setCategory(p, p.enabled, ["multi"], "none");
   const item = catalog(p, "horizontal", "multi").at(3n);
   p.colorSelection[item.id] = true;
@@ -319,8 +319,8 @@ await test("Sélection globale, individuelle et clairsemée", () => {
 });
 await test("Gradients palette, clair, foncé", () => {
   const g = gradientOptions(p);
-  assert(g.length === 12);
-  assert(g.some((x) => x.from === "#ff5500" && x.to === "#0055ff"));
+  assert(g.length === p.gradients.length);
+  assert(gradientOptions({...p,gradients:[]}).length === 0);
   assert(/^#[0-9a-f]{6}$/.test(shade("#ff5500", 0.16)));
   assert(shade("#ff5500", 0.16) !== shade("#ff5500", -0.16));
 });
@@ -429,7 +429,7 @@ await test("Exports SVG PNG JPEG PDF et ZIP", async () => {
     files = await buildFiles(p, items);
   assert(Object.keys(files).length === jobs.length);
   assert(Object.keys(unzipSync(zipSync(files))).length === jobs.length);
-  assert(Object.keys(files).some((x) => x.includes("/Clearspace/")));
+  assert(Object.keys(files).some((x) => x.includes("/CLEARSPACE/")));
   assert(before === compositionSVG(p, item.variant, item.color));
 });
 await test("PDF avec gradient importé et généré", async () => {

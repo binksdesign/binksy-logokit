@@ -124,24 +124,7 @@ export function startVisualMeasure({
       const square = drag.square;
       clean();
       if (!square || square.size < 0.01) return;
-      const dialog = document.createElement("dialog");
-      dialog.className = "measurement-dialog";
-      dialog.setAttribute("aria-label", t("Nommer la mesure"));
-      dialog.innerHTML = `<form method="dialog"><h2>${t("Nommer la mesure")}</h2><p>${square.size.toFixed(2)} ${t("unités SVG")}</p><label>${t("Cette mesure correspond à :")}<input name="reference" maxlength="160" placeholder="${t("Hauteur du M")}" value="${esc(previous || "")}" autofocus></label><div class="dialog-actions"><button value="cancel">${t("Annuler")}</button><button class="primary" value="apply">${t("Utiliser cette mesure")}</button></div></form>`;
-      document.querySelector("#app").append(dialog);
-      dialog.addEventListener(
-        "close",
-        () => {
-          if (dialog.returnValue === "apply")
-            commit({
-              value: square.size,
-              label: dialog.querySelector("input").value.trim(),
-            });
-          dialog.remove();
-        },
-        { once: true },
-      );
-      dialog.showModal();
+      commit({value: square.size, label: previous || "X1"});
     },
     { signal },
   );

@@ -9,6 +9,7 @@ import {
 import { project, clearMeasure, History } from "../src/model.js";
 test("Gradient V3 additions normalize and preserve legacy endpoints", () => {
   assert.deepEqual(gradientSettings({ from: "#000000", to: "#ffffff" }), {
+    paint: "both", strokeOpacity: 1, excludedTargets: [],
     mode: "global",
     stops: [
       { offset: 0, color: "#000000" },

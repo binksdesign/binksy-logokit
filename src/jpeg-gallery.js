@@ -1,3 +1,4 @@
+import { editFraming } from "./format-editor.js";
 import { catalog, CATEGORIES, selectedItem, selectedItems } from "./catalog.js";
 import { backgrounds, jpegPairs, variantName } from "./model.js";
 import { jpegPreview, exportPlan } from "./export.js";
@@ -42,12 +43,12 @@ export function mountJpegGallery(root, p, variants, edit, refresh) {
       index -= group.size;
     }
     const pair = jpegPairs(p, item)[Number(i % BigInt(bgs.length))];
-    const job = exportPlan(
+    const jobs = exportPlan(
       { ...p, exports: { ...p.exports, formats: ["jpeg"], clearspace: false } },
       [pair],
       true,
-    )[0];
-    pairs.push({ pair, item, job });
+    );
+    pairs.push({ pair, item, jobs });
   }
   root.innerHTML = `<div class="jpeg-toolbar"><label>${t("Afficher")}<select id="jpeg-category">${[
     ["selected", "Versions sélectionnées"],
@@ -65,14 +66,17 @@ export function mountJpegGallery(root, p, variants, edit, refresh) {
       "",
     )}</select></label><button id="reset-global-pairs">${t("Revenir aux recommandations")}</button></div>${!p.exports.formats.includes("jpeg") ? `<p class="jpeg-format-note">${t("JPEG n’est pas activé pour l’export.")} <button id="enable-jpeg">${t("Inclure les JPEG")}</button></p>` : ""}<p>${t("Chaque aperçu montre le fond et la marge du fichier JPEG.")}</p>${warning ? `<p role="status">${warning}</p>` : ""}<div class="family-grid jpeg-grid">${
     pairs
-      .map(({ pair, item, job }, i) => {
+      .map(({ pair, item, jobs }, i) => {
         const included =
           selectedItem(p, item) &&
           pair.enabled &&
           !p.excluded.includes(pair.id) &&
-          !p.excludedFiles?.includes(job.key) &&
-          !p.excludedFiles?.includes(job.path);
-        return `<article class="delivery ${included ? "selected" : ""}"><label><input type="checkbox" data-jpeg-pair="${i}" ${included ? "checked" : ""} aria-label="${esc(variantName(p, item.variant))} · ${esc(item.color.name)} · ${esc(pair.background.name)}"><span data-no-i18n>${esc(variantName(p, item.variant))}</span><small data-no-i18n>${esc(item.color.name)} / ${esc(pair.background.name)}</small><div class="delivery-preview">${jpegPreview(p, pair)}</div></label><span class="pair-contrast">${pair.ratio.toFixed(1)}:1 · ${t(pair.recommended ? "Contraste conseillé" : "Contraste faible")}</span><details><summary>${t("Appliquer ce fond aux autres versions")}</summary><label class="check"><input type="checkbox" data-global-pair="${esc(pair.globalId)}" ${pair.enabled ? "checked" : ""}>${t("Utiliser cette association pour toutes les versions")}</label></details></article>`;
+          jobs.some(
+            (job) =>
+              !p.excludedFiles?.includes(job.key) &&
+              !p.excludedFiles?.includes(job.path),
+          );
+        return `<article class="delivery ${included ? "selected" : ""}"><label><input type="checkbox" data-jpeg-pair="${i}" ${included ? "checked" : ""} aria-label="${esc(variantName(p, item.variant))} · ${esc(item.color.name)} · ${esc(pair.background.name)}"><span data-no-i18n>${esc(variantName(p, item.variant))}</span><small data-no-i18n>${esc(item.color.name)} / ${esc(pair.background.name)}</small><div class="delivery-preview">${jpegPreview(p, pair)}</div></label><button data-jpeg-framing="${i}">${t("Taille du logo dans l’image")}</button><span class="pair-contrast">${pair.ratio.toFixed(1)}:1 · ${t(pair.recommended ? "Contraste conseillé" : "Contraste faible")}</span><details><summary>${t("Appliquer ce fond aux autres versions")}</summary><label class="check"><input type="checkbox" data-global-pair="${esc(pair.globalId)}" ${pair.enabled ? "checked" : ""}>${t("Utiliser cette association pour toutes les versions")}</label></details></article>`;
       })
       .join("") ||
     `<p>${t("Aucun JPEG dans cette sélection. Choisissez une autre catégorie.")}</p>`
@@ -106,11 +110,18 @@ export function mountJpegGallery(root, p, variants, edit, refresh) {
       p.jpegOverrides = {};
       p.jpegExceptions = {};
     });
+  root
+    .querySelectorAll("[data-jpeg-framing]")
+    .forEach(
+      (el) =>
+        (el.onclick = () =>
+          editFraming(p, pairs[+el.dataset.jpegFraming].pair, edit)),
+    );
   root.querySelectorAll("[data-jpeg-pair]").forEach(
     (el) =>
       (el.onchange = () =>
         edit(() => {
-          const { pair, item, job } = pairs[+el.dataset.jpegPair];
+          const { pair, item, jobs } = pairs[+el.dataset.jpegPair];
           // Per-version exceptions take precedence over the optional shared association.
           (p.jpegExceptions ||= {})[pair.id] = el.checked;
           if (el.checked) {
@@ -120,7 +131,9 @@ export function mountJpegGallery(root, p, variants, edit, refresh) {
               (id) => id !== pair.id && id !== item.id,
             );
             p.excludedFiles = (p.excludedFiles || []).filter(
-              (id) => id !== job.key && id !== job.path,
+              (id) =>
+                id !== `${pair.id}:jpeg` &&
+                !jobs.some((job) => id === job.key || id === job.path),
             );
           }
         })),

@@ -257,6 +257,9 @@ await test("Système complet : toutes les combinaisons restent accessibles", () 
 });
 await test("Dégradés : modes visuels, stops, orientation et participation", async () => {
   click('[data-gallery-filter="gradient"]');
+  click("[data-create-gradient]");
+  click('.gradient-editor [value="apply"]');
+  await wait(()=>!find("dialog"));
   change('[data-section="gradient"] [data-work-select]', true);
   const selectedId = find('[data-section="gradient"] [data-work-select]')
     .dataset.workSelect;
@@ -301,19 +304,43 @@ await test("Dégradés : modes visuels, stops, orientation et participation", as
   click('[data-action="redo"]');
   assert(editedStops() === after, "redo refreshes gradient preview");
 });
-await test("Export : kit complet par défaut et personnalisation conservée", () => {
+await test("Cadrage : annuler, poignées centrées, réglage partagé", async () => {
+  click('[data-gallery-filter="original"]');
+  click('[data-framing]');
+  const range=find('.gradient-editor input[type="range"]');
+  assert(+range.value===80);
+  range.value=60;range.dispatchEvent(new frame.contentWindow.Event('input',{bubbles:true}));
+  const stage=find('.framing-stage').getBoundingClientRect(),logo=find('.framing-logo').getBoundingClientRect();
+  assert(Math.abs(stage.x+stage.width/2-logo.x-logo.width/2)<1);
+  assert(Math.abs(stage.y+stage.height/2-logo.y-logo.height/2)<1);
+  click('.gradient-editor [value="cancel"]');await wait(()=>!find('dialog'));
+  click('[data-framing]');assert(+find('.gradient-editor input[type="range"]').value===80);
+  input('.gradient-editor input[type="range"]',60);
+  click('.gradient-editor [value="apply"]');await wait(()=>!find('dialog'));
+  const buttons=doc().querySelectorAll('[data-framing]');click(`[data-framing="${buttons[1].dataset.framing}"]`);
+  assert(+find('.gradient-editor input[type="range"]').value===60);
+  click('.gradient-editor [value="cancel"]');await wait(()=>!find('dialog'));
+});
+await test("Export : kit complet par défaut et personnalisation conservée", async () => {
   click('nav [data-view="delivery"]');
   assert(find("#export-kit"));
   assert(!find('[data-disclosure="export"]').open);
   for (const f of ["svg", "png", "jpeg", "pdf"])
     assert(find(`[data-format="${f}"]`).checked);
-  click('[data-export-preset="web"]');
-  assert(!find('[data-format="pdf"]').checked);
-  click('[data-export-preset="complete"]');
+  assert(!find('[data-export-preset]'));
+  // A project previously set to Web must return to the complete kit on entry.
+  change('[data-format="pdf"]', false);
+  change('[data-format="jpeg"]', false);
+  click('nav [data-view="family"]');
+  click('nav [data-view="delivery"]');
   assert(find('[data-format="pdf"]').checked);
-  change('[data-export="width"]', 96);
-  change('[data-export="height"]', 96);
-  change('[data-export="dpi"]', 144);
+  assert(find('[data-format="jpeg"]').checked);
+  change('[data-raster-format="web-3000"]', false);
+  click('[data-custom-format]');
+  input('dialog [name="label"]','Test ZIP');
+  input('dialog [name="width"]',96);input('dialog [name="height"]',96);
+  click('dialog [value="apply"]');
+  await wait(()=>!find('dialog'));
   click('nav [data-view="family"]');
   click('[data-gallery-filter="jpeg"]');
   change("#jpeg-category", "mono");
@@ -453,21 +480,20 @@ await test("Mesure canvas : carré visible, taille en direct, disparition au rel
   assert(find('[data-measure-overlay] text').textContent.includes('37.50'));
   pointer('pointerup',end);
   assert(!find('[data-measure-overlay]'));
-  assert(find('.measurement-dialog[open]'));
-  input('.measurement-dialog input','hauteur du M <test>');
-  click('.measurement-dialog [value="apply"]');
+  assert(!find('.measurement-dialog[open]'));
+  assert(find('[data-multiplier="1"]').getAttribute("aria-pressed")==="true");
   await wait(()=>!find('dialog'));
   assert(Math.abs(+find('#visual-value').value-37.5)<.001);
-  assert(find('#measure-name').value==='hauteur du M <test>');
+  assert(find('#measure-name').value==='X1');
 });
 await test("Mesure : undo/redo, copie choisie et mode focus", async () => {
   click('[data-action="undo"]');assert(!find('#visual-value'));
-  click('[data-action="redo"]');assert(find('#measure-name').value==='hauteur du M <test>');
+  click('[data-action="redo"]');assert(find('#measure-name').value==='X1');
   const target=find('[data-copy-rule]').dataset.copyRule;
   change('[data-copy-rule]',true);click('[data-action="copy-rule"]');
   click(`[data-active="${target}"]`);
   assert(Math.abs(+find('#visual-value').value-37.5)<.001);
-  assert(find('#measure-name').value==='hauteur du M <test>');
+  assert(find('#measure-name').value==='X1');
   click('[data-action="focus"]');
   assert(find('.workspace').classList.contains('focus-mode'));
   assert(frame.contentWindow.getComputedStyle(find('.right')).display==='none');
@@ -482,9 +508,9 @@ await test("Mesure nommée : fichier .binksy, réouverture et planches vectoriel
   click('[data-action="export-project"]');proto.click=original;
   const savedMeasure=await (await fetch(downloaded.href)).text();
   const data=JSON.parse(savedMeasure);
-  assert(data.mode==='clearspace');assert(data.compositions[data.active].visualMeasure.label==='hauteur du M <test>');
+  assert(data.mode==='clearspace');assert(data.compositions[data.active].visualMeasure.label==='X1');
   await upload('#project-file',[['measure.binksy',savedMeasure]]);
-  assert(find('#measure-name').value==='hauteur du M <test>');
+  assert(find('#measure-name').value==='X1');
   assert(Math.abs(+find('#visual-value').value-37.5)<.001);
   const { validate }=await import('../src/project.js');
   const { clearspaceSVG }=await import('../src/clearspace.js');
@@ -493,17 +519,17 @@ await test("Mesure nommée : fichier .binksy, réouverture et planches vectoriel
   const restored=await validate(data);
   restored.exports.width=96;restored.exports.height=96;
   const board=clearspaceSVG(restored,restored.active);
-  assert(board.includes('hauteur du M &lt;test&gt;'));
+  assert(board.includes('X1'));
   assert(!board.includes('data-measure-overlay') && !board.includes('<image'));
   const jobs=exportPlan(restored,selectedItems(restored));
-  assert(jobs.length===12 && jobs.every(j=>j.tone && j.path.includes('/Clearspace/')));
+  assert(jobs.length===12 && jobs.every(j=>j.tone && j.path.includes('/CLEARSPACE/')));
   const files=await buildFiles(restored,selectedItems(restored));
   assert(Object.keys(files).length===12);
-  for (const path of Object.keys(files).filter(p=>p.endsWith('.svg'))) assert(new TextDecoder().decode(files[path]).includes('hauteur du M &lt;test&gt;'));
+  for (const path of Object.keys(files).filter(p=>p.endsWith('.svg'))) assert(new TextDecoder().decode(files[path]).includes('X1'));
   click('nav [data-view="delivery"]');assert(find('.kit-metrics'));
   assert(!find('[data-format="jpeg"]') && !find('[data-export="jpegMargin"]'));
   assert(!find('#export-kit').disabled);
-  click('[data-export-preset="complete"]');assert(!find('[data-format="jpeg"]'));
+  assert(!find('[data-export-preset]'));assert(!find('[data-format="jpeg"]'));
   click('[data-language="en"]');
   assert(find('#export-kit').textContent==='Export clear spaces');
   click('[data-language="fr"]');
@@ -519,12 +545,16 @@ await test("Compatibilité : mesure historique prioritaire, paramètres visuels 
   const fixed=await validate(data);assert(fixed.compositions[fixed.active].clearMethod==='auto');
 });
 
-await test("V1 et V2 migrent sans changer leurs choix de formats", async () => {
+await test("V1 et V2 : kit complet à l’export, dimensions et DPI conservés", async () => {
   for (const version of [1, 2]) {
     const p = project();
     p.version = version;
     p.brand = "QA ancien " + version;
     p.exports.formats = ["svg"];
+    delete p.exports.rasterFormats;
+    p.exports.width = 1600;
+    p.exports.height = 1200;
+    p.exports.dpi = 144;
     p.assets.icon = { svg: icon, name: "icon.svg" };
     p.assets.wordmark = { svg: word, name: "wordmark.svg" };
     for (const c of Object.values(p.compositions)) {
@@ -538,7 +568,10 @@ await test("V1 et V2 migrent sans changer leurs choix de formats", async () => {
       find('[data-multiplier="1"]').getAttribute("aria-pressed") === "true",
     );
     click('nav [data-view="delivery"]');
-    assert(!find('[data-format="png"]').checked);
+    for (const format of ["svg", "png", "jpeg", "pdf"])
+      assert(find(`[data-format="${format}"]`).checked);
+    assert(!find('[data-export="organization"]'));
+    assert(find('[data-raster-format="legacy-size"]'));
   }
 });
 await test("Réouverture locale après rechargement", async () => {

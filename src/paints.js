@@ -135,39 +135,5 @@ export function shade(hex, delta) {
   );
 }
 export function gradientOptions(p) {
-  const palette = [
-      ...new Map(p.colors.map((c) => [c.hex.toLowerCase(), c])).values(),
-    ],
-    list = [];
-  for (const a of palette) {
-    for (const b of palette)
-      if (a.hex !== b.hex)
-        list.push({
-          id: `g-${a.id}-${b.id}`,
-          name: `${a.name} → ${b.name}`,
-          mode: "auto",
-          from: a.hex,
-          to: b.hex,
-        });
-    list.push({
-      id: `g-${a.id}-light`,
-      name: `${a.name} +`,
-      mode: "auto",
-      from: a.hex,
-      to: shade(a.hex, 0.16),
-    });
-    list.push({
-      id: `g-${a.id}-dark`,
-      name: `${a.name} −`,
-      mode: "auto",
-      from: a.hex,
-      to: shade(a.hex, -0.16),
-    });
-  }
-  for (const saved of p.gradients || []) {
-    const index = list.findIndex((x) => x.id === saved.id);
-    if (index >= 0) list[index] = saved;
-    else list.push(saved);
-  }
-  return [...new Map(list.map((g) => [g.id, g])).values()];
+  return [...new Map((p.gradients || []).map(g => [g.id,g])).values()];
 }

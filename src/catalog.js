@@ -20,14 +20,26 @@ export function catalog(p, variant, category) {
       parts.length !== 2)
   )
     return { size: 0n, at: () => null };
-  if (p.mode === "clearspace") return category !== "original" ? { size: 0n, at: () => null } : {
-    size: 1n,
-    at: index => BigInt(index) === 0n ? { id: variant + ":original", variant, category: "original", color: {id:"original",name:"Original",hex:null}, recommended:true } : null,
-  };
+  if (p.mode === "clearspace")
+    return category !== "original"
+      ? { size: 0n, at: () => null }
+      : {
+          size: 1n,
+          at: (index) =>
+            BigInt(index) === 0n
+              ? {
+                  id: variant + ":original",
+                  variant,
+                  category: "original",
+                  color: { id: "original", name: "Original", hex: null },
+                  recommended: true,
+                }
+              : null,
+        };
   const roles = rolesFor(p, variant).filter((r) => !r.locked);
   const palette = [
     ...new Map(
-      colors(p)
+      (category === "multi" ? p.colors : colors(p))
         .filter((c) => c.hex)
         .map((c) => [c.hex.toLowerCase(), c]),
     ).values(),
@@ -49,7 +61,7 @@ export function catalog(p, variant, category) {
           0n,
         )
       : -1n;
-  const repeated = r ? (n ** BigInt(r) - 1n) / (n - 1n) : 0n;
+  const repeated = r && n > 1n ? (n ** BigInt(r) - 1n) / (n - 1n) : 0n;
   const skipped = r > 1 ? palette.map((_, i) => BigInt(i) * repeated) : [];
   if (originalRank >= 0n && !skipped.includes(originalRank))
     skipped.push(originalRank);
@@ -59,21 +71,53 @@ export function catalog(p, variant, category) {
       !roles.length ||
       !roles.every((role) => role.paint === c.hex.toLowerCase()),
   );
+  const pairs =
+    category === "multi" &&
+    roles.some(
+      (r) => r.sources.includes("icon") && r.sources.includes("wordmark"),
+    ) &&
+    parts.some((q) => q.key === "icon") &&
+    parts.some((q) => q.key === "wordmark")
+      ? [...new Map(p.colors.map((c) => [c.hex.toLowerCase(), c])).values()]
+      : [];
+  const pairCount = BigInt(pairs.length * Math.max(0, pairs.length - 1));
   const size =
-    category === "original"
+    pairCount +
+    (category === "original"
       ? 1n
       : category === "mono"
         ? BigInt(roles.length ? mono.length : 0)
         : category === "gradient"
           ? BigInt(roles.length ? gradients.length : 0)
-          : r > 1
+          : r > 1 && n > 1n
             ? n ** BigInt(r) - BigInt(skipped.length)
-            : 0n;
+            : 0n);
   return {
     size,
     at(index) {
       index = BigInt(index);
       if (index < 0n || index >= size) return null;
+      if (category === "multi" && index < pairCount) {
+        const a = (Number(index) / (pairs.length - 1)) | 0,
+          raw = Number(index) % (pairs.length - 1),
+          b = raw >= a ? raw + 1 : raw;
+        const icon = pairs[a],
+          word = pairs[b],
+          color = {
+            id: `m-parts-${icon.hex.slice(1)}-${word.hex.slice(1)}`,
+            name: `${icon.name} + ${word.name}`,
+            hex: null,
+            partColors: { icon: icon.hex, wordmark: word.hex },
+          };
+        return {
+          id: variant + ":" + color.id,
+          variant,
+          color,
+          category,
+          recommended: false,
+        };
+      }
+      index -= pairCount;
       let color;
       if (category === "original")
         color = { id: "original", name: "Original", hex: null };
@@ -145,11 +189,23 @@ export function selectedCount(p, variant, category) {
             : "mono";
       if (kind === category && value !== rule) count += value ? 1n : -1n;
     }
-  if (rule) for (const id of new Set(p.excluded || [])) {
-    if (!id.startsWith(variant + ":") || id.includes(":jpeg:") || Object.hasOwn(s,id)) continue;
-    const kind = id.includes(":g-") ? "gradient" : id.includes(":m-") ? "multi" : id.endsWith(":original") ? "original" : "mono";
-    if (kind === category) count--;
-  }
+  if (rule)
+    for (const id of new Set(p.excluded || [])) {
+      if (
+        !id.startsWith(variant + ":") ||
+        id.includes(":jpeg:") ||
+        Object.hasOwn(s, id)
+      )
+        continue;
+      const kind = id.includes(":g-")
+        ? "gradient"
+        : id.includes(":m-")
+          ? "multi"
+          : id.endsWith(":original")
+            ? "original"
+            : "mono";
+      if (kind === category) count--;
+    }
   return count < 0n ? 0n : count > c.size ? c.size : count;
 }
 export function setCategory(p, variants, categories, mode) {
@@ -208,7 +264,8 @@ export function selectedItems(p, limit = 500) {
   return result;
 }
 export function deliveries(p, items) {
-  if (p.mode === "clearspace") return items.filter(i => i.color.id === "original");
+  if (p.mode === "clearspace")
+    return items.filter((i) => i.color.id === "original");
   return items.flatMap((item) => [
     ...(p.exports.formats.some((f) => f !== "jpeg") ? [item] : []),
     ...(p.exports.formats.includes("jpeg")

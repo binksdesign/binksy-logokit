@@ -3,13 +3,21 @@ export function gradientSettings(g) {
   const valid = (c) => /^#[a-f\d]{6}$/i.test(c || "");
   const stops = (Array.isArray(g.stops) ? g.stops : [])
     .filter((s) => valid(s.color) && Number.isFinite(s.offset))
-    .slice(0, 32)
     .map((s) => ({
       color: s.color.toLowerCase(),
       offset: Math.max(0, Math.min(1, s.offset)),
     }))
     .sort((a, b) => a.offset - b.offset);
   return {
+    paint: ["fill", "stroke", "both"].includes(g.paint) ? g.paint : "both",
+    strokeOpacity: Number.isFinite(g.strokeOpacity)
+      ? Math.max(0, Math.min(1, g.strokeOpacity))
+      : 1,
+    excludedTargets: Array.isArray(g.excludedTargets)
+      ? g.excludedTargets.filter(
+          (x) => typeof x === "string" && /^[\w:-]+$/.test(x),
+        )
+      : [],
     mode: ["auto", "global", "shape"].includes(g.mode) ? g.mode : "global",
     stops:
       stops.length >= 2

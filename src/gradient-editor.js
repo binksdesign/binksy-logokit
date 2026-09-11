@@ -1,4 +1,6 @@
-import { compositionSVG } from "./svg.js";
+import { shade } from "./paints.js";
+import { layout } from "./model.js";
+import { compositionSVG, assetMarkup } from "./svg.js";
 import { gradientSettings, updateGradient } from "./gradient.js";
 import { rolesFor } from "./catalog.js";
 import { t } from "./i18n.js";
@@ -42,7 +44,9 @@ export function editGradient(p, item, edit) {
       );
   };
   const render = () => {
+    const activeStop = g.stops[selected];
     g.stops.sort((a, b) => a.offset - b.offset);
+    selected = Math.max(0, g.stops.indexOf(activeStop));
     dialog.innerHTML = `<form method="dialog"><div class="section-title"><h2>${t("Modifier le dégradé")}</h2><button value="cancel" aria-label="${t("Annuler")}">×</button></div>
       <div class="gradient-live checker"></div>
       <div class="visual-options">${[
@@ -56,10 +60,48 @@ export function editGradient(p, item, edit) {
         )
         .join("")}</div>
       <div class="gradient-track" aria-label="${t("Stops du dégradé")}">${g.stops.map((s, i) => `<button type="button" data-stop="${i}" style="left:${s.offset * 100}%;background:${s.color}" aria-label="${t("Couleur")} ${i + 1}" aria-pressed="${i === selected}"></button>`).join("")}</div>
+      <div class="gradient-palette">${p.colors
+        .flatMap((c) => [c.hex, shade(c.hex, 0.16), shade(c.hex, -0.16)])
+        .map(
+          (hex) =>
+            `<button type="button" data-palette-stop="${hex}" style="background:${hex}" aria-label="${hex}" title="${hex}"></button>`,
+        )
+        .join("")}</div>
       <div class="stop-controls">${g.stops.map((s, i) => `<div class="stop-row"><input type="color" name="${i === 0 ? "from" : i === g.stops.length - 1 ? "to" : "stop-" + i}" data-stop-color="${i}" value="${s.color}" aria-label="${t("Couleur")} ${i + 1}"><input type="range" min="0" max="100" value="${s.offset * 100}" data-stop-position="${i}" aria-label="${t("Position")} ${i + 1}"><output>${Math.round(s.offset * 100)}%</output><button type="button" data-remove-stop="${i}" ${g.stops.length <= 2 ? "disabled" : ""} aria-label="${t("Supprimer")} ${i + 1}">×</button></div>`).join("")}</div>
-      <button type="button" data-add-stop ${g.stops.length >= 32 ? "disabled" : ""}>+ ${t("Ajouter une couleur")}</button>
+      <button type="button" data-add-stop >+ ${t("Ajouter une couleur")}</button>
       <div class="visual-options angles">${[0, 90, 45, -45].map((angle, i) => `<button type="button" data-gradient-angle="${angle}" aria-pressed="${g.angle === angle}"><div data-angle-preview="${angle}"></div>${t(["Horizontal", "Vertical", "45°", "−45°"][i])}</button>`).join("")}</div>
       <label class="field">${t("Angle du dégradé")}<input name="angle" type="number" min="-360" max="360" value="${g.angle || 0}"></label>
+      <details><summary>${t("Application du dégradé")}</summary><label class="field">${t("Appliquer à")}<select data-gradient-paint>${[
+        ["both", "Remplissage et tracé"],
+        ["fill", "Remplissage"],
+        ["stroke", "Tracé"],
+      ]
+        .map(
+          ([value, label]) =>
+            `<option value="${value}" ${g.paint === value ? "selected" : ""}>${t(label)}</option>`,
+        )
+        .join(
+          "",
+        )}</select></label><label class="field">${t("Opacité du tracé")}<input type="range" data-stroke-opacity min="0" max="100" value="${g.strokeOpacity * 100}"></label>${layout(
+        p,
+        item.variant,
+      )
+        .parts.map((part) => {
+          const key = part.key === "ready" ? item.variant : part.key;
+          return `<h3>${esc(t(part.key === "icon" ? "Icône" : part.key === "wordmark" ? "Logotype" : "Formes"))}</h3>${(
+            part.asset.roles || []
+          )
+            .flatMap((r) =>
+              r.targets
+                .filter((target) => target.prop !== "stop-color")
+                .map((target) => {
+                  const id = key + ":" + target.index + ":" + target.prop;
+                  return `<label class="check"><input type="checkbox" data-gradient-target="${id}" ${g.excludedTargets.includes(id) || r.locked ? "" : "checked"} ${r.locked ? "disabled" : ""}>${t("Forme")} ${target.index} · ${t(target.prop === "fill" ? "Remplissage" : "Tracé")} <i class="paint-dot" style="background:${r.paint}"></i></label>`;
+                }),
+            )
+            .join("")}`;
+        })
+        .join("")}</details>
       <details><summary>${t("Formes participant au dégradé")}</summary><p>${t("Décochez une couleur pour conserver ses formes originales.")}</p>${rolesFor(
         p,
         item.variant,
@@ -71,6 +113,48 @@ export function editGradient(p, item, edit) {
         .join("")}</details>
       <div class="dialog-actions"><button value="cancel">${t("Annuler")}</button><button class="primary" value="apply">${t("Appliquer")}</button></div></form>`;
     update();
+    dialog.querySelectorAll("[data-palette-stop]").forEach(
+      (el) =>
+        (el.onclick = () => {
+          g.stops[selected].color = el.dataset.paletteStop;
+          render();
+        }),
+    );
+    dialog.querySelector("[data-gradient-paint]").onchange = (e) => {
+      g.paint = e.target.value;
+      update();
+    };
+    dialog.querySelector("[data-stroke-opacity]").oninput = (e) => {
+      g.strokeOpacity = +e.target.value / 100;
+      update();
+    };
+    dialog.querySelectorAll("[data-gradient-target]").forEach(
+      (el) =>
+        (el.onchange = () => {
+          g.excludedTargets = el.checked
+            ? g.excludedTargets.filter((id) => id !== el.dataset.gradientTarget)
+            : [...g.excludedTargets, el.dataset.gradientTarget];
+          update();
+        }),
+    );
+    dialog.querySelectorAll("[data-gradient-target]").forEach((el) => {
+      const show = () => {
+        const [key, index] = el.dataset.gradientTarget.split(":");
+        const part = layout(p, item.variant).parts.find(
+          (q) => (q.key === "ready" ? item.variant : q.key) === key,
+        );
+        if (part)
+          dialog.querySelector(".gradient-live").innerHTML = assetMarkup(
+            part.asset,
+            { highlightTarget: +index },
+            "gradient-inspection",
+          );
+      };
+      el.parentElement.onpointerenter = show;
+      el.parentElement.onpointerleave = update;
+      el.onfocus = show;
+      el.onblur = update;
+    });
     dialog.querySelectorAll("[data-gradient-mode]").forEach((el) => {
       el.onclick = () => {
         g.mode = el.dataset.gradientMode;

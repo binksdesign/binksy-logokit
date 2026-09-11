@@ -63,12 +63,15 @@ export function project(mode = "compose") {
       jpegMargin: 0.5,
       contrast: 3,
       clearspace: true,
-      organization: "format",
+      destinations: ["WEB", "PRINT"],
+      rasterFormats: ["web-3000"],
+      customFormats: [],
+      framing: {},
     },
   };
 }
 export function layout(p, v = p.active) {
-  if (p.mode !== "compose") {
+  if (isReadyVariant(p, v) || p.mode !== "compose") {
     const variant = p.ready.find((r) => r.id === v);
     if (!variant) return { X: 50, parts: [], x: 0, y: 0, width: 1, height: 1 };
     const asset = variant.asset;
@@ -251,12 +254,21 @@ export class History {
 }
 
 export function variantIds(p) {
-  return p.mode !== "compose" ? p.ready.map((r) => r.id) : VARIANTS;
+  return [...(p.mode === "compose" ? VARIANTS : []), ...(p.ready || []).map((r) => r.id)];
+}
+export function isReadyVariant(p, id = p.active) {
+  return !!p.ready?.some((r) => r.id === id);
 }
 export function variantName(p, id) {
-  return p.mode !== "compose"
-    ? p.ready.find((r) => r.id === id)?.name || "Variante"
-    : t(LABELS[id] || id);
+  return p.ready?.find((r) => r.id === id)?.name || t(LABELS[id] || id);
+}
+// Names are also export path components: avoid collisions after slug normalization.
+export function uniqueVariantName(p, name, exceptId) {
+  const base = String(name).trim().slice(0, 90) || t("Variante");
+  const used = new Set(variantIds(p).filter(id => id !== exceptId).map(id => slug(variantName(p, id)).toLowerCase()));
+  let candidate = base, n = 2;
+  while (used.has(slug(candidate).toLowerCase())) candidate = `${base} ${n++}`;
+  return candidate;
 }
 export function backgrounds(p) {
   return [
@@ -291,7 +303,7 @@ export function jpegPairs(p, item) {
           ? [r.paint]
           : item.color.gradient
             ? []
-            : [item.color.mapping?.[r.id] || item.color.hex || r.paint],
+            : [item.color.partColors?.[q.key] || item.color.mapping?.[r.id] || item.color.hex || r.paint],
       ),
     );
     if (item.color.gradient)
@@ -348,7 +360,7 @@ export function clearMeasure(p, v = p.active) {
   let value;
   if (c.clearMethod === "visual") value = c.visualMeasure?.value;
   else if (c.clearMethod === "auto") value = Math.min(l.width, l.height);
-  else if (p.mode !== "compose")
+  else if (isReadyVariant(p, v) || p.mode !== "compose")
     value = c.references?.[c.clearRef] || Math.min(l.width, l.height);
   else {
     const icon = l.parts.find((q) => q.key === "icon");

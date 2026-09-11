@@ -4,7 +4,7 @@ import {
   automaticGradientMode,
 } from "./gradient.js";
 import DOMPurify from "dompurify";
-import { layout } from "./model";
+import { layout } from "./model.js";
 import { detectRoles } from "./paints.js";
 export const NS = "http://www.w3.org/2000/svg";
 const serialize = (n) => new XMLSerializer().serializeToString(n);
@@ -347,7 +347,9 @@ export function assetMarkup(asset, color, namespace = "") {
         spec.gradient &&
         !role.locked &&
         !spec.gradient.excludedRoles?.includes(role.id) &&
-        target.prop === "stop-color"
+        target.prop === "stop-color" &&
+        (!spec.gradient.paint || spec.gradient.paint === "both") &&
+        !spec.gradient.excludedTargets?.length
       ) {
         const offset = el.getAttribute("offset") || "0",
           f = Math.max(
@@ -436,11 +438,13 @@ export function assetMarkup(asset, color, namespace = "") {
       for (const prop of ["fill", "stroke"]) {
         const old = el.getAttribute(prop);
         if (
+          (settings.paint === "both" || settings.paint === prop) &&
+          !settings.excludedTargets.includes(`${spec.partKey}:${index}:${prop}`) &&
           old &&
           old !== "none" &&
           !locked.has(index + ":" + prop) &&
           !(
-            (gradientLocked || settings.mode === "auto") &&
+            (gradientLocked || (settings.mode === "auto" && settings.paint === "both" && !settings.excludedTargets.length)) &&
             old.includes("url(")
           )
         ) {
@@ -452,6 +456,7 @@ export function assetMarkup(asset, color, namespace = "") {
               prop + "-opacity",
               (+el.getAttribute(prop + "-opacity") || 1) * Number(alpha),
             );
+          if (prop === "stroke") el.setAttribute("stroke-opacity", Number(el.getAttribute("stroke-opacity") ?? 1) * settings.strokeOpacity);
           let paintId = id;
           const transform = asset.paintTransforms?.[index];
           if (
@@ -477,6 +482,9 @@ export function assetMarkup(asset, color, namespace = "") {
         }
       }
     });
+  }
+  if (Number.isInteger(spec.highlightTarget)) {
+    nodes.forEach((el,index)=>{if (/^(path|rect|circle|ellipse|polygon|polyline|line|use)$/.test(el.localName) && !el.closest('defs,clipPath,mask')) el.setAttribute('opacity',index===spec.highlightTarget?'1':'.12');});
   }
   if (spec.highlight) {
     const role = roles.find((r) => r.id === spec.highlight);
@@ -539,6 +547,8 @@ export function compositionSVG(p, variant, color = null, background = null) {
           color?.gradient && color.gradient.mode !== "shape"
             ? {
                 ...color,
+                partKey: q.key === "ready" ? variant : q.key,
+                hex: color.partColors?.[q.key] || color.hex,
                 gradient: {
                   ...color.gradient,
                   box: {
@@ -549,7 +559,7 @@ export function compositionSVG(p, variant, color = null, background = null) {
                   },
                 },
               }
-            : color,
+            : color ? {...color,partKey:q.key === "ready" ? variant : q.key,hex:color.partColors?.[q.key] || color.hex} : color,
           namespace + q.key,
         )}</svg></g>`,
     )

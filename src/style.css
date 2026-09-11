@@ -1820,8 +1820,6 @@ dialog input {
 .gallery-filters button[aria-pressed="true"] { background:#222; color:#fff; }
 .combination-tools { margin:0 24px 20px; }
 .combination-tools>summary { cursor:pointer; padding:12px 0; }
-.editor-main:not(.full-catalog) [data-section="original"] .pagination,
-.editor-main:not(.full-catalog) [data-section="mono"] .pagination,
 .editor-main:not(.full-catalog) [data-section="multi"] .pagination,
 .editor-main:not(.full-catalog) [data-section="gradient"] .pagination,
 .editor-main:not(.full-catalog) .workflow-body>.family-tools { display:none; }
@@ -1832,8 +1830,6 @@ dialog input {
 .kit-previews { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-bottom:32px; }
 .kit-previews>div { background:#e6e6e3; padding:20px; display:flex; flex-direction:column; gap:20px; }
 .kit-previews svg { width:100%; height:100px; }
-.export-presets { display:flex; gap:10px; margin:24px 0; }
-.export-presets button { border:1px solid var(--line); }
 #export-kit { padding:18px 24px; font-size:16px; }
 .gradient-editor { width:min(760px,94vw); max-height:92dvh; overflow:auto; padding:24px; }
 .gradient-editor h2 { margin:0; }
@@ -2111,3 +2107,27 @@ header .language-switch button:hover { background:#333; color:#efefef; }
   .guided-workspace .gallery-filters { height:60px; overflow-y:hidden; }
   .guided-workspace .selection-bar { top:60px; }
 }
+
+/* The pressed state follows the saved multiplier in every clearspace inspector. */
+.segmented.multipliers button[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #191919;
+  font-weight: 700;
+}
+.ready-assets h2 { font-size: 14px; margin: 0 0 12px; }
+.ready-card { display: grid; gap: 8px; margin-top: 16px; min-width: 0; }
+.ready-preview { height: 86px; padding: 12px; background: #e8e8e5; }
+.ready-preview svg { width: 100%; height: 100%; }
+.ready-card > input { width: 100%; min-width: 0; }
+.ready-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ready-actions .file-button { margin: 0; }
+.ready-actions button, .ready-actions .file-button { font-size: 11px; padding: 8px; }
+
+.framing-stage {position:relative;max-width:100%;margin:20px auto;border:1px solid #bbb;}
+.framing-logo {position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
+.framing-logo {outline:1px dashed #ff5500;}
+.framing-logo>svg {width:100%;height:100%;display:block;}
+.framing-handle {position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;padding:0;background:#ff5500;border:2px solid white;cursor:nwse-resize;touch-action:none;}
+.gradient-palette {display:flex;gap:6px;flex-wrap:wrap;margin:12px 0;}
+.gradient-palette button {width:28px;height:28px;padding:0;border:1px solid #999;}

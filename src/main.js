@@ -1,8 +1,9 @@
+import { formatControls, bindFormats } from "./format-editor.js";
 import { startVisualMeasure, copyClearRule } from "./visual-measure.js";
 import { editColor } from "./palette.js";
 import { workspace, hasArtwork } from "./workspace.js";
 import { selectedItems, deliveries } from "./catalog.js";
-import { mountWorkshop, bindRoles, resetColorChoices } from "./workshop.js";
+import { mountWorkshop, bindRoles, resetColorChoices, assetsFor } from "./workshop.js";
 import { t, language, setLanguage, translateDOM } from "./i18n.js";
 import { home, agentRules, arrow } from "./ui";
 import { clearspaceSVG, clearGuides } from "./clearspace";
@@ -15,6 +16,9 @@ import {
   History,
   clone,
   variantName,
+  variantIds,
+  isReadyVariant,
+  uniqueVariantName,
   clearMeasure,
   baseFamily,
 } from "./model";
@@ -171,7 +175,7 @@ function render() {
 }
 function exportPanel() {
   const e = p.exports;
-  return `<div class="properties-title">EXPORT</div><section><div class="section-title">FORMATS</div><div class="formats">${(p.mode === "clearspace" ? ["svg", "png", "pdf"] : ["svg", "png", "jpeg", "pdf"]).map((f) => `<label><input type="checkbox" data-format="${f}" ${e.formats.includes(f) ? "checked" : ""}>${f.toUpperCase()}</label>`).join("")}</div><p class="muted">SVG, PNG et PDF toujours transparents.</p></section><section><div class="section-title">CANVAS RASTER</div><div class="two-fields"><label>Largeur · px<input type="number" data-export="width" value="${e.width}" min="16" max="8192"></label><label>Hauteur · px<input type="number" data-export="height" value="${e.height}" min="16" max="8192"></label></div><label class="field"><span>Résolution cible · ppp</span><input type="number" data-export="dpi" value="${e.dpi}" min="72" max="1200"></label><p class="muted">Proportions conservées, logo centré dans le canvas. Résolution intégrée aux fichiers.</p>${p.mode !== "clearspace" ? `<label class="field"><span>Marge JPEG · × petit côté du logo</span><input aria-label="Marge JPEG" data-export="jpegMargin" type="number" min=".1" max="3" step=".1" value="${e.jpegMargin}"></label><label class="field"><span>Contraste JPEG recommandé</span><select aria-label="Seuil de contraste JPEG" data-export="contrast">${[3, 4.5, 7].map((n) => `<option value="${n}" ${e.contrast === n ? "selected" : ""}>${n}:1</option>`).join("")}</select></label><label class="check"><input data-export="clearspace" type="checkbox" ${e.clearspace ? "checked" : ""}>Inclure les planches clearspace</label>` : ""}</section>${p.mode !== "clearspace" ? `<section><div class="section-title">NOMMAGE</div><label class="field"><span>Modèle de nom</span><input data-naming="pattern" value="${esc(p.naming.pattern)}" maxlength="200"></label><div class="tokens">${["brand", "variant", "orientation", "color", "background", "format", "size"].map((k) => `<button data-token="${k}">{${k}}</button>`).join("")}</div><div class="two-fields"><label>Séparateur<select data-naming="separator">${["-", "_", "."].map((s) => `<option ${s === p.naming.separator ? "selected" : ""}>${s}</option>`).join("")}</select></label><label>Casse<select data-naming="uppercase"><option value="false">minuscules</option><option value="true" ${p.naming.uppercase ? "selected" : ""}>MAJUSCULES</option></select></label></div><code class="filename">${esc(filename(p, baseFamily(p)[0] || { variant: "horizontal", color: { id: "black", name: "black" } }, e.formats[0] || "svg", "transparent"))}</code></section><section><div class="section-title">ORGANISATION</div><select aria-label="Organisation du ZIP" data-export="organization"><option value="format">Par format / SVG, PNG…</option><option value="variant" ${e.organization === "variant" ? "selected" : ""}>Par variante / Horizontal…</option></select></section>` : ""}<div class="export-bottom"><span id="selection-count"></span><button class="primary export-button" data-action="export" ${busy ? "disabled" : ""}>Exporter la sélection ${arrow}</button><p class="muted">ZIP automatique pour plusieurs fichiers.<br>Recommandations incluses dans le ZIP.</p></div>`;
+  return `<div class="properties-title">EXPORT</div><section><div class="section-title">FORMATS</div><div class="formats">${(p.mode === "clearspace" ? ["svg", "png", "pdf"] : ["svg", "png", "jpeg", "pdf"]).map((f) => `<label><input type="checkbox" data-format="${f}" ${e.formats.includes(f) ? "checked" : ""}>${f.toUpperCase()}</label>`).join("")}</div><p class="muted">SVG, PNG et PDF toujours transparents.</p></section>${formatControls(p)}<section>${p.mode !== "clearspace" ? `<label class="field"><span>Contraste JPEG recommandé</span><select aria-label="Seuil de contraste JPEG" data-export="contrast">${[3, 4.5, 7].map((n) => `<option value="${n}" ${e.contrast === n ? "selected" : ""}>${n}:1</option>`).join("")}</select></label><label class="check"><input data-export="clearspace" type="checkbox" ${e.clearspace ? "checked" : ""}>Inclure les planches clearspace</label>` : ""}</section>${p.mode !== "clearspace" ? `<section><div class="section-title">NOMMAGE</div><label class="field"><span>Modèle de nom</span><input data-naming="pattern" value="${esc(p.naming.pattern)}" maxlength="200"></label><div class="tokens">${["brand", "variant", "orientation", "color", "background", "format", "size"].map((k) => `<button data-token="${k}">{${k}}</button>`).join("")}</div><div class="two-fields"><label>Séparateur<select data-naming="separator">${["-", "_", "."].map((s) => `<option ${s === p.naming.separator ? "selected" : ""}>${s}</option>`).join("")}</select></label><label>Casse<select data-naming="uppercase"><option value="false">minuscules</option><option value="true" ${p.naming.uppercase ? "selected" : ""}>MAJUSCULES</option></select></label></div><code class="filename">${esc(filename(p, baseFamily(p)[0] || { variant: "horizontal", color: { id: "black", name: "black" } }, e.formats[0] || "svg", "transparent"))}</code></section>` : ""}<div class="export-bottom"><span id="selection-count"></span><button class="primary export-button" data-action="export" ${busy ? "disabled" : ""}>Exporter la sélection ${arrow}</button><p class="muted">ZIP automatique pour plusieurs fichiers.<br>Recommandations incluses dans le ZIP.</p></div>`;
 }
 function drawStage() {
   const l = layout(p),
@@ -192,17 +196,18 @@ function drawStage() {
     h = (l.height + margin * 2) / zoom,
     x = l.x + l.width / 2 - w / 2,
     y = l.y + l.height / 2 - h / 2;
-  stage.innerHTML = `<span class="stage-label" data-no-i18n>${esc(p.brand)} <span>/ ${esc(variantName(p, p.active))}</span></span><svg id="canvas" xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${w} ${h}"><defs><pattern id="grid" x="${l.parts.find((q) => q.key === "wordmark")?.x || 0}" y="${l.parts.find((q) => q.key === "wordmark")?.y || 0}" width="${l.X}" height="${l.X}" patternUnits="userSpaceOnUse"><path d="M ${l.X} 0 L 0 0 0 ${l.X}" fill="none" stroke="#c6c6c6" stroke-width=".6" vector-effect="non-scaling-stroke"/></pattern></defs>${p.grid ? `<rect x="${x - w}" y="${y - h}" width="${w * 3}" height="${h * 3}" fill="url(#grid)"/>` : ""}<g id="clear-guides">${p.clear ? clearGuides(l, clearMeasure(p).space, p.canvas === "#000000" ? "light" : "dark") : ""}</g>${l.parts.map((q) => `<g data-drag="${q.key}" transform="translate(${q.x} ${q.y})" tabindex="0" role="button" aria-label="Déplacer ${q.key}"><svg width="${q.w}" height="${q.h}" viewBox="${q.asset.box.x} ${q.asset.box.y} ${q.asset.box.width} ${q.asset.box.height}" overflow="visible">${assetContent(p.mode === "clearspace" ? { ...q.asset, roles: [] } : q.asset, null, "stage-" + q.key)}</svg><rect width="${q.w}" height="${q.h}" fill="transparent" stroke="${selected === q.key ? "#ff5500" : "transparent"}" stroke-width="1" vector-effect="non-scaling-stroke"/></g>`).join("")}</svg><span class="stage-caption">${t(c.center === "real" ? "Centrage géométrique" : "Centrage optique")} <span> / </span> ${p.snap ? "SNAP ¼X" : "AJUSTEMENT LIBRE"}</span>`;
+  stage.innerHTML = `<span class="stage-label" data-no-i18n>${esc(p.brand)} <span>/ ${esc(variantName(p, p.active))}</span></span><svg id="canvas" xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${w} ${h}"><defs><pattern id="grid" x="${l.parts.find((q) => q.key === "wordmark")?.x || 0}" y="${l.parts.find((q) => q.key === "wordmark")?.y || 0}" width="${l.X}" height="${l.X}" patternUnits="userSpaceOnUse"><path d="M ${l.X} 0 L 0 0 0 ${l.X}" fill="none" stroke="#c6c6c6" stroke-width=".6" vector-effect="non-scaling-stroke"/></pattern></defs>${p.grid ? `<rect x="${x - w}" y="${y - h}" width="${w * 3}" height="${h * 3}" fill="url(#grid)"/>` : ""}<g id="clear-guides">${p.clear ? clearGuides(l, clearMeasure(p).space, p.canvas === "#000000" ? "light" : "dark") : ""}</g>${l.parts.map((q) => `<g data-drag="${q.key}" transform="translate(${q.x} ${q.y})" tabindex="0" role="button" aria-label="Déplacer ${q.key}"><svg width="${q.w}" height="${q.h}" viewBox="${q.asset.box.x} ${q.asset.box.y} ${q.asset.box.width} ${q.asset.box.height}" overflow="visible">${assetContent(p.mode === "clearspace" ? { ...q.asset, roles: [] } : q.asset, null, "stage-" + q.key)}</svg><rect width="${q.w}" height="${q.h}" fill="transparent" stroke="${selected === q.key ? "#ff5500" : "transparent"}" stroke-width="1" vector-effect="non-scaling-stroke"/></g>`).join("")}</svg><span class="stage-caption">${isReadyVariant(p) ? t("Construction d’origine conservée.") : `${t(c.center === "real" ? "Centrage géométrique" : "Centrage optique")} <span> / </span> ${p.snap ? "SNAP ¼X" : "AJUSTEMENT LIBRE"}`}</span>`;
   $("#measure").textContent =
     `X = ${l.X.toFixed(2)} unités SVG · Logo ${l.width.toFixed(1)} × ${l.height.toFixed(1)}`;
   if ($("#unit-px")) $("#unit-px").textContent = l.X.toFixed(2);
   stage.style.background = p.canvas;
   stage.classList.toggle("dark-canvas", p.canvas === "#000000");
-  if (p.mode !== "compose") {
+  if (isReadyVariant(p) || p.mode !== "compose") {
     stage.querySelectorAll("[data-drag]").forEach((el) => {
       el.removeAttribute("data-drag");
       el.removeAttribute("role");
       el.removeAttribute("tabindex");
+      el.removeAttribute("aria-label");
     });
     return;
   }
@@ -225,11 +230,15 @@ function drawStage() {
 }
 
 function bind() {
+  bindFormats(document,p,edit);
   document.querySelectorAll("[data-view]").forEach(
     (el) =>
       (el.onclick = () => {
         view = el.dataset.view;
-        render();
+        if (view === "delivery" && p.mode !== "clearspace" &&
+            p.exports.formats.join(",") !== "svg,png,jpeg,pdf") {
+          edit(() => { p.exports.formats = ["svg", "png", "jpeg", "pdf"]; });
+        } else render();
       }),
   );
   document.querySelectorAll("[data-active]").forEach(
@@ -446,6 +455,9 @@ function bind() {
 function prepareImportedAsset(asset) {
   if (p.mode === "clearspace") return;
   for (const role of asset.roles || []) {
+    const shared = assetsFor(p).filter(entry => entry.asset !== asset)
+      .flatMap(entry => entry.asset.roles || []).find(r => r.id === role.id);
+    if (shared) Object.assign(role, { name: shared.name, paint: shared.paint, locked: shared.locked });
     if (
       ["#000000", "#ffffff"].includes(role.paint) ||
       p.colors.some((c) => c.hex.toLowerCase() === role.paint)
@@ -563,6 +575,7 @@ function action(name) {
       commit: measure => edit(() => {
         p.compositions[variant].visualMeasure = measure;
         p.compositions[variant].clearMethod = "visual";
+        p.compositions[variant].clearMultiplier = 1;
         inspector = "guides";
       }),
     });
@@ -594,7 +607,7 @@ function action(name) {
     );
   if (name === "add-color") editColor(p, null, edit);
   if (name === "reset")
-    if (p.mode === "compose")
+    if (p.mode === "compose" && !isReadyVariant(p))
       edit(() => (p.compositions[p.active] = project().compositions[p.active]));
   if (name === "export") {
     try {
@@ -697,7 +710,7 @@ async function handleProjectImport(e) {
 function bindExtra() {
   if ($("#clear-method")) $("#clear-method").onchange = e => {
     if (e.target.value === "visual" && !p.compositions[p.active].visualMeasure) {
-      e.target.value = p.compositions[p.active].clearMethod || (p.mode === "compose" ? "part" : "auto");
+      e.target.value = p.compositions[p.active].clearMethod || (p.mode === "compose" && !isReadyVariant(p) ? "part" : "auto");
       action("measure");
     } else edit(() => p.compositions[p.active].clearMethod = e.target.value);
   };
@@ -719,7 +732,7 @@ function bindExtra() {
       edit(
         () =>
           (p.ready.find((v) => v.id === p.active).name =
-            e.target.value.trim() || "Variante"),
+            uniqueVariantName(p, e.target.value, p.active)),
       );
   if ($("#clear-reference"))
     $("#clear-reference").onchange = (e) =>
@@ -763,7 +776,8 @@ function bindExtra() {
   );
   if ($("#ready-files"))
     $("#ready-files").onchange = async (e) => {
-      const files = [...e.target.files];
+      const files = [...e.target.files], owner = p;
+      if (!files.length) return;
       try {
         const imported = [];
         for (const file of files)
@@ -772,8 +786,11 @@ function bindExtra() {
             name: file.name.replace(/\.svg$/i, ""),
             asset: await importSVG(await file.text(), file.name, font),
           });
+        if (p !== owner) return;
         edit(() => {
+          const paletteSize = p.colors.length;
           for (const variant of imported) {
+            variant.name = uniqueVariantName(p, variant.name);
             p.ready.push(variant);
             prepareImportedAsset(variant.asset);
             p.enabled.push(variant.id);
@@ -781,6 +798,8 @@ function bindExtra() {
               project().compositions.horizontal,
             );
           }
+          // A larger palette changes the rank of generated color combinations.
+          if (p.colors.length !== paletteSize) resetColorChoices(p);
           p.active = imported[0]?.id || p.active;
         });
         notice(`${imported.length} variante(s) importée(s).`);
@@ -788,6 +807,34 @@ function bindExtra() {
         notice(e.message);
       }
     };
+  document.querySelectorAll("[data-ready-name]").forEach(el => {
+    el.onchange = () => edit(() => {
+      const v = p.ready.find(v => v.id === el.dataset.readyName);
+      v.name = uniqueVariantName(p, el.value, v.id);
+    });
+  });
+  document.querySelectorAll("[data-replace-variant]").forEach(el => {
+    el.onchange = async () => {
+      const file = el.files[0];
+      if (!file) return;
+      const owner = p, id = el.dataset.replaceVariant;
+      try {
+        const asset = await importSVG(await file.text(), file.name, font);
+        if (p !== owner || !p.ready.some(v => v.id === id)) return;
+        edit(() => {
+          const v = p.ready.find(v => v.id === id);
+          // Reuse paint identities, never old node indices on a different SVG.
+          for (const role of asset.roles) {
+            const previous = v.asset.roles.find(r => r.id === role.id);
+            if (previous) Object.assign(role, { name: previous.name, paint: previous.paint, locked: previous.locked });
+          }
+          v.asset = asset;
+          prepareImportedAsset(asset);
+          resetColorChoices(p);
+        });
+      } catch (error) { notice(error.message); }
+    };
+  });
   document.querySelectorAll("[data-remove-variant]").forEach(
     (el) =>
       (el.onclick = () =>
@@ -796,7 +843,13 @@ function bindExtra() {
           p.ready = p.ready.filter((v) => v.id !== id);
           p.enabled = p.enabled.filter((v) => v !== id);
           delete p.compositions[id];
-          p.active = p.ready[0]?.id || "horizontal";
+          if (p.active === id)
+            p.active = p.ready[0]?.id || variantIds(p).find(v => layout(p, v).parts.length) || "horizontal";
+          for (const key of ["selectedDescriptors", "colorSelection", "jpegExceptions", "jpegOverrides"])
+            for (const entry of Object.keys(p[key] || {}))
+              if (entry.startsWith(id + ":")) delete p[key][entry];
+          p.excluded = p.excluded.filter(entry => !entry.startsWith(id + ":"));
+          p.excludedFiles = (p.excludedFiles || []).filter(entry => !entry.startsWith(id + ":"));
         })),
   );
 }
@@ -873,7 +926,7 @@ function bindProjectDeletion() {
   );
 }
 function resizeHandles() {
-  if (p.mode !== "compose") return;
+  if (isReadyVariant(p) || p.mode !== "compose") return;
   const canvas = $("#canvas");
   if (!canvas) return;
   const q = layout(p).parts.find((q) => q.key === selected);

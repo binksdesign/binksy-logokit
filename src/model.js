@@ -10,7 +10,7 @@ export const LABELS = {
 export const clone = (x) => structuredClone(x);
 export function project(mode = "compose") {
   return {
-    version: 4,
+    version: 5,
     brandGuideline: emptyGuide(),
     gradients: [],
     colorSelection: {},
@@ -46,8 +46,8 @@ export function project(mode = "compose") {
           clearRef: "wordmarkHeight",
           clearMultiplier: 0.5,
           references: {},
-          minPrint: v === "icon" ? 8 : 25,
-          minDigital: v === "icon" ? 24 : 120,
+          minPrint: { horizontal: 30, vertical: 25, icon: 8, wordmark: 22 }[v],
+          minDigital: { horizontal: 144, vertical: 120, icon: 32, wordmark: 110 }[v],
         },
       ]),
     ),

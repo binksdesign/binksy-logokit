@@ -744,6 +744,9 @@ Object.assign(en,{"Ressources limitées à 60 fichiers.":"Resources limited to 6
 Object.assign(en,{"Effet PDF vide. Exportez les pages SVG.":"Empty PDF effect. Export SVG pages."});
 
 Object.assign(en,{
+  'Insérer un texte fictif': 'Insert fictional copy',
+  'Association': 'Pairing',
+  'Recommandée': 'Recommended',
   "Guide de marque": "Brand guidelines",
   "Une identité. Un même langage.": "One identity. One shared language.",
   "Une identité.\nUn même langage.": "One identity.\nOne shared language.",
@@ -784,4 +787,21 @@ Object.assign(en,{
   "Police du document indisponible.": "Document font unavailable.",
   "Télécharger le PDF": "Download PDF",
   "Pages": "Pages"
+});
+Object.assign(en, {
+  'Palette finale':'Final palette','Pantone':'Pantone','Couverture':'Cover','Mockups':'Mockups','Interdits logo':'Logo misuses',
+  'Préparation du guide':'Guide preparation','Générer le Brand Guideline':'Generate Brand Guideline','Retour au document':'Back to document','Précédent':'Previous','Préparation':'Preparation',
+  'Système typographique':'Typography system','Police':'Font','Taille pt':'Size pt','Taille px':'Size px','Interlignage':'Line height','Tracking':'Tracking',
+  'Principale':'Primary','Secondaire':'Secondary','Fond général':'Document background','Texte principal':'Primary text','Fond secondaire':'Secondary background','Fond principal':'Primary background','Sans rôle':'No role',
+  'Retirer de la palette':'Remove from palette','Ajouter une couleur':'Add a colour','Nouvelle couleur':'New colour','Optionnel':'Optional','Version du logo':'Logo version','Image':'Image','Importer une image':'Import an image',
+  'Ajuster':'Fit','Remplir':'Fill','Réinitialiser le cadrage':'Reset crop','Une image par page. Jusqu’à 3 mockups.':'One image per page. Up to 3 mockups.','Mockup':'Mockup','Ajouter un mockup':'Add a mockup','Variante des interdits':'Misuse example variant','Pages de marque facultatives':'Optional brand pages',
+  'Ajoutez au moins une couleur.':'Add at least one colour.','Importez une image de couverture.':'Import a cover image.','Importez les mockups ou retirez les emplacements vides.':'Import the mockups or remove empty slots.',
+  'Réglages page':'Page settings','Réglages globaux':'Global settings','Page':'Page','En-têtes':'Headers','Pieds de page':'Footers','Nom de la marque':'Brand name','Modifier la préparation':'Edit preparation',
+  'Déclaration':'Statement','Colonnes':'Columns','Éditorial':'Editorial','Manifeste':'Manifesto','Multiplicateur X':'X multiplier','Repères':'Guides','Explication':'Explanation','Annotations':'Annotations','Rôles':'Roles','Print · mm':'Print · mm','Digital · px':'Digital · px',
+  'Tailles minimales — Éléments':'Minimum sizes — Elements','Tailles minimales — Logos complets':'Minimum sizes — Full logos','Conserver cet espace libre autour du logo.':'Keep this space clear around the logo.','Identité visuelle':'Visual identity','Associations recommandées':'Recommended pairings','Associations à éviter':'Pairings to avoid',
+  'Proposition invalide.':'Invalid proposal.','Aucune proposition.':'No proposal.','Le projet a changé. Demandez une proposition actualisée.':'The project changed. Ask for an updated proposal.','Réglages mis à jour':'Updated settings',
+  'Crédit insuffisant chez le fournisseur.':'Insufficient provider credit.','Requête refusée : vérifiez le modèle et sa prise en charge des outils.':'Request rejected: check the model and tool support.','Modèle temporairement indisponible.':'Model temporarily unavailable.','Erreur fournisseur : aucune réponse exploitable.':'Provider error: no usable response.','Outil demandé non autorisé.':'Requested tool is not allowed.','Erreur fournisseur : résultat de l’outil refusé.':'Provider error: tool result rejected.',
+  'Chargement des modèles…':'Loading models…','Aucun modèle disponible.':'No models available.','Catalogue actualisé.':'Catalogue refreshed.','Test du chat et des outils…':'Testing chat and tools…','Le modèle n’a pas utilisé l’outil demandé.':'The model did not use the requested tool.','Connexion vérifiée : réponse et appel d’outil reçus.':'Connection verified: response and tool call received.',
+  'Retour au chat':'Back to chat','Modèle':'Model','Rechercher un modèle':'Search models','Actualiser les modèles':'Refresh models','Avancé':'Advanced','ID modèle personnalisé':'Custom model ID','Utiliser ce modèle':'Use this model','Enregistrer':'Save','Tester la connexion':'Test connection',
+  'Vous':'You','Que souhaitez-vous ajuster ?':'What would you like to adjust?','Décrivez une modification. Vous pourrez l’affiner avant de l’appliquer.':'Describe a change. You can refine it before applying it.','Configurer l’assistant':'Configure assistant','Proposition':'Proposal','Appliquer':'Apply','Masquer l’aperçu':'Hide preview','Aperçu':'Preview','Envoyer':'Send','Réglages IA':'AI settings','Configuration enregistrée.':'Configuration saved.','Proposition appliquée. Vous pouvez l’annuler avec Cmd/Ctrl+Z.':'Proposal applied. You can undo it with Cmd/Ctrl+Z.'
 });

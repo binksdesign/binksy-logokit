@@ -1,4 +1,5 @@
 import { fontFamily } from "./guideline-fonts.js";
+import { editorialPage } from './guideline-editorial.js';
 import { PAGE_TYPES, MISUSES, ROLES } from "./guideline-model.js";
 import {
   theme,
@@ -28,7 +29,7 @@ export const pageHeading = (page) =>
         : PAGE_TYPES[page.type],
   );
 // Editorial page grid in points. All furniture, artwork and copy share this display list.
-export function pageElements(p, page, index = 0) {
+export function legacyPageElements(p, page, index = 0) {
   const g = p.brandGuideline,
     T = pageTheme(p, page),
     base = theme(p),
@@ -882,10 +883,10 @@ export function pageElements(p, page, index = 0) {
             ...e,
             ...(o.role ? { ...typeStyle(g, o.role), role: o.role } : {}),
             variant: o.variant || e.variant,
-            x: o.x * W,
-            y: o.y * H,
-            w: o.w * W,
-            h: o.h * H,
+            x: Number.isFinite(o.x) ? o.x * W : e.x,
+            y: Number.isFinite(o.y) ? o.y * H : e.y,
+            w: Number.isFinite(o.w) ? o.w * W : e.w,
+            h: Number.isFinite(o.h) ? o.h * H : e.h,
             size: o.size || e.size,
             text: o.text ?? e.text,
             fill: o.fill || e.fill,
@@ -894,4 +895,15 @@ export function pageElements(p, page, index = 0) {
         : e;
     })
     .filter((e) => !e.hidden);
+}
+
+export function pageElements(p, page, index = 0) {
+  if (p.brandGuideline.schema !== 2) return legacyPageElements(p, page, index);
+  const g=p.brandGuideline,{width:W,height:H}=dimensions(g);
+  const items = editorialPage(p,page,index);
+  for(const e of page.elements) items.push({...e,...(e.type==='text'?{...typeStyle(g,e.role||'body'),...e}:{}),x:e.x*W,y:e.y*H,w:e.w*W,h:e.h*H});
+  return items.map(e=>{
+    const o=page.styles[e.id]; if(!o)return e;
+    return {...e,...(o.role?{...typeStyle(g,o.role),role:o.role}:{}),x:Number.isFinite(o.x)?o.x*W:e.x,y:Number.isFinite(o.y)?o.y*H:e.y,w:Number.isFinite(o.w)?o.w*W:e.w,h:Number.isFinite(o.h)?o.h*H:e.h,size:o.size||e.size,text:o.text??e.text,fill:o.fill||e.fill,variant:o.variant||e.variant,hidden:o.hidden};
+  }).filter(e=>!e.hidden);
 }

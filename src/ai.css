@@ -1,0 +1,171 @@
+.ai-chat {
+  position: fixed;
+  inset: 72px 20px 20px auto;
+  margin: 0;
+  width: 400px;
+  max-width: calc(100vw - 24px);
+  height: calc(100dvh - 92px);
+  max-height: none;
+  padding: 0;
+  border: 1px solid #dadad4;
+  border-radius: 8px;
+  background: #fafaf7;
+  color: #171717;
+  box-shadow: 0 16px 50px #0002;
+  z-index: 40;
+}
+.ai-chat[open] {
+  display: flex;
+  flex-direction: column;
+}
+.ai-chat > header {
+  display: flex;
+  position: static;
+  padding: 14px 16px;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  border-bottom: 1px solid #deded8;
+  min-height: 54px;
+}
+.ai-chat > header > div {
+  display: flex;
+  gap: 4px;
+}
+.ai-chat > header button {
+  border: 0;
+  padding: 5px 8px;
+  background: transparent;
+  font-size: 18px;
+}
+.ai-messages {
+  overflow: auto;
+  flex: 1;
+  padding: 20px 16px;
+}
+.ai-message {
+  margin: 0 0 22px;
+}
+.ai-message > span,
+.ai-proposal > span {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #696960;
+}
+.ai-message p {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 8px 0 0;
+}
+.ai-user {
+  background: #eeeee7;
+  padding: 12px;
+  border-radius: 4px;
+}
+.ai-empty {
+  padding: 32px 6px;
+}
+.ai-empty > span {
+  font-size: 28px;
+}
+.ai-empty h3 {
+  font-size: 21px;
+  line-height: 1.2;
+}
+.ai-empty p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #64645d;
+}
+.ai-proposal {
+  padding: 16px 0;
+  border-top: 1px solid #d2d2ca;
+}
+.ai-proposal ul {
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.ai-proposal > div:last-child {
+  display: flex;
+  gap: 8px;
+}
+.ai-composer {
+  display: flex;
+  gap: 8px;
+  margin: 12px;
+  align-items: flex-end;
+  border: 1px solid #c9c9c0;
+  padding: 9px;
+  border-radius: 4px;
+}
+.ai-composer textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.ai-composer button {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: #171717;
+  color: white;
+}
+.ai-chat output {
+  font-size: 12px;
+  padding: 0 16px 12px;
+  line-height: 1.5;
+}
+.ai-chat output:empty {
+  display: none;
+}
+.ai-settings {
+  padding: 16px;
+  overflow: auto;
+  flex: 1;
+}
+.ai-settings label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+  margin: 14px 0;
+}
+.ai-settings input,
+.ai-settings select {
+  width: 100%;
+  min-width: 0;
+  padding: 9px;
+}
+.ai-settings .ai-remember {
+  display: flex;
+  align-items: center;
+}
+.ai-settings .ai-remember input {
+  width: auto;
+}
+.ai-settings details {
+  margin: 20px 0;
+}
+.ai-settings-actions {
+  display: flex;
+  gap: 8px;
+}
+.ai-preview svg {
+  width: 100%;
+  height: auto;
+}
+@media (max-width: 600px) {
+  .ai-chat {
+    inset: 12px;
+    width: auto;
+    height: calc(100dvh - 24px);
+  }
+}

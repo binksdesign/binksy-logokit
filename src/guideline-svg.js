@@ -2,6 +2,7 @@ import { pageElements } from "./guideline-layout.js";
 import { dimensions, theme, pageTheme } from "./guideline-theme.js";
 import { compositionSVG } from "./svg.js";
 import { clearspaceSVG } from "./clearspace.js";
+import { imageFrame } from './guideline-media.js';
 import {
   parsedFont,
   fontFor,
@@ -150,9 +151,8 @@ export function elementSVG(p, e, prefix = "g", paths = false) {
   if (e.type === "image") {
     const r = g.resources.find((r) => r.id === e.resource);
     if (!r) return "";
-    const zoom = e.zoom || 1,
-      id = prefix + "-clip";
-    return `<defs><clipPath id="${id}"><rect x="${e.x}" y="${e.y}" width="${e.w}" height="${e.h}"/></clipPath></defs><image clip-path="url(#${id})" href="${r.data}" x="${e.x - e.w * (zoom - 1) * (e.panX ?? 0.5)}" y="${e.y - e.h * (zoom - 1) * (e.panY ?? 0.5)}" width="${e.w * zoom}" height="${e.h * zoom}" preserveAspectRatio="xMidYMid slice"/>`;
+    const frame = imageFrame(e, r, e), id = prefix + '-clip';
+    return `<defs><clipPath id="${id}"><rect x="${e.x}" y="${e.y}" width="${e.w}" height="${e.h}"/></clipPath></defs><image clip-path="url(#${id})" href="${r.data}" x="${frame.x}" y="${frame.y}" width="${frame.w}" height="${frame.h}" preserveAspectRatio="none"/>`;
   }
   if (e.type === "logo") {
     let source = p;
@@ -187,7 +187,7 @@ export function elementSVG(p, e, prefix = "g", paths = false) {
                 },
                 force: true,
               }
-            : null;
+          : e.fill ? {hex: e.fill, force: true} : null;
     const svg = e.clearspace
       ? clearspaceSVG(p, e.variant)
       : compositionSVG(source, e.variant, color);

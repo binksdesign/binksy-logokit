@@ -1,3 +1,13 @@
+// One crop model for cover, mockups and custom image elements, in preview and PDF.
+export function imageFrame(media, resource, box) {
+  const fit = media.fit === 'contain' ? Math.min : Math.max;
+  const rw = resource.width || box.w, rh = resource.height || box.h;
+  const scale = fit(box.w / rw, box.h / rh) * (media.zoom || 1);
+  const w = rw * scale, h = rh * scale;
+  return { x: box.x + (box.w - w) * (media.panX ?? .5), y: box.y + (box.h - h) * (media.panY ?? .5), w, h };
+}
+export const resetCrop = (media) => Object.assign(media, { zoom: 1, panX: .5, panY: .5 });
+
 // Relative positions reflow photos without changing aspect ratio or image data.
 export function arrangeImages(page, format) {
   const images = page.elements.filter((e) => e.type === "image"),

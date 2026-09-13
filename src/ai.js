@@ -1,180 +1,366 @@
-import { PROVIDERS, listModels, complete, endpoint } from "./ai-providers.js";
 import {
-  stageContext,
-  validateActions,
-  applyActions,
-  actionInstructions,
-} from "./ai-context.js";
-import { escape as esc } from "./guideline-svg.js";
+  PROVIDERS,
+  FALLBACK_MODELS,
+  endpoint,
+  listModels,
+  chatCompletion,
+  acknowledgeTool,
+} from "./ai-providers.js";
+import {
+  ProposalSession,
+  projectContext,
+  agentInstructions,
+  proposalTool,
+  actionSummary,
+  proposalProject,
+} from "./ai-agent.js";
+import { activeGuideContext } from "./guideline-editor.js";
+import { guidelineSVG, escape as esc } from "./guideline-svg.js";
 import { t, language } from "./i18n.js";
-const vault = new Map();
-let providerId = "openai";
-const prefix = "binksy-ai-provider:";
-export function openAssistant(p, stage, edit) {
+import "./ai.css";
+
+const vault = new Map(),
+  sessions = new Map(),
+  prefix = "binksy-ai-provider:";
+let activeDialog;
+const read = (key) => {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "null");
+  } catch {
+    return null;
+  }
+};
+export function openAssistant(
+  project,
+  stage,
+  edit,
+  live = () => ({ p: project, stage }),
+) {
+  if (activeDialog?.isConnected) {
+    activeDialog.querySelector("[data-prompt]")?.focus();
+    return;
+  }
+  const session = sessions.get(project.id) || new ProposalSession();
+  sessions.set(project.id, session);
   const dialog = document.createElement("dialog");
-  dialog.className = "ai-dialog";
+  dialog.className = "ai-chat";
+  dialog.setAttribute("aria-label", t("Assistant IA"));
   document.body.append(dialog);
-  let proposal = null,
-    current = PROVIDERS[providerId],
-    saved = {},
-    busy = false;
-  const read = () => {
+  activeDialog = dialog;
+  let providerId = read("binksy-ai-selected") || "openrouter",
+    settings = false,
+    busy = false,
+    status = "",
+    preview = false;
+  if (!PROVIDERS[providerId]) providerId = "openrouter";
+  let config = {},
+    models = [];
+  const current = () => PROVIDERS[providerId];
+  const load = () => {
+    config = read(prefix + providerId) || {};
+    models =
+      read(
+        prefix +
+          providerId +
+          ":models:" +
+          (current().base || config.base || ""),
+      )?.models || [];
+    if (!models.length)
+      models = (FALLBACK_MODELS[providerId] || []).map((id) => ({
+        id,
+        name: id,
+        fallback: true,
+      }));
+    if (config.model && !models.some((m) => m.id === config.model))
+      models.unshift({ id: config.model, name: config.model });
+  };
+  load();
+  const q = (s) => dialog.querySelector(s),
+    key = () => vault.get(providerId) || config.key || "";
+  const save = () => {
+    const entered = q("[data-key]")?.value.trim();
+    if (entered) vault.set(providerId, entered);
+    const base =
+      q("[data-base]")?.value.trim() || current().base || config.base || "";
+    endpoint(current(), base);
+    config = {
+      base,
+      model: q("[data-model]")?.value || config.model || models[0]?.id || "",
+      ...(q("[data-remember]")?.checked ? { key: key() } : {}),
+    };
+    localStorage.setItem(prefix + providerId, JSON.stringify(config));
+    localStorage.setItem("binksy-ai-selected", JSON.stringify(providerId));
+  };
+  const refresh = async () => {
     try {
-      saved = JSON.parse(localStorage.getItem(prefix + current.id) || "{}");
-    } catch {
-      saved = {};
+      save();
+      busy = true;
+      status = t("Chargement des modèles…");
+      draw();
+      models = await listModels(current(), key(), config.base);
+      if (!models.length) throw Error("Aucun modèle disponible.");
+      localStorage.setItem(
+        prefix + providerId + ":models:" + (current().base || config.base),
+        JSON.stringify({ at: Date.now(), models }),
+      );
+      if (!models.some((m) => m.id === config.model))
+        config.model = models[0].id;
+      localStorage.setItem(prefix + providerId, JSON.stringify(config));
+      status = t("Catalogue actualisé.");
+    } catch (e) {
+      status = t(e.message);
+    } finally {
+      busy = false;
+      draw();
     }
   };
-  read();
-  const draw = () => {
-    dialog.innerHTML = `<h2>${t("Assistant IA")} · ${t({ import: "Importer", compose: "Assembler le logo", family: "Versions du logo", guideline: "Brand Guideline", delivery: "Exporter" }[stage] || stage)}</h2><p>${t("Les propositions restent limitées à cette étape.")}</p><label>${t("Fournisseur")}<select data-provider>${Object.values(
-      PROVIDERS,
-    )
-      .map(
-        (v) =>
-          `<option value="${v.id}" ${v.id === current.id ? "selected" : ""}>${t(v.name)}</option>`,
-      )
-      .join(
-        "",
-      )}</select></label>${current.link ? `<a href="${current.link}" target="_blank" rel="noreferrer">${t("Créer une clé dans la console du fournisseur")}</a>` : ""}<label>${t("Adresse API")}<input data-base value="${esc(current.base || saved.base || "")}" ${current.id !== "custom" ? "readonly" : ""}></label><label>${t("Clé API")}<input data-key type="password" autocomplete="off" placeholder="${vault.has(current.id) || saved.key ? "••••••••" : ""}"></label><label><input data-remember type="checkbox" ${saved.key ? "checked" : ""}>${t("Mémoriser sur cet appareil")}</label><div class="ai-actions"><button data-store>${t("Enregistrer la clé")}</button><button data-delete>${t("Supprimer la clé")}</button><button data-refresh>${t("Tester la connexion / Actualiser")}</button></div><p data-cache></p><label>${t("Modèle — ID libre")}<input data-model list="ai-models" value="${esc(saved.model || "")}" maxlength="200"><datalist id="ai-models"></datalist></label><label>${t("Votre demande")}<textarea data-prompt></textarea></label><div class="ai-actions"><button data-send>${t("Proposer")}</button><button data-apply disabled>${t("Appliquer la proposition")}</button><button data-close>${t("Fermer")}</button></div><output aria-live="polite"></output>`;
-    const q = (s) => dialog.querySelector(s),
-      out = (message) => (q("output").textContent = t(message));
-    let key = vault.get(current.id) || saved.key || "",
-      base = current.base || saved.base || "";
-    const cacheKey = () => prefix + current.id + ":models:" + base;
-    const showCache = () => {
-      try {
-        const cache = JSON.parse(localStorage.getItem(cacheKey()) || "null");
-        q("#ai-models").replaceChildren(
-          ...(cache?.models || []).map((m) => {
-            const opt = document.createElement("option");
-            opt.value = m.id;
-            opt.label = m.name;
-            return opt;
-          }),
-        );
-        q("[data-cache]").textContent = cache
-          ? `${t("Mis à jour")} : ${new Date(cache.at).toLocaleString()}`
-          : "";
-        return cache;
-      } catch {
-        return null;
-      }
-    };
-    const saveSettings = () => {
-      key = q("[data-key]").value.trim() || key;
-      base = q("[data-base]").value.trim();
-      endpoint(current, base);
-      vault.set(current.id, key);
-      const remember = q("[data-remember]").checked;
-      localStorage.setItem(
-        prefix + current.id,
-        JSON.stringify({
-          base,
-          model: q("[data-model]").value.trim(),
-          ...(remember ? { key } : {}),
-        }),
+  const test = async () => {
+    try {
+      save();
+      if (!key()) throw Error("Ajoutez une clé API.");
+      busy = true;
+      status = t("Test du chat et des outils…");
+      draw();
+      const result = await chatCompletion(
+        current(),
+        key(),
+        config.base,
+        config.model,
+        'Call propose_changes with message "Connection test" and an empty actions array. This is a test; do not change any project.',
+        [{ role: "user", content: "Test connection and call the tool." }],
+        proposalTool,
       );
-      q("[data-key]").value = "";
-      q("[data-key]").placeholder = key ? "••••••••" : "";
-    };
-    const refresh = async () => {
-      try {
-        saveSettings();
-        if (!key) throw Error("Ajoutez une clé API.");
-        q("[data-refresh]").disabled = true;
-        out("Connexion…");
-        const models = await listModels(current, key, base);
-        localStorage.setItem(
-          cacheKey(),
-          JSON.stringify({ at: Date.now(), models }),
+      if (!result.call)
+        throw Error("Le modèle n’a pas utilisé l’outil demandé.");
+      proposalProject(live().p, result.proposal);
+      await acknowledgeTool(result, "validated_test_only");
+      status = t("Connexion vérifiée : réponse et appel d’outil reçus.");
+    } catch (e) {
+      status = t(e.message);
+    } finally {
+      busy = false;
+      draw();
+    }
+  };
+  const send = async () => {
+    const prompt = q("[data-prompt]").value.trim();
+    if (!prompt || busy) return;
+    if (!key()) {
+      settings = true;
+      status = t("Ajoutez une clé API.");
+      draw();
+      return;
+    }
+    const model = config.model || models[0]?.id;
+    if (!model) {
+      settings = true;
+      status = t("Choisissez un modèle.");
+      draw();
+      return;
+    }
+    session.messages.push({ role: "user", content: prompt.slice(0, 6000) });
+    busy = true;
+    status = "";
+    preview = false;
+    draw();
+    try {
+      const currentState = live(),
+        ctx = projectContext(
+          currentState.p,
+          currentState.stage,
+          activeGuideContext(),
         );
-        showCache();
-        out("Catalogue actualisé. La saisie manuelle reste disponible.");
-      } catch (e) {
-        out(e.message);
-      } finally {
-        q("[data-refresh]").disabled = false;
+      const messages = session.messages
+        .slice(0, -1)
+        .slice(-17)
+        .map(({ role, content }) => ({ role, content }));
+      messages.push({
+        role: "user",
+        content: JSON.stringify({
+          context: ctx,
+          pendingProposal: session.active,
+          request: prompt,
+        }),
+      });
+      const supportsTools = models.find((m) => m.id === model)?.tools !== false;
+      const response = await chatCompletion(
+        current(),
+        key(),
+        config.base,
+        model,
+        agentInstructions + " Reply in " + language(),
+        messages,
+        supportsTools ? proposalTool : null,
+      );
+      let proposal = response.proposal;
+      if (!proposal) {
+        try {
+          proposal = JSON.parse(
+            response.text.replace(/^```(?:json)?\s*|\s*```$/g, ""),
+          );
+        } catch {
+          proposal = { message: response.text, actions: [] };
+        }
       }
-    };
-    q("[data-base]").onchange = () => {
-      key = "";
-      vault.delete(current.id);
-      q("[data-key]").value = "";
-      q("[data-key]").placeholder = "";
-    };
-    q("[data-store]").onclick = () => {
-      try {
-        saveSettings();
-        out("Clé enregistrée sur cet appareil.");
-      } catch (e) {
-        out(e.message);
-      }
-    };
-    q("[data-delete]").onclick = () => {
-      vault.delete(current.id);
-      localStorage.removeItem(prefix + current.id);
-      key = "";
-      q("[data-key]").value = "";
-      q("[data-key]").placeholder = "";
-    };
-    q("[data-refresh]").onclick = refresh;
-    q("[data-provider]").onchange = () => {
-      current = PROVIDERS[q("[data-provider]").value];
-      providerId = current.id;
-      proposal = null;
-      read();
+      proposalProject(currentState.p, proposal);
+      if (response.call)
+        await acknowledgeTool(response, "validated_pending_user_approval");
+      session.propose(currentState.p, proposal);
+      session.messages.push({ role: "assistant", content: proposal.message });
+    } catch (e) {
+      status = t(e.message);
+    } finally {
+      busy = false;
+      draw();
+    }
+  };
+  const draw = () => {
+    const selected = config.model || models[0]?.id || "",
+      state = live();
+    let content;
+    if (settings)
+      content = `<div class="ai-settings"><button data-back>← ${t("Retour au chat")}</button><label>${t("Fournisseur")}<select data-provider ${busy ? "disabled" : ""}>${Object.values(
+        PROVIDERS,
+      )
+        .map(
+          (p) =>
+            `<option value="${p.id}" ${p.id === providerId ? "selected" : ""}>${esc(p.name)}</option>`,
+        )
+        .join(
+          "",
+        )}</select></label><label>${t("Clé API")}<input data-key type="password" autocomplete="off" placeholder="${key() ? "••••••••" : ""}"></label><label class="ai-remember"><input data-remember type="checkbox" ${config.key ? "checked" : ""}>${t("Mémoriser sur cet appareil")}</label><label>${t("Modèle")}<input data-search type="search" placeholder="${t("Rechercher un modèle")}"><select data-model ${busy ? "disabled" : ""}>${models.map((m) => `<option value="${esc(m.id)}" ${m.id === selected ? "selected" : ""}>${esc(m.name)}</option>`).join("")}</select></label><button data-refresh ${busy ? "disabled" : ""}>${t("Actualiser les modèles")}</button><details><summary>${t("Avancé")}</summary>${current().id === "custom" ? `<label>${t("Adresse API")}<input data-base value="${esc(config.base || "")}"></label>` : ""}<label>${t("ID modèle personnalisé")}<input data-custom-model></label><button data-custom-add>${t("Utiliser ce modèle")}</button><button data-forget>${t("Supprimer la clé")}</button></details><div class="ai-settings-actions"><button data-save>${t("Enregistrer")}</button><button data-test ${busy ? "disabled" : ""}>${t("Tester la connexion")}</button></div></div>`;
+    else
+      content = `<div class="ai-messages" aria-live="polite">${session.messages.length ? session.messages.map((m) => `<article class="ai-message ai-${m.role}"><span>${t(m.role === "user" ? "Vous" : "Assistant IA")}</span><p>${esc(m.content)}</p></article>`).join("") : `<div class="ai-empty"><span aria-hidden="true">✦</span><h3>${t("Que souhaitez-vous ajuster ?")}</h3><p>${t("Décrivez une modification. Vous pourrez l’affiner avant de l’appliquer.")}</p>${!key() ? `<button data-configure>${t("Configurer l’assistant")}</button>` : ""}</div>`}${session.active?.actions.length ? `<section class="ai-proposal"><span>${t("Proposition")} · ${session.revision}</span><ul>${session.active.actions.map((a) => `<li>${esc(actionSummary(a, state.p))}</li>`).join("")}</ul>${preview ? renderPreview(state.p, session.active) : ""}<div><button class="primary" data-apply ${busy ? "disabled" : ""}>${t("Appliquer")}</button>${state.stage === "guideline" ? `<button data-preview>${t(preview ? "Masquer l’aperçu" : "Aperçu")}</button>` : ""}</div></section>` : ""}${busy ? `<p>${t("Préparation de la proposition…")}</p>` : ""}</div><form class="ai-composer"><textarea data-prompt aria-label="${t("Votre demande")}" placeholder="${t("Votre demande")}" rows="2" maxlength="6000"></textarea><button type="submit" aria-label="${t("Envoyer")}" ${busy ? "disabled" : ""}>↑</button></form>`;
+    dialog.innerHTML = `<header><strong>✦ ${t("Assistant IA")}</strong><div><button data-settings aria-label="${t("Réglages IA")}">⚙</button><button data-close aria-label="${t("Fermer")}">×</button></div></header>${content}<output role="status">${esc(status)}</output>`;
+    q("[data-close]").onclick = () => dialog.close();
+    q("[data-settings]").onclick = () => {
+      settings = !settings;
       draw();
     };
-    q("[data-close]").onclick = () => dialog.close();
-    q("[data-send]").onclick = async () => {
+    q("[data-back]")?.addEventListener("click", () => {
       try {
-        saveSettings();
-        if (!key) throw Error("Ajoutez une clé API.");
-        const model = q("[data-model]").value.trim();
-        if (!model) throw Error("Choisissez un modèle.");
-        busy = true;
-        q("[data-send]").disabled = true;
-        q("[data-provider]").disabled = true;
-        q("[data-apply]").disabled = true;
-        out("Préparation de la proposition…");
-        const answer = await complete(
-          current,
-          key,
-          base,
-          model,
-          actionInstructions + " Reply in " + language(),
-          JSON.stringify({
-            context: stageContext(p, stage),
-            request: q("[data-prompt]").value.slice(0, 6000),
-          }),
-        );
-        proposal = validateActions(answer, stage, p);
-        out(
-          proposal.message + "\n\n" + JSON.stringify(proposal.actions, null, 2),
-        );
-        q("[data-apply]").disabled = !proposal.actions.length;
+        save();
+        settings = false;
+        draw();
       } catch (e) {
-        out(e.message);
-      } finally {
-        busy = false;
-        q("[data-send]").disabled = false;
-        q("[data-provider]").disabled = false;
+        status = t(e.message);
+        draw();
       }
-    };
-    q("[data-apply]").onclick = () => {
-      if (!proposal) return;
+    });
+    q("[data-configure]")?.addEventListener("click", () => {
+      settings = true;
+      draw();
+    });
+    q("[data-provider]")?.addEventListener("change", (e) => {
+      providerId = e.target.value;
+      load();
+      status = "";
+      draw();
+    });
+    q("[data-base]")?.addEventListener("change", () => {
+      vault.delete(providerId);
+      delete config.key;
+      q("[data-key]").value = "";
+      q("[data-key]").placeholder = "";
+    });
+    q("[data-model]")?.addEventListener("change", () => {
       try {
-        edit(() => applyActions(p, stage, proposal));
-        dialog.close();
+        save();
       } catch (e) {
-        out(e.message);
+        status = t(e.message);
+        draw();
       }
-    };
-    const cache = showCache();
-    if (key && (!cache || Date.now() - cache.at > 86400000)) refresh();
+    });
+    q("[data-search]")?.addEventListener("input", (e) => {
+      const query = e.target.value.toLowerCase();
+      q("[data-model]")
+        .querySelectorAll("option")
+        .forEach(
+          (o) => (o.hidden = !o.textContent.toLowerCase().includes(query)),
+        );
+    });
+    q("[data-refresh]")?.addEventListener("click", refresh);
+    q("[data-test]")?.addEventListener("click", test);
+    q("[data-save]")?.addEventListener("click", () => {
+      try {
+        save();
+        status = t("Configuration enregistrée.");
+        settings = false;
+        draw();
+      } catch (e) {
+        status = t(e.message);
+        draw();
+      }
+    });
+    q("[data-forget]")?.addEventListener("click", () => {
+      vault.delete(providerId);
+      delete config.key;
+      localStorage.setItem(prefix + providerId, JSON.stringify(config));
+      draw();
+    });
+    q("[data-custom-add]")?.addEventListener("click", () => {
+      const id = q("[data-custom-model]").value.trim().slice(0, 200);
+      if (id) {
+        save();
+        models.unshift({ id, name: id });
+        config.model = id;
+        localStorage.setItem(prefix + providerId, JSON.stringify(config));
+        draw();
+      }
+    });
+    q(".ai-composer")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      send();
+    });
+    q("[data-prompt]")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    });
+    q("[data-apply]")?.addEventListener("click", () => {
+      try {
+        session.apply(live().p, edit);
+        session.messages.push({
+          role: "assistant",
+          content: t(
+            "Proposition appliquée. Vous pouvez l’annuler avec Cmd/Ctrl+Z.",
+          ),
+        });
+        status = "";
+        draw();
+      } catch (e) {
+        status = t(e.message);
+        draw();
+      }
+    });
+    q("[data-preview]")?.addEventListener("click", () => {
+      preview = !preview;
+      draw();
+    });
+    const list = q(".ai-messages");
+    if (list) list.scrollTop = list.scrollHeight;
   };
-  dialog.addEventListener("close", () => dialog.remove(), { once: true });
   draw();
-  dialog.showModal();
+  dialog.addEventListener(
+    "close",
+    () => {
+      dialog.remove();
+      activeDialog = null;
+    },
+    { once: true },
+  );
+  dialog.show();
+}
+function renderPreview(p, proposal) {
+  try {
+    const temp = proposalProject(p, proposal),
+      id = activeGuideContext().pageId,
+      page = temp.brandGuideline.pages.find((a) => a.id === id);
+    return page
+      ? `<div class="ai-preview">${guidelineSVG(temp, page, temp.brandGuideline.pages.indexOf(page))}</div>`
+      : "";
+  } catch {
+    return "";
+  }
 }

@@ -1,4 +1,5 @@
 import { editorialTypes } from "../src/guideline-content.js";
+import { prepareGuide, generateGuide } from '../src/guideline-config.js';
 import { pageElements } from "../src/guideline-layout.js";
 import { guidelineUI } from "./guideline-ui.js";
 import "../src/style.css";
@@ -153,11 +154,11 @@ document.querySelector("#run").onclick = async () => {
       "Provide local Arial.ttf and Georgia.ttf fixtures",
     ));
   for (const version of [1, 2, 3])
-    await test("Migration V" + version + " → V4, guide disabled", async () => {
+    await test("Migration V" + version + " → V5, guide disabled", async () => {
       const old = structuredClone(p);
       old.version = version;
       const restored = await validate(old);
-      assert(restored.version === 4 && !restored.brandGuideline.enabled);
+      assert(restored.version === 5 && !restored.brandGuideline.enabled);
     });
   await test("V4 round trip and no secret fields", async () => {
     const data = structuredClone(p);
@@ -283,7 +284,7 @@ document.querySelector("#run").onclick = async () => {
     }
     assert(rejected, "No silent font replacement");
   });
-  await test("Fictional editorial copy, bundled font and all formats", async () => {
+  await test("Optional editorial pages do not invent copy; supplied text exports in all formats", async () => {
     const sample = structuredClone(p);
     sample.brandGuideline.brief = {};
     sample.brandGuideline.typography = {};
@@ -292,17 +293,31 @@ document.querySelector("#run").onclick = async () => {
       sample.brandGuideline.format = format;
       for (const a of sample.brandGuideline.pages) {
         const elements = pageElements(sample, a);
-        assert(elements.some((e) => e.id === "body" && e.text.length > 150));
-        assert(
-          elements.some(
-            (e) => e.id === "editorial-state" && e.text.includes("EXEMPLE"),
-          ),
-        );
+        assert(!elements.some((e) => e.id === "body" && e.text.length));
+        a.body = 'Texte de marque fourni pour cette page.';
+        assert(pageElements(sample,a).some(e=>e.text===a.body));
       }
       await link(
         await guidelinePDF(sample),
         "editorial-copy-" + format.replace(":", "-") + ".pdf",
       );
+      sample.brandGuideline.pages.forEach(a=>a.body='');
+    }
+  });
+  await test('V5 generated guide: four variants, twelve misuses, cover image, three mockups and all PDF formats',async()=>{
+    const sample=structuredClone(p);sample.enabled=['horizontal','vertical','icon','wordmark'];
+    sample.brandGuideline.pages=[];sample.brandGuideline.setup=null;
+    const g=prepareGuide(sample);
+    g.setup.cover={mode:'image',media:{resource:image.id,fit:'cover',zoom:1.25,panX:.3,panY:.7}};
+    g.setup.mockups=[0,1,2].map(i=>({id:'mock'+i,media:{resource:image.id,fit:i?'cover':'contain',zoom:1,panX:.5,panY:.5}}));
+    g.setup.misuses=Object.keys(MISUSES).filter(v=>v!=='correct').slice(0,12);
+    g.setup.content=['introduction','values','mission'];generateGuide(sample);
+    g.pages.filter(a=>g.setup.content.includes(a.type)).forEach(a=>a.body='Texte fourni pour présenter la marque.\n\nUne seconde idée pour rythmer la composition.');
+    for(const format of Object.keys(FORMATS)){
+      g.format=format;
+      const pdf=await guidelinePDF(sample);
+      assert(pdf.size>1000);
+      await link(pdf,'v5-generated-'+format.replace(':','-')+'.pdf');
     }
   });
   await guidelineUI(p, test);

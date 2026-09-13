@@ -68,9 +68,16 @@ export const cleanText = (s, max = 6000) =>
   typeof s === "string" ? s.slice(0, max) : "";
 export const hex = (s, fallback = "#171717") =>
   /^#[\da-f]{6}$/i.test(s) ? s : fallback;
+export function validateMedia(source) {
+  if (!source || typeof source.resource !== 'string') return null;
+  return { resource: cleanText(source.resource, 100), fit: source.fit === 'contain' ? 'contain' : 'cover', zoom: limit(source.zoom, 1, 5, 1), panX: limit(source.panX, 0, 1, 0.5), panY: limit(source.panY, 0, 1, 0.5) };
+}
 export function emptyGuide() {
   return {
     enabled: false,
+    schema: 2,
+    palette: null,
+    setup: null,
     format: "16:9",
     pages: [],
     resources: [],
@@ -171,6 +178,20 @@ export function validateGuide(input, mode) {
     throw Error("Guide invalide : 100 pages maximum.");
   g.enabled = mode !== "clearspace" && input.enabled === true;
   g.format = Object.hasOwn(FORMATS, input.format) ? input.format : "16:9";
+  if (Array.isArray(input.palette)) g.palette = input.palette.slice(0, 100).filter(c => c && /^[\w-]{1,100}$/.test(c.id)).map(c => ({
+    id: c.id, sourceId: cleanText(c.sourceId, 100),
+    ...(typeof c.name === 'string' ? {name: cleanText(c.name, 100)} : {}),
+    ...(c.hex ? {hex: hex(c.hex)} : {}), role: cleanText(c.role, 100), spot: cleanText(c.spot, 100), percentage: limit(c.percentage, 0, 100),
+  }));
+  const setup = input.setup;
+  if (setup) g.setup = {
+    step: limit(setup.step, 0, 5), complete: setup.complete === true,
+    cover: { mode: setup.cover?.mode === 'image' ? 'image' : 'logo', variant: cleanText(setup.cover?.variant, 100), media: validateMedia(setup.cover?.media) },
+    mockups: (Array.isArray(setup.mockups) ? setup.mockups : []).slice(0, 3).map(m => ({id: /^[\w-]{1,100}$/.test(m.id) ? m.id : uid(), media: validateMedia(m.media), title: cleanText(m.title, 300), caption: cleanText(m.caption, 1000), layout: m.layout === 'editorial' ? 'editorial' : 'hero'})),
+    misuses: (Array.isArray(setup.misuses) ? setup.misuses : []).filter(v => v !== 'correct' && Object.hasOwn(MISUSES, v)),
+    misuseVariant: cleanText(setup.misuseVariant, 100),
+    content: (Array.isArray(setup.content) ? setup.content : []).filter(v => Object.hasOwn(PAGE_TYPES, v)),
+  };
   for (const key of [
     "description",
     "activity",
@@ -182,13 +203,15 @@ export function validateGuide(input, mode) {
     "keywords",
   ])
     g.brief[key] = cleanText(input.brief?.[key]);
-  for (const key of ["background", "secondary", "text", "muted", "accent"])
+  for (const key of ["background", "secondary", "text", "muted", "accent", "rule"])
     if (input.theme?.[key]) g.theme[key] = hex(input.theme[key]);
   for (const key of ["margin", "spacing", "grid"])
     if (Number.isFinite(input.theme?.[key]))
       g.theme[key] = limit(input.theme[key], 0, 100);
   g.theme.numbers = input.theme?.numbers !== false;
   g.theme.guides = input.theme?.guides === true;
+  for (const key of ['headers', 'footers', 'brandName']) g.theme[key] = input.theme?.[key] !== false;
+  g.theme.density = ['comfortable', 'compact'].includes(input.theme?.density) ? input.theme.density : 'comfortable';
   g.exports = {
     pdf: input.exports?.pdf !== false,
     svg: input.exports?.svg !== false,
@@ -215,7 +238,10 @@ export function validateGuide(input, mode) {
   g.distribution = dict(input.distribution, (v) => limit(v, 0, 100));
   g.typography = dict(input.typography, (v) => ({
     font: cleanText(v?.font, 100),
+    family: cleanText(v?.family, 100),
     size: limit(v?.size, 5, 150, 12),
+    pt: limit(v?.size, 5, 150, 12),
+    px: limit(v?.size, 5, 150, 12) * 4 / 3,
     weight: limit(v?.weight, 100, 900, 400),
     leading: limit(v?.leading, 0.8, 3, 1.35),
     tracking: limit(v?.tracking, -3, 20, 0),
@@ -244,6 +270,8 @@ export function validateGuide(input, mode) {
       data: r.data,
       family: cleanText(r.family, 100),
       weight: limit(r.weight, 100, 900, 400),
+      width: limit(r.width, 0, 40000),
+      height: limit(r.height, 0, 40000),
       format: r.format === "otf" ? "otf" : "ttf",
     });
   }
@@ -257,6 +285,13 @@ export function validateGuide(input, mode) {
     seen.add(a.id);
     a.title = cleanText(source.title, 300);
     a.body = cleanText(source.body);
+    a.generatedKey = cleanText(source.generatedKey, 160);
+    a.group = source.group === 'parts' ? 'parts' : 'full';
+    a.media = validateMedia(source.media);
+    a.ruleOffset = limit(source.ruleOffset, 0, 100);
+    a.settings = {};
+    for (const key of ['guides', 'explanation', 'hex', 'rgb', 'cmyk', 'pantone', 'roles']) a.settings[key] = source.settings?.[key] !== false;
+    for (const key of ['text', 'muted', 'rule', 'accent']) if (source.settings?.[key]) a.settings[key] = hex(source.settings[key]);
     a.layout = [
       "minimal",
       "typographic",
@@ -267,6 +302,11 @@ export function validateGuide(input, mode) {
       "three",
       "mixed",
       "mosaic",
+      "hero",
+      "editorial",
+      "statement",
+      "columns",
+      "manifesto",
     ].includes(source.layout)
       ? source.layout
       : "minimal";
@@ -283,6 +323,7 @@ export function validateGuide(input, mode) {
         : "text",
       text: cleanText(e.text),
       resource: cleanText(e.resource, 100),
+      fit: e.fit === 'contain' ? 'contain' : 'cover',
       variant: cleanText(e.variant, 100),
       role: cleanText(e.role, 100),
       x: limit(e.x, 0, 1),
@@ -297,12 +338,12 @@ export function validateGuide(input, mode) {
       locked: e.locked === true,
     }));
     a.styles = dict(source.styles, (v) => ({
-      x: limit(v?.x, 0, 1),
-      y: limit(v?.y, 0, 1),
-      w: limit(v?.w, 0.01, 1, 0.3),
-      h: limit(v?.h, 0.01, 1, 0.15),
+      x: Number.isFinite(v?.x) ? limit(v.x, 0, 1) : undefined,
+      y: Number.isFinite(v?.y) ? limit(v.y, 0, 1) : undefined,
+      w: Number.isFinite(v?.w) ? limit(v.w, 0.001, 1) : undefined,
+      h: Number.isFinite(v?.h) ? limit(v.h, 0.001, 1) : undefined,
       text: typeof v?.text === "string" ? cleanText(v.text) : undefined,
-      size: limit(v?.size, 5, 150, 12),
+      size: Number.isFinite(v?.size) ? limit(v.size, 5, 150, 12) : undefined,
       fill: v?.fill ? hex(v.fill) : undefined,
       hidden: v?.hidden === true,
       role: cleanText(v?.role, 100) || undefined,

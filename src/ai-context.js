@@ -2,6 +2,7 @@ import { pageElements } from "./guideline-layout.js";
 import { dimensions } from "./guideline-theme.js";
 import { variantName, clearMeasure } from "./model.js";
 import { PAGE_TYPES, page, MISUSES } from "./guideline-model.js";
+import { finalPalette, prepareGuide } from './guideline-config.js';
 export const ACTIONS = {
   import: ["brand"],
   compose: ["minimum"],
@@ -158,13 +159,13 @@ export function validateActions(raw, stage, p) {
     if (a.type === "colorRole")
       valid =
         exact(a, ["type", "id", "role"]) &&
-        p.colors.some((c) => c.id === a.id) &&
+        finalPalette(p).some((c) => c.id === a.id) &&
         str(a.role, 100);
     if (a.type === "pair")
       valid =
         exact(a, ["type", "foreground", "background", "allowed"]) &&
         [a.foreground, a.background].every((id) =>
-          p.colors.some((c) => c.id === id),
+          finalPalette(p).some((c) => c.id === id),
         ) &&
         typeof a.allowed === "boolean";
     if (a.type === "typeStyle")
@@ -223,8 +224,10 @@ export function applyActions(p, stage, response) {
       g.pages = a.ids.map((id) => g.pages.find((v) => v.id === id));
     if (a.type === "misuses")
       g.pages.find((v) => v.id === a.id).misuses = a.rules;
-    if (a.type === "colorRole")
+    if (a.type === "colorRole") {
       g.colorRoles[a.id] = { ...g.colorRoles[a.id], role: a.role };
+      prepareGuide(p).palette.find(c=>c.id===a.id).role=a.role;
+    }
     if (a.type === "pair") {
       const id = a.foreground + ":" + a.background;
       if (!g.pairs[id]?.manual)

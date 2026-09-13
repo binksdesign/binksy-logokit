@@ -60,7 +60,7 @@ export async function loadFonts(g) {
   for (const r of fontResources(g)) {
     if (loaded.has(r.id)) continue;
     try {
-      const face = new FontFace("bg-" + r.id, resourceBytes(r));
+      const face = new FontFace("bg-" + r.id, resourceBytes(r), {weight: String(r.weight || 400)});
       await face.load();
       document.fonts.add(face);
       loaded.set(r.id, face);
@@ -114,6 +114,8 @@ export async function importResource(file, g) {
     await img.decode();
     if (img.width * img.height > 40e6)
       throw Error("Image limitée à 40 mégapixels.");
+    r.width = img.width;
+    r.height = img.height;
   }
   return r;
 }

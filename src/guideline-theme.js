@@ -1,4 +1,5 @@
 import { FORMATS } from "./guideline-model.js";
+import { finalPalette } from './guideline-config.js';
 export function contrast(a, b) {
   const l = (h) => {
     const c = h
@@ -13,16 +14,20 @@ export function contrast(a, b) {
 }
 export function theme(p) {
   const g = p.brandGuideline,
-    colors = p.colors;
+    colors = finalPalette(p);
   const role = (name, fallback) =>
-    colors.find((c) => g.colorRoles[c.id]?.role === name)?.hex || fallback;
-  const background = role("background", "#ffffff");
-  const ink = [...colors.map((c) => c.hex), "#171717", "#ffffff"].sort(
+    colors.find((c) => c.role === name)?.hex || fallback;
+  const background = role("background", colors[0]?.hex || "#ffffff");
+  const ink = (colors.length ? colors.map((c) => c.hex) : ["#171717", "#ffffff"]).sort(
     (a, b) => contrast(b, background) - contrast(a, background),
   )[0];
+  const overrides = { ...g.theme };
+  for (const key of ['background', 'secondary', 'text', 'muted', 'accent', 'rule']) {
+    if (overrides[key] && !colors.some(c => c.hex.toLowerCase() === overrides[key].toLowerCase())) delete overrides[key];
+  }
   return {
     background,
-    secondary: role("secondary-background", "#f2f2f0"),
+    secondary: role("secondary-background", background),
     text: role("text", ink),
     muted: role("secondary-text", ink),
     accent: role("accent", colors[0]?.hex || ink),
@@ -30,15 +35,15 @@ export function theme(p) {
     spacing: 16,
     grid: 8,
     numbers: true,
-    ...g.theme,
+    ...overrides,
   };
 }
 export function typeStyle(g, role = "body") {
   const portrait = g.format === "portrait",
     a4 = g.format !== "16:9";
   const sizes = {
-    title: a4 ? 24 : 28,
-    subtitle: a4 ? 17 : 20,
+    title: a4 ? 30 : 36,
+    subtitle: a4 ? 22 : 26,
     heading: 14,
     body: a4 ? 10.5 : 12,
     small: 9,
@@ -56,6 +61,9 @@ export function typeStyle(g, role = "body") {
     (r) => r.id === style.font && r.type === "font",
   );
   style.weight = font?.weight || 400;
+  style.family = font?.family || 'Instrument Sans';
+  style.pt = style.size;
+  style.px = style.size * 4 / 3;
   return style;
 }
 export function colorValues(h) {
@@ -92,21 +100,27 @@ export function inkOn(color) {
     : "#ffffff";
 }
 export function pageTheme(p, page) {
+  const colors = finalPalette(p);
+  const allowed = value => colors.some(c => c.hex.toLowerCase() === String(value).toLowerCase());
+  const foreground = bg => [...colors].sort((a,b) => contrast(b.hex,bg)-contrast(a.hex,bg))[0]?.hex || inkOn(bg);
+  const settings = { ...page.settings };
+  for (const key of ['background', 'secondary', 'text', 'muted', 'accent', 'rule']) if (settings[key] && !allowed(settings[key])) delete settings[key];
   const base = theme(p),
     background =
-      page.background ||
+      (allowed(page.background) ? page.background : '') ||
       (["cover", "end"].includes(page.type) ? base.accent : base.background),
     text =
       page.background || ["cover", "end"].includes(page.type)
-        ? inkOn(background)
+        ? foreground(background)
         : base.text;
   return {
     ...base,
     background,
     text,
-    muted: mixColor(text, background, 0.42),
-    rule: mixColor(text, background, 0.82),
-    surface: mixColor(base.background, base.text, 0.035),
-    onAccent: inkOn(base.accent),
+    muted: base.muted,
+    rule: base.text,
+    surface: base.secondary,
+    onAccent: foreground(base.accent),
+    ...settings,
   };
 }

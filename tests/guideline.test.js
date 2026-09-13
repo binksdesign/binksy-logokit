@@ -26,7 +26,7 @@ import {
 import { contrast, typeStyle } from "../src/guideline-theme.js";
 test("Guide is optional, has exactly three formats, and starts with twelve pages", () => {
   const p = project();
-  assert.equal(p.version, 4);
+  assert.equal(p.version, 5);
   assert.equal(p.brandGuideline.enabled, false);
   initializeGuide(p);
   assert.equal(p.brandGuideline.pages.length, 12);
@@ -147,9 +147,9 @@ test("Manual color pair decisions override AI", () => {
   });
   assert.equal(p.brandGuideline.pairs["a:b"].allowed, false);
 });
-test("Provider registry has three shared protocols and excludes OpenCode Go", () => {
-  assert.equal(Object.keys(PROVIDERS).length, 17);
-  assert(!Object.hasOwn(PROVIDERS, "opencode-go"));
+test("Provider registry retains shared protocols and includes OpenCode Go", () => {
+  assert.equal(Object.keys(PROVIDERS).length, 18);
+  assert(Object.hasOwn(PROVIDERS, "opencode-go"));
   assert.equal(
     new Set(Object.values(PROVIDERS).map((p) => p.protocol)).size,
     3,

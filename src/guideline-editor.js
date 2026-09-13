@@ -1,3 +1,7 @@
+import { mountGuideWizard } from "./guideline-wizard.js";
+import { prepareGuide, finalPalette } from "./guideline-config.js";
+import { inspectorHTML, bindInspector } from "./guideline-inspector.js";
+import { paletteSelect, mediaControls } from "./guideline-controls.js";
 import { arrangeImages } from "./guideline-media.js";
 import { selectionControls } from "./guideline-interactions.js";
 import {
@@ -45,6 +49,8 @@ function thumbnail(p, a, i) {
     p.brandGuideline.theme,
     p.brandGuideline.format,
     p.colors,
+    p.brandGuideline.palette,
+    p.brandGuideline.pairs,
     p.compositions,
     p.brandGuideline.typography,
     p.brand,
@@ -77,7 +83,8 @@ export function mountGuideline(host, p, edit, navigate, notice) {
     ),
   );
   host.setAttribute("data-no-i18n", "");
-  const g = p.brandGuideline;
+  const g = prepareGuide(p);
+  if (!g.setup.complete) { mountGuideWizard(host, p, edit, notice); return; }
   if (!fontsReady(g)) {
     host.innerHTML = `<div class="bg-loading">${t("Préparation du document…")}</div>`;
     loadFonts(g)
@@ -114,52 +121,9 @@ export function mountGuideline(host, p, edit, navigate, notice) {
                 .join("")}</select>`,
             )
           : ""
-      }${selected.type === "image" ? field("Zoom image", input("zoom", selected.zoom || 1, "number")) + field("Cadrage horizontal", input("panX", selected.panX ?? 0.5, "number")) + field("Cadrage vertical", input("panY", selected.panY ?? 0.5, "number")) + button("replace", "Remplacer l’image") : ""}${["text", "rect"].includes(selected.type) ? field("Couleur", `<input data-bg-fill type="color" value="${selected.fill || theme(p).text}">`) : ""}${button("duplicate-element", "Dupliquer l’élément")}${button("delete-element", "Supprimer l’élément")}${button("front", "Premier plan")}${button("align-left", "Aligner à gauche")}${button("align-center", "Centrer horizontalement")}${button("align-top", "Aligner en haut")}${button("deselect", "Propriétés de la page")}`
+      }${selected.type === "image" ? mediaControls(selected, g.resources.find(r => r.id === selected.resource)) : ""}${["text", "rect"].includes(selected.type) ? paletteSelect(p, "data-bg-fill", selected.fill || theme(p).text, "Couleur") : ""}${button("duplicate-element", "Dupliquer l’élément")}${button("delete-element", "Supprimer l’élément")}${button("front", "Premier plan")}${button("align-left", "Aligner à gauche")}${button("align-center", "Centrer horizontalement")}${button("align-top", "Aligner en haut")}${button("deselect", "Propriétés de la page")}`
     : "";
-  const pagePanel = `<h2>${t("Propriétés de la page")}</h2>${field("Titre", `<input data-bg-title value="${esc(pageHeading(current))}">`)}${["cover", "end", "applications", "photography", "social", "icons"].includes(current.type) ? field("Composition", `<select data-bg-layout>${(["cover", "end"].includes(current.type) ? ["minimal", "typographic", "image", "dominant"] : ["full", "two", "three", "mixed", "mosaic"]).map((v) => option(v, v, current.layout)).join("")}</select>`) : ""}${field("Fond de page", `<input data-bg-background type="color" value="${current.background || (["cover", "end"].includes(current.type) ? theme(p).accent : theme(p).background)}">`)}${button("reset", "Réinitialiser cette page avec le template")}${
-    ["logos", "clearspace", "minimum", "misuse", "cover"].includes(current.type)
-      ? `<details><summary>${t("Variantes affichées")}</summary>${variantIds(p)
-          .map(
-            (v) =>
-              `<label class="check"><input data-bg-show-variant="${v}" type="checkbox" ${(current.variants.length ? current.variants : p.enabled).includes(v) ? "checked" : ""}>${esc(variantName(p, v))}</label>`,
-          )
-          .join("")}</details>`
-      : ""
-  }${
-    current.type === "misuse"
-      ? `<details open><summary>${t("Mauvais usages")}</summary>${current.misuses.map((id, i) => `<div class="bg-rule-order"><span>${t(MISUSES[id])}</span><button data-bg-rule-up="${id}" ${i === 0 ? "disabled" : ""} aria-label="${t("Monter")}">↑</button><button data-bg-rule-down="${id}" ${i === current.misuses.length - 1 ? "disabled" : ""} aria-label="${t("Descendre")}">↓</button></div>`).join("")}${Object.entries(
-          MISUSES,
-        )
-          .map(
-            ([id, label]) =>
-              `<label class="check"><input data-bg-misuse="${id}" type="checkbox" ${["proportions", "spacing"].includes(id) && (isReadyVariant(p, current.variants[0] || p.enabled[0]) || p.mode !== "compose") ? "disabled" : ""} ${current.misuses.includes(id) ? "checked" : ""}>${t(label)}</label>`,
-          )
-          .join("")}</details>`
-      : ""
-  }`;
-  const documentPanel = `<details><summary>${t("Document et thème")}</summary>${field("Format", `<select data-bg-format>${options(FORMATS, g.format)}</select>`)}${["background", "secondary", "text", "muted", "accent"].map((k) => field(k, `<input data-bg-theme="${k}" type="color" value="${theme(p)[k]}">`)).join("")}${field("Numéros de pages", `<input data-bg-numbers type="checkbox" ${theme(p).numbers ? "checked" : ""}>`)}${field("Afficher les repères", `<input data-bg-guides type="checkbox" ${g.theme.guides ? "checked" : ""}>`)}${["margin", "spacing", "grid"].map((k) => field(k, `<input data-bg-theme="${k}" type="number" min="0" max="100" value="${theme(p)[k]}">`)).join("")}${button("theme", "Réappliquer le thème")}</details>`;
-  const fontsPanel = `<details><summary>${t("Typographies")}</summary><label class="file-button">${t("Importer TTF / OTF")}<input data-bg-fonts type="file" accept=".ttf,.otf" multiple hidden></label>${button("custom-role", "Ajouter un rôle typographique")}${[
-    ...new Set([...ROLES, ...Object.keys(g.typography)]),
-  ]
-    .map((role) => {
-      const s = typeStyle(g, role);
-      return `<fieldset><legend>${t(role)}</legend><select data-bg-font-role="${role}">${option("", "Instrument Sans", s.font)}${g.resources
-        .filter((r) => r.type === "font")
-        .map((r) => option(r.id, r.name, s.font))
-        .join(
-          "",
-        )}</select>${["size", "weight", "leading", "tracking"].map((k) => field(k, `<input data-bg-type="${role}:${k}" ${k === "weight" ? `disabled title="${t("La graisse dépend du fichier de police importé.")}"` : ""} type="number" step="any" value="${s[k]}">`)).join("")}</fieldset>`;
-    })
-    .join("")}</details>`;
-  const colorsPanel = `<details><summary>${t("Rôles et règles couleur")}</summary>${p.colors.map((c, i) => `<fieldset><legend>${esc(c.name)} ${c.hex}</legend>${field("Rôle", `<input data-bg-color="${c.id}:role" list="bg-roles" value="${esc(g.colorRoles[c.id]?.role || "")}">`)}${field("Référence spot", `<input data-bg-color="${c.id}:spot" value="${esc(g.colorRoles[c.id]?.spot || "")}">`)}${field("Ordre", `<input type="number" data-bg-color="${c.id}:order" value="${g.colorRoles[c.id]?.order ?? i}">`)}${field("Répartition %", `<input type="range" min="0" max="100" data-bg-percent="${c.id}" value="${g.distribution[c.id] || 0}"><input type="number" min="0" max="100" data-bg-percent="${c.id}" value="${g.distribution[c.id] || 0}">`)}</fieldset>`).join("")}<datalist id="bg-roles">${["primary", "secondary", "accent", "background", "secondary-background", "text", "secondary-text", "support"].map((r) => `<option>${r}</option>`).join("")}</datalist>${button("normalize", "Normaliser à 100 %")}${p.colors.flatMap((a) => p.colors.filter((b) => b.id !== a.id).map((b) => field(a.name + " / " + b.name, `<select data-bg-pair="${a.id}:${b.id}">${option("auto", "Automatique", g.pairs[a.id + ":" + b.id]?.manual ? String(g.pairs[a.id + ":" + b.id].allowed) : "auto")}${option("true", "À faire", String(g.pairs[a.id + ":" + b.id]?.allowed))}${option("false", "À éviter", String(g.pairs[a.id + ":" + b.id]?.allowed))}</select>`))).join("")}</details>`;
-  const briefPanel = `<details><summary>${t("Brief de marque")}</summary>${["description", "activity", "audience", "values", "goal", "tone", "tagline", "keywords"].map((k) => field(k, `<textarea data-bg-brief="${k}">${esc(g.brief[k] || "")}</textarea>`)).join("")}</details>`;
-  host.innerHTML = `<div class="bg-toolbar"><div class="bg-document-title"><strong>Brand Guideline</strong><span>${esc(p.brand)} · ${t(FORMATS[g.format].label)}</span></div><label class="check"><input data-bg-enabled type="checkbox" ${g.enabled ? "checked" : ""}>${t("Inclure dans le kit")}</label>${button("skip", "Ignorer la Brand Guideline")}${button("export", "Exporter")}${button("pdf", "Télécharger le PDF")}<select data-bg-zoom aria-label="Zoom">${[0.5, 0.75, 1, 1.25, 1.5, 2].map((z) => option(String(z), Math.round(z * 100) + "%", String(zoom))).join("")}</select></div><div class="bg-workspace"><aside class="bg-pages"><div class="bg-panel-heading"><span>${t("Pages")}</span><span>${g.pages.length}</span></div><select data-bg-library aria-label="${t("Bibliothèque de pages")}">${options(PAGE_TYPES, "blank")}</select>${button("add-page", "Ajouter une page")}<ol>${g.pages.map((a, i) => `<li draggable="true" data-bg-page="${a.id}"><button aria-current="${a.id === active}" data-bg-open="${a.id}"><span class="bg-thumbnail" style="aspect-ratio:${W / H}">${thumbnail(p, a, i)}</span><span>${String(i + 1).padStart(2, "0")} ${esc(a.title || t(PAGE_TYPES[a.type]))}</span></button></li>`).join("")}</ol>${button("up", "Monter")}${button("down", "Descendre")}${button("duplicate-page", "Dupliquer la page")}${button("delete-page", "Supprimer la page")}</aside><section class="bg-center"><div class="bg-stage-heading"><span>${String(g.pages.indexOf(current) + 1).padStart(2, "0")} / ${String(g.pages.length).padStart(2, "0")}</span><strong>${esc(current.title || t(PAGE_TYPES[current.type]))}</strong><span>${t(FORMATS[g.format].label)}</span></div><div class="bg-canvas" style="--bg-ratio:${W / H};--bg-zoom:${zoom}">${guidelineSVG(p, current, g.pages.indexOf(current), { editor: true })}</div><div class="bg-insert">${button("text", "Ajouter un texte")}${button("rect", "Ajouter une forme")}<label class="file-button">${t("Importer des images")}<input data-bg-images type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></label></div><p class="bg-hint">${t("Double-cliquez pour éditer. Déplacez les éléments sur la page.")} ${t("Les textes sont ajustés à leur bloc si nécessaire.")}</p></section><aside class="bg-properties">${elementPanel || pagePanel}${documentPanel}${fontsPanel}${colorsPanel}${briefPanel}<details><summary>${t("Options d’export")}</summary>${["pdf", "svg"].map((k) => `<label class="check"><input data-bg-export="${k}" type="checkbox" ${g.exports[k] ? "checked" : ""}>${k.toUpperCase()}</label>`).join("")}<select data-bg-text-mode>${option("text", "Conserver les textes", g.exports.text)}${option("paths", "Vectoriser les textes", g.exports.text)}</select>${exportWarnings(
-    p,
-  )
-    .map((w) => `<p>${t(w)}</p>`)
-    .join(
-      "",
-    )}${button("pdf", "Télécharger la Brand Guideline")}${button("svg", "Exporter les pages SVG")}</details></aside></div>`;
+  host.innerHTML = `<div class="bg-toolbar"><div class="bg-document-title"><strong>Brand Guideline</strong><span>${esc(p.brand)} · ${t(FORMATS[g.format].label)}</span></div><label class="check"><input data-bg-enabled type="checkbox" ${g.enabled ? "checked" : ""}>${t("Inclure dans le kit")}</label>${button("setup", "Préparation")}${button("pdf", "Télécharger le PDF")}<select data-bg-zoom aria-label="Zoom">${[0.5, 0.75, 1, 1.25, 1.5, 2].map((z) => option(String(z), Math.round(z * 100) + "%", String(zoom))).join("")}</select></div><div class="bg-workspace"><aside class="bg-pages"><div class="bg-panel-heading"><span>${t("Pages")}</span><span>${g.pages.length}</span></div><select data-bg-library aria-label="${t("Bibliothèque de pages")}">${options(PAGE_TYPES, "blank")}</select>${button("add-page", "Ajouter une page")}<ol>${g.pages.map((a, i) => `<li draggable="true" data-bg-page="${a.id}"><button aria-current="${a.id === active}" data-bg-open="${a.id}"><span class="bg-thumbnail" style="aspect-ratio:${W / H}">${thumbnail(p, a, i)}</span><span>${String(i + 1).padStart(2, "0")} ${esc(a.title || t(PAGE_TYPES[a.type]))}</span></button></li>`).join("")}</ol>${button("up", "Monter")}${button("down", "Descendre")}${button("duplicate-page", "Dupliquer la page")}${button("delete-page", "Supprimer la page")}</aside><section class="bg-center"><div class="bg-stage-heading"><span>${String(g.pages.indexOf(current) + 1).padStart(2, "0")} / ${String(g.pages.length).padStart(2, "0")}</span><strong>${esc(current.title || t(PAGE_TYPES[current.type]))}</strong><span>${t(FORMATS[g.format].label)}</span></div><div class="bg-canvas" style="--bg-ratio:${W / H};--bg-zoom:${zoom}">${guidelineSVG(p, current, g.pages.indexOf(current), { editor: true })}</div><div class="bg-insert">${button("text", "Ajouter un texte")}${button("rect", "Ajouter une forme")}<label class="file-button">${t("Importer des images")}<input data-bg-images type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></label></div><p class="bg-hint">${t("Double-cliquez pour éditer. Déplacez les éléments sur la page.")} ${t("Les textes sont ajustés à leur bloc si nécessaire.")}</p></section><aside class="bg-properties">${inspectorHTML(p, current, elementPanel, selected)}</aside></div>`;
   host.querySelectorAll("details").forEach((d) => {
     if (openPanels.has(d.querySelector("summary")?.textContent)) d.open = true;
   });
@@ -228,6 +192,7 @@ export function mountGuideline(host, p, edit, navigate, notice) {
   bind("[data-bg]", "click", async (el) => {
     try {
       const action = el.dataset.bg;
+      if (action === "setup") { update(() => {g.setup.complete=false;g.setup.step=0;}); return; }
       if (action === "skip") {
         update(() => (g.enabled = false));
         navigate("delivery");
@@ -703,6 +668,7 @@ export function mountGuideline(host, p, edit, navigate, notice) {
       document.addEventListener("pointerup", up, { once: true });
     };
   });
+  bindInspector(host, p, current, selected, update, () => mountGuideline(host, p, edit, navigate, notice), notice);
   selectionControls(canvas, p, current, selected, update, () =>
     mountGuideline(host, p, edit, navigate, notice),
   );
@@ -710,3 +676,5 @@ export function mountGuideline(host, p, edit, navigate, notice) {
     host.querySelector(selector).scrollTop = top;
   loadFonts(g).catch((e) => notice(t(e.message)));
 }
+
+export function activeGuideContext() { return { pageId: active, elementId: selection }; }

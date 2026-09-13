@@ -318,7 +318,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
   main.dataset.workshopStep = step;
   main.classList.toggle("full-catalog", fullCatalog);
   main.querySelector(".family-heading").innerHTML =
-    `<div class="eyebrow">${step === "delivery" ? (p.mode==="clearspace"?"03":"05") : "03"} / ${t(step === "delivery" ? "Exporter" : "Variantes")}</div><h1>${t(step === "delivery" ? "Votre Logo Kit est prêt à partir." : "Choisissez visuellement les versions à livrer.")}</h1>`;
+    `<div class="eyebrow">${step === "delivery" ? (p.mode==="clearspace"?"03":"04") : "03"} / ${t(step === "delivery" ? "Exporter" : "Variantes")}</div><h1>${t(step === "delivery" ? "Votre Logo Kit est prêt à partir." : "Choisissez visuellement les versions à livrer.")}</h1>`;
   const toolbar = main.querySelector(".family-tools");
   const custom = document.createElement("details");
   custom.className = "combination-tools";

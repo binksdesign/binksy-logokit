@@ -1,5 +1,5 @@
 import {exportWarnings} from "./guideline-export.js";
-import { initializeGuide } from './guideline-model.js';
+import { prepareGuide } from './guideline-config.js';
 import { readProjects, storeProjects } from './project-storage.js';
 import { mountGuideline } from './guideline-editor.js';
 import { openAssistant } from './ai.js';
@@ -177,10 +177,10 @@ function render() {
   for (const [selector, top] of scrolls)
     if ($(selector)) $(selector).scrollTop = top;
   if (["import", "compose"].includes(view)) drawStage();
-  else if (view === "guideline") mountGuideline($("#workshop"), p, edit, next => { view = next; if(next==='delivery'&&p.mode!=='clearspace')edit(()=>{p.exports.formats=['svg','png','jpeg','pdf'];});else render(); }, notice);
+  else if (view === "guideline") mountGuideline($("#workshop"), p, edit, next => { view = next; render(); }, notice);
   else mountWorkshop(p, edit, runExport, view);
   if(saving)$("#save-state").textContent=t("Enregistrement…");
-  $("[data-ai-assistant]").onclick = () => openAssistant(p, view, edit);
+  $("[data-ai-assistant]").onclick = () => openAssistant(p, view, edit, () => ({p, stage: view}));
   translateDOM();
 }
 function exportPanel() {
@@ -245,7 +245,7 @@ function bind() {
     (el) =>
       (el.onclick = () => {
         view = el.dataset.view;
-        if (view === "guideline" && !p.brandGuideline.pages.length && p.mode !== "clearspace") { edit(() => initializeGuide(p)); return; }
+        if (view === "guideline" && !p.brandGuideline.setup && p.mode !== "clearspace") { edit(() => prepareGuide(p)); return; }
         if (view === "delivery" && p.mode !== "clearspace" &&
             p.exports.formats.join(",") !== "svg,png,jpeg,pdf") {
           edit(() => { p.exports.formats = ["svg", "png", "jpeg", "pdf"]; });

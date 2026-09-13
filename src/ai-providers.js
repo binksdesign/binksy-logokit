@@ -43,6 +43,7 @@ export const PROVIDERS = Object.fromEntries(
       "openai",
       "https://opencode.ai/auth",
     ],
+    ["opencode-go", "OpenCode Go", "https://opencode.ai/zen/go/v1", "openai", "https://opencode.ai/auth"],
     [
       "mistral",
       "Mistral",
@@ -161,9 +162,12 @@ export async function providerRequest(
       throw Error(
         {
           401: "Clé API refusée.",
+          402: "Crédit insuffisant chez le fournisseur.",
+          400: "Requête refusée : vérifiez le modèle et sa prise en charge des outils.",
           403: "Accès refusé par le fournisseur.",
           404: "Modèle ou catalogue indisponible.",
           429: "Quota dépassé. Réessayez plus tard.",
+          503: "Modèle temporairement indisponible.",
         }[response.status] || "Fournisseur indisponible.",
       );
     const text = await response.text();
@@ -205,6 +209,7 @@ export async function listModels(provider, key, custom, fetcher) {
         .map((m) => ({
           id: String(m.id || m.name || "").replace(/^models\//, ""),
           name: String(m.display_name || m.displayName || m.id || m.name),
+          tools: Array.isArray(m.supported_parameters) ? m.supported_parameters.includes('tools') : undefined,
         })),
     );
     path =
@@ -215,6 +220,60 @@ export async function listModels(provider, key, custom, fetcher) {
           : null;
   }
   return models.filter((m) => m.id).slice(0, 5000);
+}
+
+// Maintained fallbacks are secondary to each provider's live catalogue.
+export const FALLBACK_MODELS = {
+  openai: ['gpt-4.1-mini','gpt-4.1'], anthropic: ['claude-sonnet-4-5','claude-haiku-4-5'],
+  gemini:['gemini-2.5-flash','gemini-2.5-pro'], openrouter:['openrouter/auto'],
+  nvidia:['meta/llama-3.3-70b-instruct'], opencode:['kimi-k2.5'], 'opencode-go':['glm-5.1','kimi-k2.6'],
+  mistral:['mistral-small-latest','mistral-large-latest'], groq:['llama-3.3-70b-versatile'], deepseek:['deepseek-chat','deepseek-reasoner'],
+  xai:['grok-4'], together:['meta-llama/Llama-3.3-70B-Instruct-Turbo'], fireworks:['accounts/fireworks/models/llama-v3p3-70b-instruct'],
+  cerebras:['llama-3.3-70b'], perplexity:['sonar','sonar-pro'], qwen:['qwen-plus','qwen-max'], moonshot:['kimi-k2.5'], custom:[],
+};
+export function modelProtocol(provider,model){
+  if(provider.id==='opencode-go') {
+    if(/^(minimax|qwen)/i.test(model))return {...provider,protocol:'anthropic'};
+    if(/^(gpt-|grok-|muse-)/i.test(model))return {...provider,protocol:'responses'};
+  }
+  return provider;
+}
+export async function chatCompletion(provider,key,base,model,system,messages,tool,fetcher=fetch){
+  const target=modelProtocol(provider,model), protocol=target.protocol;
+  let path,body;
+  if(protocol==='anthropic') {
+    path='/messages';body={model,max_tokens:5000,system,messages:messages.map(m=>({role:m.role,content:m.content})),tools:tool?[{name:tool.name,description:tool.description,input_schema:tool.parameters}]:undefined};
+  } else if(protocol==='gemini') {
+    path='/models/'+encodeURIComponent(model)+':generateContent';body={systemInstruction:{parts:[{text:system}]},contents:messages.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),...(tool?{tools:[{functionDeclarations:[tool]}]}:{})};
+  } else if(protocol==='responses') {
+    path='/responses';body={model,instructions:system,input:messages,tools:tool?[{type:'function',...tool,strict:false}]:undefined};
+  } else {
+    path='/chat/completions';body={model,messages:[{role:'system',content:system},...messages],stream:false,...(tool?{tools:[{type:'function',function:tool}],tool_choice:'auto'}:{})};
+    if(provider.id==='openrouter'&&tool)body.provider={require_parameters:true};
+  }
+  const result=await providerRequest(target,key,base,path,body,fetcher);
+  if(result.error)throw Error('Erreur fournisseur : aucune réponse exploitable.');
+  let call,answer;
+  if(protocol==='anthropic'){call=result.content?.find(c=>c.type==='tool_use');answer=result.content?.filter(c=>c.type==='text').map(c=>c.text).join('');if(call)call={name:call.name,input:call.input,raw:call};}
+  else if(protocol==='gemini'){const parts=result.candidates?.[0]?.content?.parts||[];call=parts.find(c=>c.functionCall)?.functionCall;answer=parts.map(c=>c.text||'').join('');if(call)call={name:call.name,input:call.args,raw:call};}
+  else if(protocol==='responses'){call=result.output?.find(c=>c.type==='function_call');answer=result.output?.flatMap(c=>c.content||[]).map(c=>c.text||'').join('');if(call)call={name:call.name,input:JSON.parse(call.arguments),raw:call};}
+  else {const msg=result.choices?.[0]?.message;call=msg?.tool_calls?.[0];answer=msg?.content;if(call)call={name:call.function.name,input:JSON.parse(call.function.arguments),raw:call,message:msg};}
+  if(call&&call.name!==tool?.name)throw Error('Outil demandé non autorisé.');
+  if(!call && !(typeof answer==='string'&&answer.trim()))throw Error('Réponse vide ou interrompue.');
+  return {text:answer||'',proposal:call?.input,call,request:{provider:target,key,base,path,body},protocol};
+}
+export async function acknowledgeTool(result,status,fetcher=fetch){
+  if(!result.call)return;
+  const {provider,key,base,path,body}=result.request,call=result.call;
+  const payload=JSON.stringify({status,applied:false});
+  let next;
+  if(result.protocol==='openai')next={...body,messages:[...body.messages,call.message,{role:'tool',tool_call_id:call.raw.id,content:payload}],tool_choice:'none'};
+  else if(result.protocol==='anthropic')next={...body,messages:[...body.messages,{role:'assistant',content:[call.raw]},{role:'user',content:[{type:'tool_result',tool_use_id:call.raw.id,content:payload}]}],tool_choice:{type:'none'}};
+  else if(result.protocol==='gemini')next={...body,contents:[...body.contents,{role:'model',parts:[{functionCall:call.raw}]},{role:'user',parts:[{functionResponse:{name:call.name,response:{status,applied:false}}}]}]};
+  else next={...body,input:[...body.input,call.raw,{type:'function_call_output',call_id:call.raw.call_id,output:payload}]};
+  const response=await providerRequest(provider,key,base,path,next,fetcher);
+  if(response.error)throw Error('Erreur fournisseur : résultat de l’outil refusé.');
+  return response;
 }
 export async function complete(
   provider,

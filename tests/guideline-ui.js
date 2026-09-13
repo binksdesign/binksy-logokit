@@ -48,6 +48,9 @@ export async function guidelineUI(project, test) {
     ]);
     await wait(() => q('[data-view="guideline"]'));
     click('[data-view="guideline"]');
+    await wait(() => q(".bg-wizard"));
+    assert(d().querySelectorAll('[data-setup-step]').length === 6);
+    click('[data-setup-return]');
     await wait(() => q(".bg-canvas"));
     assert(d().querySelectorAll("nav [data-view]").length === 5);
     assert(d().querySelectorAll("[data-bg-page]").length === 12);
@@ -110,18 +113,18 @@ export async function guidelineUI(project, test) {
   });
   await test("Application: English, scoped assistant and optional guide", async () => {
     click('[data-language="en"]');
-    assert(q(".bg-toolbar").textContent.includes("Skip Brand Guideline"));
+    assert(q(".bg-toolbar"));
     click("[data-ai-assistant]");
-    assert(q(".ai-dialog"));
-    assert(d().querySelectorAll("[data-provider] option").length === 17);
-    assert(!q(".ai-dialog").textContent.includes("OpenCode Go"));
+    assert(q(".ai-chat"));
+    assert(q('[data-prompt]') && !q('[data-provider]'));
+    click('[data-settings]');
+    assert(d().querySelectorAll("[data-provider] option").length === 18);
+    assert(q(".ai-chat").textContent.includes("OpenCode Go"));
     click("[data-close]");
     click('[data-language="fr"]');
-    click('[data-bg="skip"]');
+    click('[data-view="delivery"]');
     assert(q(".workspace").dataset.step === "delivery");
-    assert(!q(".workspace").textContent.includes("Guide inclus dans le kit"));
     click('[data-view="guideline"]');
-    change("[data-bg-enabled]", true);
     await wait(() => q("#save-state").textContent.includes("Enregistré"));
   });
   await test("Application: durable save and reload retain guide content", async () => {
@@ -130,7 +133,7 @@ export async function guidelineUI(project, test) {
     );
     assert(saved.brandGuideline.enabled);
     assert(JSON.stringify(saved).includes("Texte du canvas"));
-    frame.src = "/";
+    await new Promise(resolve => { frame.onload=resolve; frame.src = "/"; });
     await wait(() => q('[data-mode="compose"]'));
     await upload("#project-file", [
       new File([JSON.stringify(saved)], "reloaded.binksy", {
@@ -139,7 +142,70 @@ export async function guidelineUI(project, test) {
     ]);
     await wait(() => q('[data-view="guideline"]'));
     click('[data-view="guideline"]');
+    await wait(()=>q('.bg-canvas'));
     assert(d().querySelectorAll("[data-bg-page]").length === 12);
+  });
+  await test("Application: preparation generation and page/global controls", async () => {
+    click('[data-bg="setup"]');
+    await wait(()=>q('.bg-wizard'));
+    for(let step=0;step<6;step++) {
+      assert(q('[data-setup-step="'+step+'"]').getAttribute('aria-current')==='step');
+      click('[data-setup-next]');
+    }
+    await wait(()=>q('.bg-canvas'));
+    click('[data-inspector-tab="global"]');
+    for(const format of ['portrait','landscape','16:9']) {
+      change('[data-bg-format]',format);
+      const box=q('.bg-canvas svg').getAttribute('viewBox').split(' ').map(Number);
+      assert(format==='portrait'?box[3]>box[2]:box[2]>box[3]);
+    }
+    change('[data-bg-theme="background"]','#171717');
+    click('[data-inspector-tab="page"]');
+    if(q('[data-bg="deselect"]')) click('[data-bg="deselect"]');
+    change('[data-bg-background]','#eee6d8');
+    assert(q('.bg-canvas svg').innerHTML.includes('#eee6d8'));
+    assert([...d().querySelectorAll('[data-bg-background] option')].every(o=>project.colors.some(c=>c.hex===o.value)));
+    await wait(()=>q('#save-state').textContent.includes('Enregistré'));
+    const saved=(await readProjects()).findLast(p=>p.brand===project.brand);
+    assert(saved.brandGuideline.setup.complete);
+    assert(saved.brandGuideline.pages.filter(a=>a.type==='clearspace').every(a=>a.variants.length===1));
+    assert(saved.brandGuideline.format==='16:9');
+  });
+  await test("Application: chat proposals refine without mutation, apply and Undo (simulated provider)", async () => {
+    const originalFetch=frame.contentWindow.fetch;
+    let revision=0, toolResults=0;
+    frame.contentWindow.fetch=async (url,init)=>{
+      if(String(url)!=='https://openrouter.ai/api/v1/chat/completions') return originalFetch(url,init);
+      const body=JSON.parse(init.body);
+      if(body.messages.at(-1).role==='tool') {
+        toolResults++;
+        return new frame.contentWindow.Response(JSON.stringify({choices:[{message:{content:'Validated'}}]}));
+      }
+      revision++;
+      return new frame.contentWindow.Response(JSON.stringify({choices:[{message:{role:'assistant',content:null,tool_calls:[{id:'qa-'+revision,type:'function',function:{name:'propose_changes',arguments:JSON.stringify({message:'Proposition QA',actions:[{type:'brand',value:'Marque QA '+revision}]})}}]}}]}));
+    };
+    try {
+      click('[data-ai-assistant]');click('[data-settings]');
+      change('[data-provider]','openrouter');
+      q('[data-key]').value='synthetic-test-key';
+      click('[data-save]');
+      const request=async text=>{
+        q('[data-prompt]').value=text;
+        q('.ai-composer').dispatchEvent(new frame.contentWindow.Event('submit',{bubbles:true,cancelable:true}));
+        await wait(()=>q('[data-apply]')&&!q('[data-apply]').disabled);
+      };
+      await request('Propose un nouveau nom');
+      assert(!q('.bg-canvas').textContent.includes('Marque QA 1'));
+      await request('Affine le nom');
+      assert(d().querySelectorAll('.ai-proposal').length===1);
+      assert(!q('.bg-canvas').textContent.includes('Marque QA 2'));
+      click('[data-apply]');
+      assert(q('.bg-document-title').textContent.includes('Marque QA 2'));
+      assert(!q('[data-apply]'));
+      click('[data-close]');click('[data-action="undo"]');
+      assert(q('.bg-document-title').textContent.includes(project.brand));
+      assert(toolResults===2);
+    } finally {frame.contentWindow.fetch=originalFetch;}
   });
   await test("Storage: IndexedDB quota fallback and return to localStorage", async () => {
     const backup = await readProjects();

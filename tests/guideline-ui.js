@@ -148,6 +148,16 @@ export async function guidelineUI(project, test) {
   await test("Application: preparation generation and page/global controls", async () => {
     click('[data-bg="setup"]');
     await wait(()=>q('.bg-wizard'));
+    const previousWidth=frame.style.width, previousHeight=frame.style.height;
+    for (const [width,height] of [[1440,900],[1024,640],[390,700]]) {
+      frame.style.width=width+'px';frame.style.height=height+'px';
+      await new Promise(resolve=>setTimeout(resolve,80));
+      const content=q('.bg-wizard-content').getBoundingClientRect(), footer=q('.bg-wizard > footer').getBoundingClientRect();
+      assert(content.height>100,'Wizard content has usable scroll area at '+width);
+      assert(q('.bg-wizard > nav').getBoundingClientRect().height<120,'Wizard navigation must not inherit full height');
+      assert(footer.bottom<=frame.contentWindow.innerHeight+1,'Wizard actions stay inside viewport at '+width);
+    }
+    frame.style.width=previousWidth;frame.style.height=previousHeight;
     for(let step=0;step<6;step++) {
       assert(q('[data-setup-step="'+step+'"]').getAttribute('aria-current')==='step');
       click('[data-setup-next]');
@@ -182,7 +192,9 @@ export async function guidelineUI(project, test) {
         return new frame.contentWindow.Response(JSON.stringify({choices:[{message:{content:'Validated'}}]}));
       }
       revision++;
-      return new frame.contentWindow.Response(JSON.stringify({choices:[{message:{role:'assistant',content:null,tool_calls:[{id:'qa-'+revision,type:'function',function:{name:'propose_changes',arguments:JSON.stringify({message:'Proposition QA',actions:[{type:'brand',value:'Marque QA '+revision}]})}}]}}]}));
+      const content=body.messages.at(-1).content;
+      const context=JSON.parse(typeof content==='string'?content:content.find(c=>c.type==='text').text).context;
+      return new frame.contentWindow.Response(JSON.stringify({choices:[{message:{role:'assistant',content:null,tool_calls:[{id:'qa-'+revision,type:'function',function:{name:'propose_changes',arguments:JSON.stringify({message:'Proposition QA',actions:[{type:'updatePageSettings',pageId:context.pageId,values:{title:'Titre QA '+revision}}]})}}]}}]}));
     };
     try {
       click('[data-ai-assistant]');click('[data-settings]');
@@ -195,12 +207,13 @@ export async function guidelineUI(project, test) {
         await wait(()=>q('[data-apply]')&&!q('[data-apply]').disabled);
       };
       await request('Propose un nouveau nom');
-      assert(!q('.bg-canvas').textContent.includes('Marque QA 1'));
+      assert(!q('.bg-canvas').textContent.includes('Titre QA 1'));
       await request('Affine le nom');
       assert(d().querySelectorAll('.ai-proposal').length===1);
-      assert(!q('.bg-canvas').textContent.includes('Marque QA 2'));
+      assert(!q('.bg-canvas').textContent.includes('Titre QA 2'));
       click('[data-apply]');
-      assert(q('.bg-document-title').textContent.includes('Marque QA 2'));
+      assert(q('.bg-canvas').textContent.includes('Titre QA 2'));
+      assert(q('.bg-document-title').textContent.includes(project.brand));
       assert(!q('[data-apply]'));
       click('[data-close]');click('[data-action="undo"]');
       assert(q('.bg-document-title').textContent.includes(project.brand));

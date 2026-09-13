@@ -7,7 +7,7 @@ Atelier SVG local, sans compte ni backend. Évolution du moteur BINKSY LOGO SYST
 L’accueil propose **Variantes à créer**, **Variantes déjà prêtes** et **Juste la zone de sécurité**.
 
 1. **Importer** : nom de marque, icône/logotype et, en complément, plusieurs SVG assemblés dans **Variantes déjà prêtes**. Chaque carte propose aperçu, nom, remplacement et suppression. La palette est disponible dès le départ dans les deux modes Logo Kit ; projet et police restent secondaires.
-2. **Assembler le logo** : canvas prioritaire, navigation par previews et inspecteur Composition / Position / Guides / Plus de réglages. Tailles, déplacement, poignées, positions précises, largeurs, centrages exact/visuel, grille, magnétisme et tailles minimales sont conservés. Mode focus masque les panneaux.
+2. **Assembler le logo** : canvas prioritaire, navigation par previews et inspecteur Composition / Position / Guides / Tailles minimales. Tailles, déplacement, poignées, positions précises, largeurs, centrages exact/visuel, grille, magnétisme et tailles minimales sont conservés. Mode focus masque les panneaux.
 3. **Versions du logo** : un seul onglet visible parmi Original, Une seule couleur, Plusieurs couleurs, Dégradés, JPEG. Recommandées présélectionne ; Tout voir ouvre le catalogue BigInt ; Système complet sélectionne toutes les combinaisons. Les réglages de rôles sont dans Modifier les couleurs du logo, l’éditeur de dégradé apparaît sur demande. JPEG montre les vrais fonds/marges avec choix individuels et associations partagées.
 4. **Exporter** : previews, nombre de versions, déclinaisons et fichiers, puis export direct du kit. Les quatre formats SVG / PNG / JPEG / PDF sont activés à l’entrée dans cette étape, sans choix Web / Print / Complet. Tailles standards multiples (1000 à 5000 px), cas d’usage et formats personnalisés nommés. WEB : 72 DPI ; PRINT : 300 DPI réels. Personnaliser l’export reste facultatif ; Fichiers à exporter conserve les exclusions.
 
@@ -19,7 +19,7 @@ Les ajouts restent dans `.binksy` V3 (`clearMethod`, `visualMeasure`, `jpegExcep
 
 ### Éditeur de dégradé
 
-**Créer un dégradé** ouvre un brouillon manuel, sans génération automatique. L’éditeur propose des points sans limite fixe : couleurs, positions, ajout, retrait, déplacement sur la barre ou au clavier via les curseurs. Le vrai logo montre chaque mode et chaque preset (horizontal, vertical, 45°, −45°). Annuler conserve le projet ; Appliquer enregistre les changements.
+**Créer un dégradé** ouvre un brouillon manuel avec un nom obligatoire, modifiable et sauvegardé. Le point actif reste sélectionné après un clic ou un déplacement, y compris le point droit. L’éditeur propose des points sans limite fixe : couleurs, positions, ajout, retrait, déplacement sur la barre ou au clavier via les curseurs. Le vrai logo montre chaque mode et chaque preset (horizontal, vertical, 45°, −45°). Annuler conserve le projet ; Appliquer enregistre les changements.
 
 - **Automatique** : conserve la géométrie des dégradés importés et recolore leurs stops ; pour les aplats, utilise un espace commun, ou un espace par forme si le SVG indique ce comportement.
 - **Global** : coordonnées communes sur la composition, avec `userSpaceOnUse` et compensation des transformations. Les formes restent indépendantes, y compris entre icône et logotype.
@@ -71,7 +71,7 @@ Cloudflare : `wrangler.jsonc` sert le dossier `dist`. Aucun déploiement n’est
 
 Les SVG, PNG et PDF sont toujours transparents. Les JPEG utilisent les associations fond/logo recommandées par le ratio de luminance sRGB (3:1 par défaut, réglable). Les choix manuels sont globaux par couleur/combinaison et fond. Les exceptions héritées des anciens projets restent conservées tant qu’une règle globale ne les remplace pas. Le fond du canvas n’influence jamais les exports.
 
-PNG et JPEG partagent un cadrage par dimension ou cas d’usage : logo centré, proportions fixes et occupation de 80 % par défaut. Taille du logo dans l’image ouvre un cadre avec poignée et curseur. Ce réglage est partagé entre versions, indépendant du clearspace et des autres formats. La résolution est inscrite dans les métadonnées PNG/JPEG.
+PNG et JPEG partagent un cadrage par dimension ou cas d’usage : logo centré, proportions fixes et occupation de 80 % par défaut. Taille du logo dans l’image ouvre un cadre avec poignée et curseur. Pour les dimensions standards, ce réglage reste partagé entre versions. Chaque dimension supplémentaire possède désormais un cadrage par variante, commun à toutes ses couleurs, avec curseurs et aperçu direct dans son onglet JPEG. Le cadrage reste indépendant du clearspace et des autres formats. La résolution est inscrite dans les métadonnées PNG/JPEG.
 
 Les planches de zone de sécurité claire et foncée sont monochromes dans les deux modes Logo Kit et conservent les couleurs originales en mode Juste la zone de sécurité, sans rectangle de fond. Elles sont générées une fois par construction sélectionnée, dans les formats transparents choisis (SVG si JPEG seul), directement dans `CLEARSPACE/Variante/`. Les recommandations de taille minimale restent séparées des logos.
 
@@ -139,3 +139,23 @@ Les repères et le magnétisme accompagnent les marges ; les alignements et le p
 La mise en page du guide suit une grille éditoriale : couvertures colorées, titres de 24–28 pt, corps de 10,5–12 pt, marges et folios discrets. Instrument Sans est fournie localement sous licence SIL OFL (voir `public/fonts/InstrumentSans-OFL.txt`), et incorporée aux PDF lorsque utilisée. Les polices importées restent prioritaires. Source : https://github.com/google/fonts/tree/main/ofl/instrumentsans.
 
 Les neuf pages éditoriales proposent des textes fictifs FR/EN signalés « Texte d’exemple · À personnaliser ». Les textes saisis sur la page ou dans le brief sont prioritaires. Réappliquer le thème conserve les textes et les positions personnalisés.
+
+## Ajustements du parcours et du guide
+
+Le bouton orange **Dimensions supplémentaires** est visible dans Versions du logo. Il crée un onglet JPEG à partir d’un format prédéfini ou de dimensions personnalisées avec nom obligatoire. Le 3000 × 3000 standard reste indépendant. Les contrôles importants de couleurs, dégradés, associations et exports sont ouverts directement.
+
+Trois formes ou davantage partageant la même peinture et le même verrou peuvent être liées par un groupe logique persistant, puis dissociées. Les formes SVG restent indépendantes et leur géométrie ne change pas.
+
+La préparation du guide conserve sa navigation et ses boutons visibles ; son contenu central défile. Les pages de logos, zone de sécurité, tailles minimales et interdits permettent de choisir les vraies variantes colorimétriques. Les guides de clearspace réutilisent le moteur commun sans texte intégré ; les interdits n’ajoutent plus de rectangles derrière les exemples. Les tailles minimales utilisent les valeurs sources : millimètres convertis en points PDF et pixels convertis à 96 px/pouce. Les exemples sont répartis sur plusieurs pages si nécessaire, sans réduction du logo. Un exemple physiquement plus grand que la page reste une erreur d’export explicite. Les associations de couleurs proposent Conseillé, À éviter ou Masquer ; le choix manuel est prioritaire.
+
+Le chat est réservé à l’étape 05 Brand Guideline. Les étapes précédentes disposent de quatre recommandations ciblées : zone de sécurité, taille minimale, noms et rôles des couleurs. La configuration fournisseur/modèle est partagée et séparée du projet. Les demandes visuelles envoient un aperçu PNG réel ; les modèles connus comme incompatibles avec les images sont refusés avec un message explicite.
+
+Les propositions du chat sont validées sur une copie et restent temporaires jusqu’à **Appliquer**. Leur portée Page actuelle ou Tout le document est vérifiée, avec les IDs des pages, éléments, variantes, couleurs et ressources existants. Une application forme une seule opération Annuler. Si le projet change entre proposition et application, une nouvelle proposition est demandée. Le chat n’importe pas de nouveaux fichiers et ne modifie pas les compositions sources de LogoKit. Les aperçus du catalogue colorimétrique sont bornés, complétés par les combinaisons explicitement sélectionnées.
+
+Tests supplémentaires : `/tests/discoverability.html` contrôle les groupes de formes, les dimensions, les recommandations visuelles et un PDF réel de tailles minimales. Les tests Node couvrent les portées IA, l’application atomique, les références invalides, les protocoles fournisseurs et la pagination sans mise à l’échelle. Le test OpenRouter authentifié nécessite une clé configurée localement ; aucune clé n’est incluse dans les tests.
+
+### English
+
+Additional dimensions create named JPEG tabs with framing per variant shared across its colors. Standard exports keep their existing framing. Gradient names and logical groups of at least three matching shapes persist in `.binksy`. Guide preparation scrolls inside a bounded workspace. Guide logo colors reference real catalog descriptors, minimum examples preserve physical source dimensions and paginate without scaling, and manual color-pair decisions can recommend, avoid or hide an association.
+
+Chat is restricted to Brand Guideline with enforced current-page/document scope, temporary proposals and atomic Apply/Undo. Earlier stages expose four focused visual recommendations. Provider settings are shared and remain outside project files. Chat uses existing resources and never rewrites upstream compositions. Authenticated live provider generation requires a locally configured key.

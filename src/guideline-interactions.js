@@ -31,7 +31,7 @@ export function selectionControls(canvas, p, page, element, commit, redraw) {
   const handle = document.createElement("button");
   handle.className = "bg-resize";
   handle.setAttribute("aria-label", t("Redimensionner"));
-  overlay.append(handle);
+  if(!element.physicalSize) overlay.append(handle);
   handle.onpointerdown = (event) => {
     event.preventDefault();
     event.stopPropagation();

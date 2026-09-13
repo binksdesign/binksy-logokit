@@ -797,3 +797,18 @@
   .bg-wizard > footer { flex-wrap: wrap; }
 }
 .bg-palette-select{display:flex;align-items:center;gap:8px}.bg-palette-select i{width:18px;height:18px;flex:none;border:1px solid #0002;border-radius:50%}.bg-palette-select select{min-width:0;flex:1}
+
+/* Wizard fits the available workspace: navigation/actions remain reachable. */
+#workshop:has(.bg-wizard) { height: 100%; min-height: 0; overflow: auto; }
+.bg-wizard { height: calc(100dvh - 160px); min-height: 220px; display:flex; flex-direction:column; margin:16px auto; padding-bottom:0; }
+.bg-wizard > header, .bg-wizard > nav, .bg-wizard > footer { flex-shrink:0; }
+.bg-wizard > header { margin-bottom:8px; }
+.bg-wizard-content { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; width:100%; padding:12px 4px; }
+.bg-wizard > footer { margin-top:8px; padding:12px 0; }
+@media(max-height:600px) { .bg-wizard h1 { font-size:22px; margin:4px 0; } .bg-wizard > nav { padding-bottom:6px; } }
+
+.bg-wizard > header { height:auto; min-height:0; color:#171717; }
+.bg-wizard > nav { height:auto; min-height:0; align-items:stretch; }
+.bg-wizard > nav button { min-height:40px; color:#555; }
+.bg-wizard > nav button[aria-current="step"] { color:#fff; }
+.bg-wizard > footer { height:auto; min-height:0; }

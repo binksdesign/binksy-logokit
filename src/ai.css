@@ -169,3 +169,7 @@
     height: calc(100dvh - 24px);
   }
 }
+
+.ai-scope { grid-column:1/-1; display:flex; align-items:center; gap:12px; font-size:12px; }
+.ai-composer { flex-wrap:wrap; }
+.ai-scope { width:100%; }

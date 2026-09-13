@@ -16,6 +16,7 @@ import {
   variantName,
   clearMeasure,
   isReadyVariant,
+  layout,
 } from "./model.js";
 import { editorialContent } from "./guideline-content.js";
 import { t } from "./i18n.js";
@@ -417,8 +418,9 @@ export function legacyPageElements(p, page, index = 0) {
           v,
           x,
           y + 20,
-          Math.min(actual, boxW),
-          Math.max(24, rowH - 68),
+          actual,
+          actual * layout(p,v).height / layout(p,v).width,
+          {physicalSize:true},
         );
         text(mode + "-label-" + v, value, x, y + rowH - 32, boxW, 24, "body", {
           size: 12,
@@ -877,6 +879,7 @@ export function legacyPageElements(p, page, index = 0) {
     });
   return items
     .map((e) => {
+      if(e.type === "logo") e = {...e, colorId:page.logoColors?.[e.variant] || "original"};
       const o = page.styles[e.id];
       return o
         ? {
@@ -885,11 +888,12 @@ export function legacyPageElements(p, page, index = 0) {
             variant: o.variant || e.variant,
             x: Number.isFinite(o.x) ? o.x * W : e.x,
             y: Number.isFinite(o.y) ? o.y * H : e.y,
-            w: Number.isFinite(o.w) ? o.w * W : e.w,
-            h: Number.isFinite(o.h) ? o.h * H : e.h,
+            w: e.physicalSize ? e.w : Number.isFinite(o.w) ? o.w * W : e.w,
+            h: e.physicalSize ? e.h : Number.isFinite(o.h) ? o.h * H : e.h,
             size: o.size || e.size,
             text: o.text ?? e.text,
             fill: o.fill || e.fill,
+            colorId:o.colorId || e.colorId,
             hidden: o.hidden,
           }
         : e;
@@ -903,7 +907,8 @@ export function pageElements(p, page, index = 0) {
   const items = editorialPage(p,page,index);
   for(const e of page.elements) items.push({...e,...(e.type==='text'?{...typeStyle(g,e.role||'body'),...e}:{}),x:e.x*W,y:e.y*H,w:e.w*W,h:e.h*H});
   return items.map(e=>{
+    if(e.type === "logo") e = {...e, colorId: page.logoColors?.[e.variant] || "original"};
     const o=page.styles[e.id]; if(!o)return e;
-    return {...e,...(o.role?{...typeStyle(g,o.role),role:o.role}:{}),x:Number.isFinite(o.x)?o.x*W:e.x,y:Number.isFinite(o.y)?o.y*H:e.y,w:Number.isFinite(o.w)?o.w*W:e.w,h:Number.isFinite(o.h)?o.h*H:e.h,size:o.size||e.size,text:o.text??e.text,fill:o.fill||e.fill,variant:o.variant||e.variant,hidden:o.hidden};
+    return {...e,...(o.role?{...typeStyle(g,o.role),role:o.role}:{}),x:Number.isFinite(o.x)?o.x*W:e.x,y:Number.isFinite(o.y)?o.y*H:e.y,w:e.physicalSize?e.w:Number.isFinite(o.w)?o.w*W:e.w,h:e.physicalSize?e.h:Number.isFinite(o.h)?o.h*H:e.h,size:o.size||e.size,text:o.text??e.text,fill:o.fill||e.fill,variant:o.variant||e.variant,colorId:o.colorId||e.colorId,resource:o.resource||e.resource,fit:o.fit||e.fit,zoom:o.zoom??e.zoom,panX:o.panX??e.panX,panY:o.panY??e.panY,hidden:o.hidden};
   }).filter(e=>!e.hidden);
 }

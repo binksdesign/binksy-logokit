@@ -1,3 +1,4 @@
+import { paginateMinimumPages } from "./guideline-minimum.js";
 // Serializable guide data. Logo geometry, palette values and minimum sizes stay in the project.
 export const FORMATS = {
   "16:9": { width: 960, height: 540, label: "16:9" },
@@ -231,6 +232,7 @@ export function validateGuide(input, mode) {
   }));
   g.pairs = dict(input.pairs, (v) => ({
     allowed: v?.allowed === true,
+    hidden: v?.hidden === true,
     manual: v?.manual === true,
     source: v?.source === "ai" ? "ai" : "auto",
     note: cleanText(v?.note, 500),
@@ -289,6 +291,7 @@ export function validateGuide(input, mode) {
     a.group = source.group === 'parts' ? 'parts' : 'full';
     a.media = validateMedia(source.media);
     a.ruleOffset = limit(source.ruleOffset, 0, 100);
+    a.logoColors = dict(source.logoColors, v => cleanText(v, 300));
     a.settings = {};
     for (const key of ['guides', 'explanation', 'hex', 'rgb', 'cmyk', 'pantone', 'roles']) a.settings[key] = source.settings?.[key] !== false;
     for (const key of ['text', 'muted', 'rule', 'accent']) if (source.settings?.[key]) a.settings[key] = hex(source.settings[key]);
@@ -312,6 +315,7 @@ export function validateGuide(input, mode) {
       : "minimal";
     a.background = source.background ? hex(source.background) : "";
     a.detached = source.detached === true;
+    a.disabled = source.disabled === true;
     a.variants = (source.variants || [])
       .filter((v) => typeof v === "string")
       .slice(0, 100);
@@ -348,6 +352,12 @@ export function validateGuide(input, mode) {
       hidden: v?.hidden === true,
       role: cleanText(v?.role, 100) || undefined,
       variant: cleanText(v?.variant, 100) || undefined,
+      colorId: cleanText(v?.colorId, 300) || undefined,
+      resource: cleanText(v?.resource,100) || undefined,
+      fit: v?.fit === "contain" ? "contain" : v?.fit === "cover" ? "cover" : undefined,
+      zoom: Number.isFinite(v?.zoom) ? limit(v.zoom,1,5) : undefined,
+      panX: Number.isFinite(v?.panX) ? limit(v.panX,0,1) : undefined,
+      panY: Number.isFinite(v?.panY) ? limit(v.panY,0,1) : undefined,
     }));
     g.pages.push(a);
   }
@@ -357,6 +367,6 @@ export function validateGuide(input, mode) {
 export function guidelineFileCount(p) {
   const g = p.brandGuideline;
   return g?.enabled && p.mode !== "clearspace"
-    ? (g.exports.pdf ? 1 : 0) + (g.exports.svg ? g.pages.length : 0)
+    ? (g.exports.pdf ? 1 : 0) + (g.exports.svg ? paginateMinimumPages(p).filter(a=>!a.disabled).length : 0)
     : 0;
 }

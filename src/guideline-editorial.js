@@ -1,3 +1,4 @@
+import { minimumRows } from "./guideline-minimum.js";
 import {
   dimensions,
   typeStyle,
@@ -281,109 +282,30 @@ export function editorialPage(p, a, index) {
       caption("logo-label-" + v, variantName(p, v), x, y + h - 19, w);
     });
   } else if (a.type === "clearspace") {
-    const v = variants[0];
-    if (v) {
-      const l = layout(p, v),
-        measure = clearMeasure(p, v),
-        c = p.compositions[v];
-      // Existing visual/manual references stay authoritative. An absent component is never a guide reference.
-      const reference =
-        v === "icon" &&
-        c?.clearMethod !== "visual" &&
-        c?.clearRef === "wordmarkHeight"
-          ? { value: l.height, label: t("Hauteur du brandmark") }
-          : measure;
-      const space = reference.value * (measure.multiplier ?? 0.5),
-        aw = cw - 70,
-        ah = ch - 100;
-      const scale = Math.min(
-          aw / (l.width + 2 * space),
-          ah / (l.height + 2 * space),
-        ),
-        lw = l.width * scale,
-        lh = l.height * scale,
-        s = space * scale;
-      const x = m + (cw - lw) / 2,
-        y = top + (ah - lh) / 2 + 12;
-      if (a.settings?.guides !== false) {
-        rect("clear-field", x - s, y - s, lw + 2 * s, lh + 2 * s, T.secondary);
-        for (const [id, xx, yy, ww, hh] of [
-          ["top", x - s, y - s, lw + 2 * s, 0.5],
-          ["bottom", x - s, y + lh + s, lw + 2 * s, 0.5],
-          ["left", x - s, y - s, 0.5, lh + 2 * s],
-          ["right", x + lw + s, y - s, 0.5, lh + 2 * s],
-          ["inside-top", x, y, lw, 0.5],
-          ["inside-bottom", x, y + lh, lw, 0.5],
-        ])
-          rect("guide-" + id, xx, yy, ww, hh, T.rule);
-        caption(
-          "clear-x",
-          "X",
-          x - s + 3,
-          y - s + 3,
-          Math.max(12, s - 3),
-          T.text,
-        );
-      }
-      logo("clear-logo", v, x, y, lw, lh);
-      if (a.settings?.explanation !== false) {
-        text(
-          "clear-value",
-          `${measure.multiplier ?? 0.5} × ${reference.label}`,
-          m,
-          bottom - 55,
-          cw * 0.7,
-          32,
-          "heading",
-        );
-        caption(
-          "clear-description",
-          t("Conserver cet espace libre autour du logo."),
-          m,
-          bottom - 21,
-          cw,
-        );
+    const v=variants[0];
+    if(v) {
+      const measure=clearMeasure(p,v);
+      logo("clear-logo",v,m+24,top,cw-48,ch-90,{clearspace:a.settings?.guides!==false});
+      if(a.settings?.explanation!==false) {
+        text("clear-value",`${measure.multiplier} × ${measure.label}`,m,bottom-55,cw*.7,32,"heading");
+        caption("clear-description",t("Conserver cet espace libre autour du logo."),m,bottom-21,cw);
       }
     }
   } else if (a.type === "minimum") {
-    const cols = portrait ? 1 : Math.min(2, variants.length),
-      rows = Math.ceil(variants.length / cols),
-      gap = 24,
-      w = (cw - gap * (cols - 1)) / cols,
-      h = (ch - gap * (rows - 1)) / rows;
-    variants.forEach((v, i) => {
-      const x = m + (i % cols) * (w + gap),
-        y = top + Math.floor(i / cols) * (h + gap),
-        c = p.compositions[v];
-      caption("minimum-variant-" + v, variantName(p, v), x, y, w);
-      logo("minimum-logo-" + v, v, x + 10, y + 32, w - 20, h * 0.38);
-      rule("minimum-measure-" + v, x + 10, y + 32 + h * 0.38, w - 20);
-      caption("minimum-print-" + v, "PRINT", x, y + h * 0.64, w * 0.48);
-      text(
-        "minimum-print-value-" + v,
-        `${c?.minPrint ?? 25} mm`,
-        x,
-        y + h * 0.64 + 20,
-        w * 0.48,
-        40,
-        "heading",
-      );
-      caption(
-        "minimum-digital-" + v,
-        "DIGITAL",
-        x + w * 0.53,
-        y + h * 0.64,
-        w * 0.47,
-      );
-      text(
-        "minimum-digital-value-" + v,
-        `${c?.minDigital ?? 120} px`,
-        x + w * 0.53,
-        y + h * 0.64 + 20,
-        w * 0.47,
-        40,
-        "heading",
-      );
+    let y=top;
+    const {rows}=minimumRows(p,a);
+    rows.forEach(({variant:v,print,digital,ph,dh,stacked,height:rowHeight}) => {
+      const c=p.compositions[v];
+      caption("minimum-variant-"+v,variantName(p,v),m,y,cw*.24);
+      const samples=stacked
+        ? [["print",`${c.minPrint} mm`,print,ph,m,y+24],["digital",`${c.minDigital} px`,digital,dh,m,y+60+ph]]
+        : [["print",`${c.minPrint} mm`,print,ph,m+cw*.27,y],["digital",`${c.minDigital} px`,digital,dh,m+cw*.27+Math.max(cw*.34,print+24),y]];
+      for (const [mode,value,width,height,x,sy] of samples) {
+        caption("minimum-"+mode+"-"+v,mode.toUpperCase()+" · "+value,x,sy,Math.max(100,width));
+        logo("minimum-"+mode+"-logo-"+v,v,x,sy+26,width,height,{physicalSize:true});
+        rule("minimum-"+mode+"-measure-"+v,x,sy+28+height,width);
+      }
+      y+=rowHeight;
     });
   } else if (a.type === "misuse") {
     const rules = a.misuses.slice(0, 6),
@@ -395,7 +317,7 @@ export function editorialPage(p, a, index) {
     rules.forEach((v, i) => {
       const x = m + (i % cols) * (w + gap),
         y = top + Math.floor(i / cols) * (h + gap);
-      rect("misuse-panel-" + v, x, y, w, h - 34, T.secondary);
+
       caption(
         "misuse-index-" + v,
         String((a.ruleOffset || 0) + i + 1).padStart(2, "0"),
@@ -461,7 +383,7 @@ export function editorialPage(p, a, index) {
   } else if (a.type === "pairs" || a.type === "accessibility") {
     const pairs = palette.flatMap((bg) =>
       palette
-        .filter((fg) => fg.id !== bg.id)
+        .filter((fg) => fg.id !== bg.id && !g.pairs[fg.id + ":" + bg.id]?.hidden)
         .map((fg) => ({
           bg,
           fg,
@@ -573,7 +495,7 @@ export function editorialPage(p, a, index) {
       );
       text(
         "type-values-" + role,
-        `${s.family}\n${+s.px.toFixed(1)} px / ${s.size} pt · ${s.weight}\n${t("Interlignage")} ${s.leading} · ${t("Tracking")} ${s.tracking}`,
+        `${s.family}\n${+s.px.toFixed(1)} px / ${s.size} pt · ${s.weight}`,
         m + cw * 0.75,
         y,
         cw * 0.25,

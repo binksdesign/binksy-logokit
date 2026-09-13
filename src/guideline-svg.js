@@ -1,3 +1,4 @@
+import { logoColor } from "./guideline-logos.js";
 import { pageElements } from "./guideline-layout.js";
 import { dimensions, theme, pageTheme } from "./guideline-theme.js";
 import { compositionSVG } from "./svg.js";
@@ -187,9 +188,9 @@ export function elementSVG(p, e, prefix = "g", paths = false) {
                 },
                 force: true,
               }
-          : e.fill ? {hex: e.fill, force: true} : null;
+          : e.colorId ? logoColor(p, e.variant, e.colorId) : e.fill ? {hex: e.fill, force: true} : null;
     const svg = e.clearspace
-      ? clearspaceSVG(p, e.variant)
+      ? clearspaceSVG(p, e.variant, "dark", {graphicOnly:true,color})
       : compositionSVG(source, e.variant, color);
     return `<g transform="translate(${e.x} ${e.y})">${effectSVG(svg, e, prefix)}</g>`;
   }

@@ -115,7 +115,7 @@ export function exportPlan(p, items, includeExcluded = false) {
     for (const format of formats) {
       if (!p.exports.formats.includes(format)) continue;
       const targets = ["png", "jpeg"].includes(format)
-        ? rasterTargets(p.exports)
+        ? rasterTargets(p.exports, item.variant)
         : [{ destination: format === "pdf" ? "PRINT" : "WEB" }];
       for (const target of targets) {
         const folder = `${root}/LOGOS/${safeFolder(variantName(p, item.variant))}/${target.destination}`;
@@ -239,9 +239,9 @@ export async function exportFiles(p, items, progress) {
     slug(p.brand) + "-logokit.zip",
   );
 }
-export function jpegPreview(p, item) {
+export function jpegPreview(p, item, target) {
   const l = layout(p, item.variant),
-    f = normalizeFormats(p.exports).selected[0] || {
+    f = target || normalizeFormats(p.exports).selected.find(f => f.kind === "web") || {
       width: p.exports.width,
       height: p.exports.height,
     };
@@ -250,7 +250,7 @@ export function jpegPreview(p, item) {
     f.height,
     l.width,
     l.height,
-    framing(p.exports, f.id),
+    framing(p.exports, f.id, item.variant),
   );
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${f.width} ${f.height}"><rect width="${f.width}" height="${f.height}" fill="${item.background.hex}"/><svg x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}" viewBox="${l.x} ${l.y} ${l.width} ${l.height}">${compositionSVG(p, item.variant, item.color).replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg></svg>`;
 }

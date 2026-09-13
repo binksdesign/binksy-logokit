@@ -106,6 +106,7 @@ function number(label, key, value, min, max, step = 1, suffix = "") {
   return `<label class="field"><span>${label}<output id="o-${key}">${Number(value).toFixed(step < 1 ? 2 : 0)}${suffix}</output></span><div class="range-row"><input aria-label="${label}" type="range" data-comp="${key}" min="${min}" max="${key.endsWith("Height") ? Math.max(1000, Math.ceil(value * 2)) : max}" step="${step}" value="${value}"><input aria-label="${label} précis" type="number" data-comp="${key}" min="${min}" max="${max}" step="${step}" value="${value}"></div></label>`;
 }
 function render() {
+  if(view !== "guideline") document.querySelector('.ai-chat[data-kind="chat"]')?.close();
   cancelMeasurement?.();
   if (view !== "compose") focus = false;
   if (!["home", "agent"].includes(view) && !layout(p).parts.some(q => q.key === selected)) selected = layout(p).parts[0]?.key || "icon";
@@ -180,7 +181,8 @@ function render() {
   else if (view === "guideline") mountGuideline($("#workshop"), p, edit, next => { view = next; render(); }, notice);
   else mountWorkshop(p, edit, runExport, view);
   if(saving)$("#save-state").textContent=t("Enregistrement…");
-  $("[data-ai-assistant]").onclick = () => openAssistant(p, view, edit, () => ({p, stage: view}));
+  if ($("[data-ai-assistant]")) $("[data-ai-assistant]").onclick = () => openAssistant(p, view, edit, () => ({p, stage: view}));
+  document.querySelectorAll("[data-ai-recommendation]").forEach(el=>el.onclick=()=>openAssistant(p,view,edit,()=>({p,stage:view}),{recommendation:el.dataset.aiRecommendation}));
   translateDOM();
 }
 function exportPanel() {

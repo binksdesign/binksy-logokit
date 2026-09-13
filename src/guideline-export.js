@@ -1,3 +1,4 @@
+import { paginateMinimumPages } from "./guideline-minimum.js";
 import { jsPDF } from "jspdf";
 import "svg2pdf.js";
 import { zipSync, strToU8 } from "fflate";
@@ -34,7 +35,7 @@ export function exportWarnings(p, format) {
 export function validateLayout(p) {
   const g = p.brandGuideline,
     { width: W, height: H } = dimensions(g);
-  for (const [index, page] of g.pages.entries())
+  for (const [index, page] of g.pages.filter(a=>!a.disabled).entries())
     for (const element of pageElements(p, page, index)) {
       const e = element.type === "text" ? fittedText(element, g) : element;
       if (
@@ -112,6 +113,7 @@ async function effectImage(root) {
   }
 }
 export async function guidelinePDF(p) {
+  p = {...p,brandGuideline:{...p.brandGuideline,pages:paginateMinimumPages(p).filter(a=>!a.disabled)}};
   const g = p.brandGuideline;
   if (!g.pages.length) throw Error("Ajoutez une page.");
   await loadFonts(g);
@@ -177,6 +179,7 @@ export async function guidelineFiles(
     svg = p.brandGuideline.exports.svg,
   } = {},
 ) {
+  p={...p,brandGuideline:{...p.brandGuideline,pages:paginateMinimumPages(p)}};
   const g = p.brandGuideline;
   if (!g.enabled || p.mode === "clearspace") return {};
   await loadFonts(g);
@@ -186,7 +189,7 @@ export async function guidelineFiles(
     files[root + "/PDF/" + slug(p.brand) + "-brand-guidelines.pdf"] =
       new Uint8Array(await (await guidelinePDF(p)).arrayBuffer());
   if (svg)
-    g.pages.forEach((page, i) => {
+    g.pages.filter(a=>!a.disabled).forEach((page, i) => {
       files[
         `${root}/SVG/${String(i + 1).padStart(2, "0")}-${slug(page.title || page.type)}.svg`
       ] = strToU8(

@@ -1,3 +1,4 @@
+import { paginateMinimumPages } from "./guideline-minimum.js";
 import { page, PAGE_TYPES, MISUSES } from "./guideline-model.js";
 import { variantIds, layout } from "./model.js";
 
@@ -176,6 +177,7 @@ export function generateGuide(p) {
   g.enabled = true;
   s.complete = true;
   p.version = 5;
+  g.pages=paginateMinimumPages(p);
   return g;
 }
 export function fontChoices(g) {

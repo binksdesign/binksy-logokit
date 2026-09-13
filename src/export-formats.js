@@ -70,18 +70,18 @@ export function normalizeFormats(e) {
   ];
   return { available, selected: available.filter((f) => ids.includes(f.id)) };
 }
-export function framing(e, id) {
-  return Math.max(0.05, Math.min(1, Number(e.framing?.[id]) || 0.8));
+export function framing(e, id, variant) {
+  return Math.max(0.05, Math.min(1, Number(e.variantFraming?.[id]?.[variant] ?? e.framing?.[id]) || 0.8));
 }
-export function rasterTargets(e) {
+export function rasterTargets(e, variant) {
   return normalizeFormats(e).selected.flatMap((f) =>
     f.kind === "use"
-      ? [{ ...f, destination: "CAS D’USAGE", dpi: 72, scale: framing(e, f.id) }]
+      ? [{ ...f, destination: "CAS D’USAGE", dpi: 72, scale: framing(e, f.id, variant) }]
       : (e.destinations || ["WEB", "PRINT"]).map((destination) => ({
           ...f,
           destination,
           dpi: destination === "PRINT" ? 300 : 72,
-          scale: framing(e, f.id),
+          scale: framing(e, f.id, variant),
         })),
   );
 }

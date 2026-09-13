@@ -209,6 +209,7 @@ export async function listModels(provider, key, custom, fetcher) {
         .map((m) => ({
           id: String(m.id || m.name || "").replace(/^models\//, ""),
           name: String(m.display_name || m.displayName || m.id || m.name),
+          vision: Array.isArray(m.architecture?.input_modalities) ? m.architecture.input_modalities.includes("image") : undefined,
           tools: Array.isArray(m.supported_parameters) ? m.supported_parameters.includes('tools') : undefined,
         })),
     );
@@ -240,13 +241,16 @@ export function modelProtocol(provider,model){
 }
 export async function chatCompletion(provider,key,base,model,system,messages,tool,fetcher=fetch){
   const target=modelProtocol(provider,model), protocol=target.protocol;
+  const parts = content => typeof content === 'string' ? [{type:'text',text:content}] : content;
+  const anthropicContent = content => parts(content).map(c=>c.type==='image_url'?{type:'image',source:{type:'base64',media_type:c.image_url.url.split(';')[0].slice(5),data:c.image_url.url.split(',')[1]}}:c);
+  const geminiContent = content => parts(content).map(c=>c.type==='image_url'?{inlineData:{mimeType:c.image_url.url.split(';')[0].slice(5),data:c.image_url.url.split(',')[1]}}:{text:c.text});
   let path,body;
   if(protocol==='anthropic') {
-    path='/messages';body={model,max_tokens:5000,system,messages:messages.map(m=>({role:m.role,content:m.content})),tools:tool?[{name:tool.name,description:tool.description,input_schema:tool.parameters}]:undefined};
+    path='/messages';body={model,max_tokens:5000,system,messages:messages.map(m=>({role:m.role,content:anthropicContent(m.content)})),tools:tool?[{name:tool.name,description:tool.description,input_schema:tool.parameters}]:undefined};
   } else if(protocol==='gemini') {
-    path='/models/'+encodeURIComponent(model)+':generateContent';body={systemInstruction:{parts:[{text:system}]},contents:messages.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),...(tool?{tools:[{functionDeclarations:[tool]}]}:{})};
+    path='/models/'+encodeURIComponent(model)+':generateContent';body={systemInstruction:{parts:[{text:system}]},contents:messages.map(m=>({role:m.role==='assistant'?'model':'user',parts:geminiContent(m.content)})),...(tool?{tools:[{functionDeclarations:[tool]}]}:{})};
   } else if(protocol==='responses') {
-    path='/responses';body={model,instructions:system,input:messages,tools:tool?[{type:'function',...tool,strict:false}]:undefined};
+    path='/responses';body={model,instructions:system,input:messages.map(message => ({...message, content:Array.isArray(message.content) ? message.content.map(part => part.type === 'image_url' ? {type:'input_image',image_url:part.image_url.url} : part.type === 'text' ? {type:message.role === 'assistant' ? 'output_text' : 'input_text',text:part.text} : part) : message.content})),tools:tool?[{type:'function',...tool,strict:false}]:undefined};
   } else {
     path='/chat/completions';body={model,messages:[{role:'system',content:system},...messages],stream:false,...(tool?{tools:[{type:'function',function:tool}],tool_choice:'auto'}:{})};
     if(provider.id==='openrouter'&&tool)body.provider={require_parameters:true};

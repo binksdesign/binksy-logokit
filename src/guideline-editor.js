@@ -1,3 +1,4 @@
+import { paginateMinimumPages } from "./guideline-minimum.js";
 import { mountGuideWizard } from "./guideline-wizard.js";
 import { prepareGuide, finalPalette } from "./guideline-config.js";
 import { inspectorHTML, bindInspector } from "./guideline-inspector.js";
@@ -85,6 +86,8 @@ export function mountGuideline(host, p, edit, navigate, notice) {
   host.setAttribute("data-no-i18n", "");
   const g = prepareGuide(p);
   if (!g.setup.complete) { mountGuideWizard(host, p, edit, notice); return; }
+  const paginated=paginateMinimumPages(p);
+  if(paginated.length!==g.pages.length) { edit(()=>{g.pages=paginated;}); return; }
   if (!fontsReady(g)) {
     host.innerHTML = `<div class="bg-loading">${t("Préparation du document…")}</div>`;
     loadFonts(g)
@@ -106,7 +109,7 @@ export function mountGuideline(host, p, edit, navigate, notice) {
   const els = pageElements(p, current, g.pages.indexOf(current)),
     selected = els.find((e) => e.id === selection),
     { width: W, height: H } = dimensions(g);
-  const update = (fn) => edit(fn),
+  const update = (fn) => edit(() => { fn(); g.pages=paginateMinimumPages(p); }),
     options = (obj, val) =>
       Object.entries(obj)
         .map(([v, l]) => option(v, typeof l === "object" ? l.label : l, val))

@@ -103,6 +103,7 @@ export async function importResource(file, g) {
     if (font.tables.os2?.fsType & 2)
       throw Error("Cette police interdit l’incorporation.");
     r.family =
+      font.names.windows?.preferredFamily?.en || font.names.macintosh?.preferredFamily?.en || font.names.preferredFamily?.en ||
       font.names.windows?.fontFamily?.en ||
       font.names.macintosh?.fontFamily?.en ||
       font.names.fontFamily?.en ||
@@ -127,6 +128,7 @@ export function fontFor(g, e) {
 export function fontFamily(resource) {
   const names = parsedFont(resource).names;
   return (
+    names.windows?.preferredFamily?.en || names.macintosh?.preferredFamily?.en || names.preferredFamily?.en ||
     names.windows?.fontFamily?.en ||
     names.macintosh?.fontFamily?.en ||
     names.fontFamily?.en ||

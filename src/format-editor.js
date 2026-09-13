@@ -1,4 +1,4 @@
-import { normalizeFormats, framing, bitmapRect } from "./export-formats.js";
+import { normalizeFormats, framing, bitmapRect, USE_FORMATS } from "./export-formats.js";
 import { layout } from "./model.js";
 import { compositionSVG } from "./svg.js";
 import { t } from "./i18n.js";
@@ -11,7 +11,7 @@ export function formatControls(p) {
   ]
     .map(
       (kind) =>
-        `<details ${kind === "web" ? "open" : ""}><summary>${t(kind === "web" ? "Tailles web standards" : "Cas d’usage")}</summary>${available
+        `<details open><summary>${t(kind === "web" ? "Tailles web standards" : "Cas d’usage")}</summary>${available
           .filter((f) => f.kind === kind)
           .map(
             (f) =>
@@ -21,9 +21,9 @@ export function formatControls(p) {
     )
     .join(
       "",
-    )}<button type="button" data-custom-format>${t("Créer un format personnalisé")}</button><details><summary>${t("Destinations")}</summary>${["WEB", "PRINT"].map((d) => `<label class="check"><input type="checkbox" data-destination="${d}" ${(p.exports.destinations || ["WEB", "PRINT"]).includes(d) ? "checked" : ""}>${d} · ${d === "WEB" ? 72 : 300} DPI</label>`).join("")}<p>${t("Les cas d’usage sont livrés à 72 DPI.")}</p></details></section>`;
+    )}<button type="button" data-custom-format>${t("Créer un format personnalisé")}</button><details open><summary>${t("Destinations")}</summary>${["WEB", "PRINT"].map((d) => `<label class="check"><input type="checkbox" data-destination="${d}" ${(p.exports.destinations || ["WEB", "PRINT"]).includes(d) ? "checked" : ""}>${d} · ${d === "WEB" ? 72 : 300} DPI</label>`).join("")}<p>${t("Les cas d’usage sont livrés à 72 DPI.")}</p></details></section>`;
 }
-export function bindFormats(root, p, edit) {
+export function bindFormats(root, p, edit, created = () => {}) {
   root.querySelectorAll("[data-raster-format]").forEach(
     (el) =>
       (el.onchange = () =>
@@ -49,7 +49,11 @@ export function bindFormats(root, p, edit) {
       (el.onclick = () => {
         const d = document.createElement("dialog");
         d.className = "gradient-editor";
-        d.innerHTML = `<form method="dialog"><h2>${t("Créer un format personnalisé")}</h2><label class="field">${t("Nom du format")}<input name="label" required maxlength="100"></label><label class="field">${t("Largeur")}<input name="width" type="number" min="16" max="8192" value="1000" required></label><label class="field">${t("Hauteur")}<input name="height" type="number" min="16" max="8192" value="1000" required></label><button value="cancel" formnovalidate>${t("Annuler")}</button><button class="primary" value="apply">${t("Créer")}</button></form>`;
+        d.innerHTML = `<form method="dialog"><h2>${t("Dimensions supplémentaires")}</h2><label class="field">${t("Preset")}<select name="preset"><option value="">${t("Dimensions personnalisées")}</option>${USE_FORMATS.map(f => `<option value="${f.id}">${esc(t(f.name))} · ${f.width} × ${f.height}</option>`).join("")}</select></label><label class="field">${t("Nom du format")}<input name="label" required maxlength="100"></label><label class="field">${t("Largeur")}<input name="width" type="number" min="16" max="8192" value="1000" required></label><label class="field">${t("Hauteur")}<input name="height" type="number" min="16" max="8192" value="1000" required></label><button value="cancel" formnovalidate>${t("Annuler")}</button><button class="primary" value="apply">${t("Créer")}</button></form>`;
+        d.querySelector('[name=preset]').onchange = e => {
+          const f = USE_FORMATS.find(f => f.id === e.target.value);
+          if (f) { d.querySelector('[name=label]').value = t(f.name); d.querySelector('[name=width]').value = f.width; d.querySelector('[name=height]').value = f.height; }
+        };
         d.querySelector("form").onsubmit = (e) => {
           if (
             e.submitter.value === "apply" &&
@@ -74,6 +78,8 @@ export function bindFormats(root, p, edit) {
                 height: +d.querySelector("[name=height]").value,
               });
               p.exports.rasterFormats = [...selected, id];
+              p.exports.formats = [...new Set([...p.exports.formats,"jpeg"])];
+              created(id);
             });
           d.remove();
         };
@@ -82,7 +88,7 @@ export function bindFormats(root, p, edit) {
       }),
   );
 }
-export function editFraming(p, item, edit) {
+export function editFraming(p, item, edit, formatId) {
   const choices = normalizeFormats(p.exports);
   const formats = [
     ...choices.selected,
@@ -90,11 +96,12 @@ export function editFraming(p, item, edit) {
       (f) => !choices.selected.some((s) => s.id === f.id),
     ),
   ];
-  const draft = { ...p.exports.framing };
-  let id = formats[0].id;
+  const draft = structuredClone(p.exports.variantFraming || {});
+  const legacyDraft = {...p.exports.framing};
+  let id = formatId || formats[0].id;
   const d = document.createElement("dialog");
   d.className = "gradient-editor";
-  d.innerHTML = `<form method="dialog"><h2>${t("Taille du logo dans l’image")}</h2><select aria-label="${t("Format")}">${formats.map((f) => `<option value="${esc(f.id)}">${esc(t(f.name))}</option>`).join("")}</select><p>${t("Centré et proportionnel. Ce réglage est partagé par toutes les versions de ce format.")}</p><div class="framing-stage checker"><div class="framing-logo">${compositionSVG(p, item.variant, item.color)}<button type="button" class="framing-handle" aria-label="${t("Redimensionner le logo")}"></button></div></div><label class="field">${t("Taille du logo")}<input type="range" min="5" max="100" value="80"><output></output></label><button value="cancel">${t("Annuler")}</button><button class="primary" value="apply">${t("Appliquer")}</button></form>`;
+  d.innerHTML = `<form method="dialog"><h2>${t("Taille du logo dans l’image")}</h2><select aria-label="${t("Format")}">${formats.map((f) => `<option value="${esc(f.id)}">${esc(t(f.name))}</option>`).join("")}</select><p>${t("Centré et proportionnel. Toutes les couleurs de cette variante partagent ce cadrage, uniquement pour cette dimension.")}</p><div class="framing-stage checker"><div class="framing-logo">${compositionSVG(p, item.variant, item.color)}<button type="button" class="framing-handle" aria-label="${t("Redimensionner le logo")}"></button></div></div><label class="field">${t("Taille du logo")}<input type="range" min="5" max="100" value="80"><output></output></label><button value="cancel">${t("Annuler")}</button><button class="primary" value="apply">${t("Appliquer")}</button></form>`;
   const stage = d.querySelector(".framing-stage"),
     logo = d.querySelector(".framing-logo"),
     range = d.querySelector("input"),
@@ -103,7 +110,7 @@ export function editFraming(p, item, edit) {
     d.querySelector(".framing-stage").style.background = item.background.hex;
   const update = () => {
     const f = formats.find((f) => f.id === id),
-      scale = framing({ framing: draft }, id);
+      scale = framing({ ...p.exports, framing:legacyDraft, variantFraming: draft }, id, item.variant);
     stage.style.aspectRatio = `${f.width}/${f.height}`;
     stage.style.width = `${Math.min(440, (320 * f.width) / f.height)}px`;
     const l = layout(p, item.variant),
@@ -114,7 +121,9 @@ export function editFraming(p, item, edit) {
     d.querySelector("output").value = range.value + " %";
   };
   const set = (value) => {
-    draft[id] = Math.max(0.05, Math.min(1, value));
+    const scale = Math.max(0.05, Math.min(1, value));
+    if(formats.find(f=>f.id===id)?.kind === "use") (draft[id] ||= {})[item.variant] = scale;
+    else legacyDraft[id] = scale;
     update();
   };
   d.querySelector("select").onchange = (e) => {
@@ -129,7 +138,7 @@ export function editFraming(p, item, edit) {
       cx = b.x + b.width / 2,
       cy = b.y + b.height / 2,
       start = Math.hypot(e.clientX - cx, e.clientY - cy),
-      initial = framing({ framing: draft }, id);
+      initial = framing({ ...p.exports, framing:legacyDraft, variantFraming: draft }, id, item.variant);
     handle.onpointermove = (e) =>
       set(
         (initial * Math.hypot(e.clientX - cx, e.clientY - cy)) /
@@ -142,13 +151,13 @@ export function editFraming(p, item, edit) {
     if (["ArrowUp", "ArrowRight", "ArrowDown", "ArrowLeft"].includes(e.key)) {
       e.preventDefault();
       set(
-        framing({ framing: draft }, id) +
+        framing({ ...p.exports, framing:legacyDraft, variantFraming: draft }, id, item.variant) +
           (["ArrowUp", "ArrowRight"].includes(e.key) ? 0.01 : -0.01),
       );
     }
   };
   d.onclose = () => {
-    if (d.returnValue === "apply") edit(() => (p.exports.framing = draft));
+    if (d.returnValue === "apply") edit(() => {p.exports.variantFraming = draft;p.exports.framing = legacyDraft;});
     d.remove();
   };
   document.body.append(d);

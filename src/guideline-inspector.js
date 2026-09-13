@@ -1,3 +1,4 @@
+import { logoChoices } from "./guideline-logos.js";
 import {
   field,
   option,
@@ -42,8 +43,9 @@ export function inspectorHTML(p, a, elementPanel, selected) {
     )
     .join(
       "",
-    )}${field("Marges", `<input data-bg-theme="margin" type="number" min="12" max="80" value="${T.margin}">`)}${["headers", "footers", "numbers", "brandName"].map((key) => field({ headers: "En-têtes", footers: "Pieds de page", numbers: "Numéros de pages", brandName: "Nom de la marque" }[key], `<input data-global-toggle="${key}" type="checkbox" ${g.theme[key] !== false ? "checked" : ""}>`)).join("")}<details><summary>${t("Système typographique")}</summary>${fontControls(g)}</details><button data-reopen-setup>${t("Modifier la préparation")}</button>`;
+    )}${field("Marges", `<input data-bg-theme="margin" type="number" min="12" max="80" value="${T.margin}">`)}${["headers", "footers", "numbers", "brandName"].map((key) => field({ headers: "En-têtes", footers: "Pieds de page", numbers: "Numéros de pages", brandName: "Nom de la marque" }[key], `<input data-global-toggle="${key}" type="checkbox" ${g.theme[key] !== false ? "checked" : ""}>`)).join("")}<details open><summary>${t("Système typographique")}</summary>${fontControls(g)}</details><button data-reopen-setup>${t("Modifier la préparation")}</button>`;
   let local =
+    field("Inclure cette page", `<input type="checkbox" data-page-enabled ${a.disabled ? "" : "checked"}>`) +
     field("Titre", `<input data-bg-title value="${esc(a.title)}">`) +
     paletteSelect(
       p,
@@ -76,6 +78,11 @@ export function inspectorHTML(p, a, elementPanel, selected) {
         .map((v) => option(v, variantName(p, v), a.variants[0] || p.active))
         .join("")}</select>`,
     );
+  if (["logos", "minimum", "clearspace", "misuse", "cover"].includes(a.type)) {
+    const multiple = ["logos", "minimum"].includes(a.type);
+    const included = multiple ? (a.variants.length ? a.variants : p.enabled) : [a.variants[0] || p.active];
+    local += `<fieldset><legend>${t("Versions du logo")}</legend>${(multiple ? variantIds(p) : included).map(v => `${multiple ? `<label class="check"><input type="checkbox" data-guide-variant="${v}" ${included.includes(v) ? "checked" : ""} ${included.length === 1 && included.includes(v) ? "disabled" : ""}>${esc(variantName(p,v))}</label>` : ""}${included.includes(v) ? field("Version colorimétrique", `<select data-guide-logo-color="${v}">${logoChoices(p,v).map(c=>option(c.id,c.name,a.logoColors?.[v] || "original")).join("")}</select>`) : ""}`).join("")}</fieldset>`;
+  }
   if (a.type === "clearspace") {
     const c = p.compositions[a.variants[0] || p.active];
     local += field(
@@ -138,7 +145,7 @@ export function inspectorHTML(p, a, elementPanel, selected) {
         ) +
         field(
           "Association",
-          `<select data-pair-allowed>${option("yes", "Recommandée", good ? "yes" : "no")}${option("no", "À éviter", good ? "yes" : "no")}</select>`,
+          `<select data-pair-allowed>${option("yes", "Recommandée", good ? "yes" : "no")}${option("no", "À éviter", good ? "yes" : "no")}${option("hide", "Ne pas afficher", g.pairs[fg.id + ":" + bg.id]?.hidden ? "hide" : "")}</select>`,
         );
     }
   }
@@ -172,6 +179,14 @@ export function inspectorHTML(p, a, elementPanel, selected) {
 }
 export function bindInspector(host, p, a, selected, update, rerender, notice) {
   const g = p.brandGuideline;
+  host.querySelector("[data-page-enabled]")?.addEventListener("change",e=>update(()=>{a.disabled=!e.target.checked;}));
+  host.querySelectorAll('[data-guide-variant]').forEach(el => el.onchange = () => update(() => {
+    const variants = a.variants.length ? a.variants : [...p.enabled];
+    a.variants = el.checked ? [...new Set([...variants,el.dataset.guideVariant])] : variants.filter(v=>v!==el.dataset.guideVariant);
+  }));
+  host.querySelectorAll('[data-guide-logo-color]').forEach(el => el.onchange = () => update(() => {
+    (a.logoColors ||= {})[el.dataset.guideLogoColor] = el.value;
+  }));
   host.querySelectorAll("[data-inspector-tab]").forEach(
     (el) =>
       (el.onclick = () => {
@@ -214,6 +229,7 @@ export function bindInspector(host, p, a, selected, update, rerender, notice) {
         () =>
           (g.pairs[pairForeground + ":" + pairBackground] = {
             allowed: e.target.value === "yes",
+            hidden: e.target.value === "hide",
             manual: true,
             source: "manual",
           }),

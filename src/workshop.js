@@ -1,5 +1,6 @@
+import { normalizeFormats } from "./export-formats.js";
 import {guidelineFileCount} from "./guideline-model.js";
-import { editFraming } from "./format-editor.js";
+import { editFraming, bindFormats } from "./format-editor.js";
 import { clearspaceSVG } from "./clearspace.js";
 import { mountJpegGallery } from "./jpeg-gallery.js";
 import { editGradient } from "./gradient-editor.js";
@@ -80,7 +81,7 @@ export function rolePanel(p) {
   )
     .map(
       ({ key, name, asset }) =>
-        `<div class="asset-colours"><h3 data-no-i18n>${esc(key === "icon" ? t("Icône") : key === "wordmark" ? t("Logotype") : name)}</h3><div class="colour-inspection" data-inspection="${key}">${assetMarkup(asset, null, "inspect-" + key)}</div><div class="colour-chips">${(asset.roles || []).map((r, i) => `<button data-highlight-asset="${key}" data-highlight-role="${esc(r.id)}" aria-pressed="false"><i class="paint-dot" style="background:${r.paint}"></i>${t("Couleur")} ${i + 1}${r.locked ? " 🔒" : ""}</button>`).join("")}</div><details class="optional" data-disclosure="roles-${key}"><summary>${t("Ajuster les couleurs manuellement")}</summary>${(asset.roles || []).map((r, i) => `<div class="role-row" data-role-row="${esc(r.id)}"><input aria-label="${t("Couleur")} ${i + 1}" type="color" data-role-asset="${key}" data-role-index="${i}" data-role-field="paint" value="${r.paint}"><input aria-label="${t("Nom de couleur")}" data-role-asset="${key}" data-role-index="${i}" data-role-field="name" value="${esc(r.name)}"><label><input type="checkbox" data-role-asset="${key}" data-role-index="${i}" data-role-field="locked" ${r.locked ? "checked" : ""}>${t("Conserver cette couleur dans les variantes")}</label>${r.targets.length > 1 ? `<button data-split-role="${key}:${i}">${t("Séparer les éléments")}</button>` : ""}</div>`).join("")}<button data-merge-roles="${key}">${t("Fusionner les couleurs identiques")}</button></details></div>`,
+        `<div class="asset-colours"><h3 data-no-i18n>${esc(key === "icon" ? t("Icône") : key === "wordmark" ? t("Logotype") : name)}</h3><div class="colour-inspection" data-inspection="${key}">${assetMarkup(asset, null, "inspect-" + key)}</div><div class="colour-chips">${(asset.roles || []).map((r, i) => `<button data-highlight-asset="${key}" data-highlight-role="${esc(r.id)}" aria-pressed="false"><i class="paint-dot" style="background:${r.paint}"></i>${t("Couleur")} ${i + 1}${r.locked ? " 🔒" : ""}</button>`).join("")}</div><details open class="optional" data-disclosure="roles-${key}"><summary>${t("Ajuster les couleurs manuellement")}</summary>${(asset.roles || []).map((r, i) => `<div class="role-row" data-role-row="${esc(r.id)}"><input aria-label="${t("Couleur")} ${i + 1}" type="color" data-role-asset="${key}" data-role-index="${i}" data-role-field="paint" value="${r.paint}"><input aria-label="${t("Nom de couleur")}" data-role-asset="${key}" data-role-index="${i}" data-role-field="name" value="${esc(r.name)}"><label><input type="checkbox" data-role-asset="${key}" data-role-index="${i}" data-role-field="locked" ${r.locked ? "checked" : ""}>${t("Conserver cette couleur dans les variantes")}</label><span>${r.targets.map(q => t("Forme") + " " + q.index).join(" · ")}${r.logicalGroup ? " · " + t("Formes liées") : ""}</span>${r.targets.length > 1 ? `<button data-split-role="${key}:${i}">${t("Dissocier les formes")}</button>` : ""}</div>`).join("")}${(asset.roles || []).some(r => !r.logicalGroup && asset.roles.filter(q => q.paint.toLowerCase() === r.paint.toLowerCase() && q.locked === r.locked).flatMap(q=>q.targets).filter((q,i,list)=>list.findIndex(t=>t.index===q.index)===i).length >= 3) ? `<button data-merge-roles="${key}">${t("Fusionner les formes de la même couleur")}</button>` : ""}</details></div>`,
     )
     .join("")}</section>`;
 }
@@ -129,6 +130,7 @@ export function bindRoles(p, edit, root = document) {
             1,
             ...role.targets.map((target, i) => ({
               ...role,
+              logicalGroup: false,
               id: role.id + "-" + crypto.randomUUID(),
               name: role.name + " " + (i + 1),
               targets: [target],
@@ -141,19 +143,16 @@ export function bindRoles(p, edit, root = document) {
     (el) =>
       (el.onclick = () =>
         edit(() => {
-          const a = asset(el.dataset.mergeRoles),
-            groups = new Map();
+          const a = asset(el.dataset.mergeRoles), groups = new Map();
           for (const r of a.roles) {
-            const key = r.paint + ":" + r.locked;
-            if (!groups.has(key))
-              groups.set(key, {
-                ...r,
-                id: "paint-" + r.paint.slice(1) + (r.locked ? "-locked" : ""),
-                targets: [],
-              });
-            groups.get(key).targets.push(...r.targets);
+            const key = r.paint.toLowerCase() + ":" + r.locked;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(r);
           }
-          a.roles = [...groups.values()];
+          a.roles = [...groups.values()].flatMap(roles => {
+            if (new Set(roles.flatMap(r=>r.targets.map(t=>t.index))).size < 3) return roles;
+            return [{...roles[0], id: "group-" + crypto.randomUUID(), logicalGroup: true, targets: roles.flatMap(r=>r.targets)}];
+          });
           resetColorChoices(p);
         })),
   );
@@ -325,7 +324,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
   custom.innerHTML = `<summary>${t("Personnaliser les combinaisons")}</summary>`;
   toolbar.before(custom);
   custom.append(toolbar);
-  custom.open = !!toolsOpen;
+  custom.open = true;
   custom.append(main.querySelector('[data-section="constructions"]'));
   main.querySelector('[data-section="roles"]').remove();
   main.querySelectorAll("[data-section]").forEach((el) => {
@@ -350,14 +349,25 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
         ["multi", "Plusieurs couleurs"],
         ["gradient", "Dégradés"],
         ["jpeg", "JPEG"],
+        ...normalizeFormats(p.exports).selected.filter(f => f.kind === "use").map(f => [f.id,f.name]),
       ]
         .map(
           ([id, label]) =>
             `<button role="tab" data-gallery-filter="${id}" aria-controls="category-${id}" tabindex="${galleryFilter === id ? 0 : -1}" aria-selected="${galleryFilter === id}" aria-pressed="${galleryFilter === id}">${t(label)}</button>`,
         )
         .join("") +
-      `<button data-catalog-toggle ${["original", "mono", "jpeg"].includes(galleryFilter) ? "hidden" : ""} aria-pressed="${fullCatalog}">${t(fullCatalog ? "Suggestions" : "Tout voir")}</button>`;
+      `<button class="primary" data-custom-format>+ ${t("DIMENSIONS SUPPLÉMENTAIRES")}</button><button data-catalog-toggle ${!["multi", "gradient"].includes(galleryFilter) ? "hidden" : ""} aria-pressed="${fullCatalog}">${t(fullCatalog ? "Suggestions" : "Tout voir")}</button>`;
     main.querySelector(".family-heading").after(nav);
+    bindFormats(nav,p,edit,id => { galleryFilter=id; });
+    const useFormat = normalizeFormats(p.exports).selected.find(f => f.id === galleryFilter && f.kind === "use");
+    if (useFormat) {
+      const panel = document.createElement("section");
+      panel.id = "category-" + useFormat.id;
+      panel.setAttribute("role","tabpanel");
+      panel.innerHTML = `<h2>${esc(useFormat.name)} · ${useFormat.width} × ${useFormat.height} px</h2><div data-use-gallery></div>`;
+      nav.after(panel);
+      mountJpegGallery(panel.querySelector('[data-use-gallery]'),p,scope(p),edit,()=>mountWorkshop(p,edit,runExport),useFormat);
+    }
     const selectionBar = document.createElement("div");
     selectionBar.className = "selection-bar";
     selectionBar.innerHTML = `<strong role="status">${p.enabled.reduce((sum,v) => sum+CATEGORIES.reduce((n,c) => n+selectedCount(p,v,c),0n),0n)} ${t("versions sélectionnées")}</strong><button data-recommendations>${t("Recommandées")}</button>`;
@@ -509,7 +519,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
     main.querySelector('.selection-bar').after(button);
     button.onclick=()=>{const variant=scope(p).find(v=>rolesFor(p,v).some(r=>!r.locked));if(!variant)return;
       const from=p.colors[0]?.hex||'#000000',to=p.colors[1]?.hex||from;
-      editGradient(p,{variant,color:{id:'draft',gradient:{id:'g-'+crypto.randomUUID(),name:t('Dégradé')+' '+(p.gradients.length+1),from,to,mode:'global',angle:0}}},edit);
+      editGradient(p,{variant,color:{id:'draft',gradient:{id:'g-'+crypto.randomUUID(),name:"",from,to,mode:'global',angle:0}}},edit);
     };
   }
   main.querySelectorAll("[data-gradient-edit]").forEach(

@@ -1,3 +1,4 @@
+import { visualMessage, recommendationMessage, recommendationInstructions, recommendationProject } from "./ai-recommendations.js";
 import {
   PROVIDERS,
   FALLBACK_MODELS,
@@ -9,7 +10,7 @@ import {
 import {
   ProposalSession,
   projectContext,
-  agentInstructions,
+  scopedAgentInstructions,
   proposalTool,
   actionSummary,
   proposalProject,
@@ -35,19 +36,29 @@ export function openAssistant(
   stage,
   edit,
   live = () => ({ p: project, stage }),
+  options = {},
 ) {
+  const recommendation = options.recommendation, recommendationVariant = project.active;
+  if(stage !== "guideline" && !recommendation) return;
   if (activeDialog?.isConnected) {
     activeDialog.querySelector("[data-prompt]")?.focus();
     return;
   }
-  const session = sessions.get(project.id) || new ProposalSession();
-  sessions.set(project.id, session);
+  const session = recommendation ? new ProposalSession() : sessions.get(project.id) || new ProposalSession();
+  if (!recommendation) sessions.set(project.id, session);
+  if (recommendation) {
+    session.propose = (p,proposal) => { recommendationProject(p,proposal,recommendation,recommendationVariant);session.active=structuredClone(proposal);session.base=JSON.stringify(p);session.revision++; };
+    session.apply = (p,edit) => { if(session.base !== JSON.stringify(p)) throw Error("Le projet a changé. Demandez une proposition actualisée.");const next=recommendationProject(p,session.active,recommendation,recommendationVariant);edit(()=>{Object.assign(p,next);});session.active=null; };
+  }
   const dialog = document.createElement("dialog");
   dialog.className = "ai-chat";
+  dialog.dataset.kind = recommendation ? "recommendation" : "chat";
   dialog.setAttribute("aria-label", t("Assistant IA"));
   document.body.append(dialog);
   activeDialog = dialog;
   let providerId = read("binksy-ai-selected") || "openrouter",
+    scopeMode = "currentPage",
+    pendingPrompt = "",
     settings = false,
     busy = false,
     status = "",
@@ -143,9 +154,12 @@ export function openAssistant(
     }
   };
   const send = async () => {
-    const prompt = q("[data-prompt]").value.trim();
+    const prompt = (pendingPrompt || q("[data-prompt]")?.value || (recommendation ? "Recommandation de l’IA" : "")).trim();
+    pendingPrompt = "";
     if (!prompt || busy) return;
+    if(!recommendation && live().stage !== "guideline") {dialog.close();return;}
     if (!key()) {
+      pendingPrompt = prompt;
       settings = true;
       status = t("Ajoutez une clé API.");
       draw();
@@ -153,6 +167,7 @@ export function openAssistant(
     }
     const model = config.model || models[0]?.id;
     if (!model) {
+      pendingPrompt = prompt;
       settings = true;
       status = t("Choisissez un modèle.");
       draw();
@@ -165,30 +180,34 @@ export function openAssistant(
     draw();
     try {
       const currentState = live(),
+        requestScope = {scope:scopeMode,...(scopeMode === "currentPage" ? {pageId:activeGuideContext().pageId} : {})},
         ctx = projectContext(
           currentState.p,
           currentState.stage,
-          activeGuideContext(),
+          {...activeGuideContext(), ...requestScope},
         );
+      if (requestScope.scope === "currentPage") ctx.pages = ctx.pages.filter(a=>a.id===requestScope.pageId);
+      if(recommendation) ctx.pages = [];
       const messages = session.messages
         .slice(0, -1)
         .slice(-17)
         .map(({ role, content }) => ({ role, content }));
-      messages.push({
-        role: "user",
-        content: JSON.stringify({
-          context: ctx,
-          pendingProposal: session.active,
-          request: prompt,
-        }),
-      });
+      const textContext = JSON.stringify({context:ctx,pendingProposal:session.active,request:prompt});
+      const selectedModel = models.find(m=>m.id===model);
+      const page = currentState.p.brandGuideline.pages.find(a=>a.id===activeGuideContext().pageId);
+      const needsVisual = recommendation || /visuel|design|mise en page|layout|image|logo|couleur|color|fond|background/i.test(prompt);
+      if(needsVisual && selectedModel?.vision === false) throw Error("Le modèle sélectionné ne prend pas en charge les images.");
+      const content = recommendation
+        ? await recommendationMessage({...currentState.p,active:recommendationVariant},recommendation)
+        : needsVisual && page ? await visualMessage(textContext,guidelineSVG(currentState.p,page)) : textContext;
+      messages.push({role:"user",content});
       const supportsTools = models.find((m) => m.id === model)?.tools !== false;
       const response = await chatCompletion(
         current(),
         key(),
         config.base,
         model,
-        agentInstructions + " Reply in " + language(),
+        (recommendation ? recommendationInstructions : scopedAgentInstructions) + " Reply in " + language(),
         messages,
         supportsTools ? proposalTool : null,
       );
@@ -202,13 +221,16 @@ export function openAssistant(
           proposal = { message: response.text, actions: [] };
         }
       }
-      proposalProject(currentState.p, proposal);
+      if(recommendation) recommendationProject(currentState.p,proposal,recommendation,recommendationVariant);
+      else proposalProject(currentState.p, proposal, requestScope);
       if (response.call)
-        await acknowledgeTool(response, "validated_pending_user_approval");
-      session.propose(currentState.p, proposal);
+        await acknowledgeTool(response, "validated_pending_user_approval").catch(()=>{status=t("Proposition reçue ; confirmation fournisseur indisponible.");});
+      if (!proposal.message?.trim()) proposal.message = t(proposal.actions?.length ? "Proposition prête à appliquer." : "Aucune modification proposée.");
+      session.propose(currentState.p, proposal, requestScope);
       session.messages.push({ role: "assistant", content: proposal.message });
     } catch (e) {
       status = t(e.message);
+      session.messages.push({role:"assistant",content:status});
     } finally {
       busy = false;
       draw();
@@ -230,8 +252,15 @@ export function openAssistant(
           "",
         )}</select></label><label>${t("Clé API")}<input data-key type="password" autocomplete="off" placeholder="${key() ? "••••••••" : ""}"></label><label class="ai-remember"><input data-remember type="checkbox" ${config.key ? "checked" : ""}>${t("Mémoriser sur cet appareil")}</label><label>${t("Modèle")}<input data-search type="search" placeholder="${t("Rechercher un modèle")}"><select data-model ${busy ? "disabled" : ""}>${models.map((m) => `<option value="${esc(m.id)}" ${m.id === selected ? "selected" : ""}>${esc(m.name)}</option>`).join("")}</select></label><button data-refresh ${busy ? "disabled" : ""}>${t("Actualiser les modèles")}</button><details><summary>${t("Avancé")}</summary>${current().id === "custom" ? `<label>${t("Adresse API")}<input data-base value="${esc(config.base || "")}"></label>` : ""}<label>${t("ID modèle personnalisé")}<input data-custom-model></label><button data-custom-add>${t("Utiliser ce modèle")}</button><button data-forget>${t("Supprimer la clé")}</button></details><div class="ai-settings-actions"><button data-save>${t("Enregistrer")}</button><button data-test ${busy ? "disabled" : ""}>${t("Tester la connexion")}</button></div></div>`;
     else
-      content = `<div class="ai-messages" aria-live="polite">${session.messages.length ? session.messages.map((m) => `<article class="ai-message ai-${m.role}"><span>${t(m.role === "user" ? "Vous" : "Assistant IA")}</span><p>${esc(m.content)}</p></article>`).join("") : `<div class="ai-empty"><span aria-hidden="true">✦</span><h3>${t("Que souhaitez-vous ajuster ?")}</h3><p>${t("Décrivez une modification. Vous pourrez l’affiner avant de l’appliquer.")}</p>${!key() ? `<button data-configure>${t("Configurer l’assistant")}</button>` : ""}</div>`}${session.active?.actions.length ? `<section class="ai-proposal"><span>${t("Proposition")} · ${session.revision}</span><ul>${session.active.actions.map((a) => `<li>${esc(actionSummary(a, state.p))}</li>`).join("")}</ul>${preview ? renderPreview(state.p, session.active) : ""}<div><button class="primary" data-apply ${busy ? "disabled" : ""}>${t("Appliquer")}</button>${state.stage === "guideline" ? `<button data-preview>${t(preview ? "Masquer l’aperçu" : "Aperçu")}</button>` : ""}</div></section>` : ""}${busy ? `<p>${t("Préparation de la proposition…")}</p>` : ""}</div><form class="ai-composer"><textarea data-prompt aria-label="${t("Votre demande")}" placeholder="${t("Votre demande")}" rows="2" maxlength="6000"></textarea><button type="submit" aria-label="${t("Envoyer")}" ${busy ? "disabled" : ""}>↑</button></form>`;
+      content = `<div class="ai-messages" aria-live="polite">${session.messages.length ? session.messages.map((m) => `<article class="ai-message ai-${m.role}"><span>${t(m.role === "user" ? "Vous" : "Assistant IA")}</span><p>${esc(m.content)}</p></article>`).join("") : `<div class="ai-empty"><span aria-hidden="true">✦</span><h3>${t("Que souhaitez-vous ajuster ?")}</h3><p>${t("Décrivez une modification. Vous pourrez l’affiner avant de l’appliquer.")}</p>${!key() ? `<button data-configure>${t("Configurer l’assistant")}</button>` : ""}</div>`}${session.active?.actions.length ? `<section class="ai-proposal"><span>${t("Proposition")} · ${session.revision}</span><ul>${session.active.actions.map((a) => `<li>${esc(actionSummary(a, state.p))}</li>`).join("")}</ul>${preview ? renderPreview(state.p, session.active, session.scope) : ""}<div><button class="primary" data-apply ${busy ? "disabled" : ""}>${t("Appliquer")}</button>${state.stage === "guideline" ? `<button data-preview>${t(preview ? "Masquer l’aperçu" : "Aperçu")}</button>` : ""}</div></section>` : ""}${busy ? `<p>${t("Préparation de la proposition…")}</p>` : ""}</div><form class="ai-composer"><label class="ai-scope">${t("Portée")}<select data-scope><option value="currentPage" ${scopeMode === "currentPage" ? "selected" : ""}>${t("Page actuelle")}</option><option value="document" ${scopeMode === "document" ? "selected" : ""}>${t("Tout le document")}</option></select></label><textarea data-prompt aria-label="${t("Votre demande")}" placeholder="${t("Votre demande")}" rows="2" maxlength="6000"></textarea><button type="submit" aria-label="${t("Envoyer")}" ${busy ? "disabled" : ""}>↑</button></form>`;
     dialog.innerHTML = `<header><strong>✦ ${t("Assistant IA")}</strong><div><button data-settings aria-label="${t("Réglages IA")}">⚙</button><button data-close aria-label="${t("Fermer")}">×</button></div></header>${content}<output role="status">${esc(status)}</output>`;
+    if(recommendation && !settings) {
+      q('.ai-composer')?.remove();
+      q('.ai-empty')?.remove();
+      const area=q('.ai-messages');
+      area?.querySelectorAll('.ai-user').forEach(el=>el.remove());
+      const retry=document.createElement('button');retry.textContent=t('Régénérer');retry.disabled=busy;retry.onclick=send;area?.append(retry);
+    }
     q("[data-close]").onclick = () => dialog.close();
     q("[data-settings]").onclick = () => {
       settings = !settings;
@@ -287,6 +316,7 @@ export function openAssistant(
         status = t("Configuration enregistrée.");
         settings = false;
         draw();
+        if(pendingPrompt) send();
       } catch (e) {
         status = t(e.message);
         draw();
@@ -308,6 +338,7 @@ export function openAssistant(
         draw();
       }
     });
+    q("[data-scope]")?.addEventListener("change",e=>{scopeMode=e.target.value;});
     q(".ai-composer")?.addEventListener("submit", (e) => {
       e.preventDefault();
       send();
@@ -351,11 +382,12 @@ export function openAssistant(
     { once: true },
   );
   dialog.show();
+  if(recommendation) send();
 }
-function renderPreview(p, proposal) {
+function renderPreview(p, proposal, scope) {
   try {
-    const temp = proposalProject(p, proposal),
-      id = activeGuideContext().pageId,
+    const temp = proposalProject(p, proposal, scope),
+      id = scope?.pageId || activeGuideContext().pageId,
       page = temp.brandGuideline.pages.find((a) => a.id === id);
     return page
       ? `<div class="ai-preview">${guidelineSVG(temp, page, temp.brandGuideline.pages.indexOf(page))}</div>`

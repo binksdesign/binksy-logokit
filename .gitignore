@@ -6,3 +6,6 @@ test-results/
 .env
 .env.*
 !.env.example
+
+# Local-only licensed font fixtures for export verification
+tests/.local-fixtures/

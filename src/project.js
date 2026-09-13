@@ -1,3 +1,4 @@
+import { validateGuide } from './guideline-model.js';
 import { customFormats } from "./export-formats.js";
 import { gradientSettings, synchronizeGradients } from "./gradient.js";
 import { project, VARIANTS, variantIds, isReadyVariant, CLEAR_REFS } from "./model";
@@ -5,7 +6,7 @@ import { importSVG } from "./svg";
 import { restoreRoles, hexColor, shade } from "./paints.js";
 export async function validate(data) {
   if (
-    ![1, 2, 3].includes(data?.version) ||
+    ![1, 2, 3, 4].includes(data?.version) ||
     typeof data.brand !== "string" ||
     !data.assets ||
     !data.compositions
@@ -259,5 +260,6 @@ export async function validate(data) {
     }
   }
   result.locale = data.locale === "en" ? "en" : "fr";
+  result.brandGuideline = validateGuide(data.version === 4 ? data.brandGuideline : null, result.mode);
   return result;
 }

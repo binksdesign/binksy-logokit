@@ -2131,3 +2131,13 @@ header .language-switch button:hover { background:#333; color:#efefef; }
 .framing-handle {position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;padding:0;background:#ff5500;border:2px solid white;cursor:nwse-resize;touch-action:none;}
 .gradient-palette {display:flex;gap:6px;flex-wrap:wrap;margin:12px 0;}
 .gradient-palette button {width:28px;height:28px;padding:0;border:1px solid #999;}
+/* Five-step kit navigation keeps its own row on laptop and smaller screens. */
+@media (max-width: 1250px) {
+  header:has([data-ai-assistant]) { flex-wrap: wrap; height: auto; min-height: 78px; padding-top: 10px; gap: 8px 16px; }
+  header:has([data-ai-assistant]) nav { order: 3; flex: 0 0 100%; height: 46px; min-width: 0; overflow-x: auto; justify-content: flex-start; }
+  header:has([data-ai-assistant]) nav button { flex: 0 0 auto; }
+}
+@media (max-width: 600px) {
+  header:has([data-ai-assistant]) .header-actions { flex-wrap: wrap; margin-left:auto; max-width:100%; gap:6px; }
+  header:has([data-ai-assistant]) { padding-left:12px; padding-right:12px; }
+}

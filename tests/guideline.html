@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr">
+  <meta charset="utf-8" /><title>Brand Guideline — validation</title
+  ><style>
+    body {
+      font: 14px Arial;
+      margin: 25px;
+      background: #eee;
+    }
+    li {
+      padding: 6px;
+    }
+    .pass {
+      color: #175a25;
+    }
+    .fail {
+      color: #b32000;
+    }
+    #previews {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    #previews svg {
+      width: 100%;
+      height: auto;
+      background: white;
+    }
+    a {
+      display: inline-block;
+      margin: 10px;
+    }
+    #editor {
+      margin: 20px 0;
+    }
+  </style>
+  <h1>Brand Guideline · exports réels</h1>
+  <button id="run" disabled>Exécuter les tests et les exports</button
+  ><button id="open" disabled>Ouvrir l’éditeur synthétique</button>
+  <ol id="results"></ol>
+  <div id="downloads"></div>
+  <div id="editor"></div>
+  <div id="previews"></div>
+  <script type="module" src="./guideline.js"></script>
+</html>

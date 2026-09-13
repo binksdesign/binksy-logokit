@@ -1,3 +1,4 @@
+import {guidelineFileCount} from "./guideline-model.js";
 import { editFraming } from "./format-editor.js";
 import { clearspaceSVG } from "./clearspace.js";
 import { mountJpegGallery } from "./jpeg-gallery.js";
@@ -270,6 +271,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
   } catch (e) {
     error = t(e.message);
   }
+  const totalFiles=jobs.length+guidelineFileCount(p),fileCount=totalFiles+(totalFiles>1?1:0);
   const finalJobs = allJobs.filter(
     (j) =>
       (filter === "all" || (j.item?.variant || j.variant) === filter) &&
@@ -291,7 +293,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
       "final",
       "Sélection finale",
       error ||
-        `${jobs.length + (jobs.length > 1 ? 1 : 0)} ${t("fichiers à exporter")}`,
+        `${fileCount} ${t("fichiers à exporter")}`,
       `<div class="family-tools"><select id="final-category" aria-label="${t("Toutes les catégories")}"><option value="all">${t("Toutes les catégories")}</option>${[...CATEGORIES, "clearspace"].map((c) => `<option value="${c}" ${finalCategory === c ? "selected" : ""}>${t(labels[c] || "Clearspace")}</option>`).join("")}</select><select id="final-format" aria-label="${t("Tous les formats")}"><option value="all">${t("Tous les formats")}</option>${p.exports.formats.map((f) => `<option value="${f}" ${finalFormat === f ? "selected" : ""}>${f.toUpperCase()}</option>`).join("")}</select><select id="final-background" aria-label="${t("Tous les fonds JPEG")}"><option value="all">${t("Tous les fonds JPEG")}</option><option value="transparent" ${finalBg === "transparent" ? "selected" : ""}>${t("Transparent")}</option>${colors(
         p,
       )
@@ -302,7 +304,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
         )
         .join(
           "",
-        )}</select><button id="exclude-final">${t("Tout désélectionner")}</button></div><p role="status">${esc(error || `${jobs.length + (jobs.length > 1 ? 1 : 0)} ${t("fichiers à exporter")}`)}</p><div class="final-list">${finalJobs
+        )}</select><button id="exclude-final">${t("Tout désélectionner")}</button></div><p role="status">${esc(error || `${fileCount} ${t("fichiers à exporter")}`)}</p><div class="final-list">${finalJobs
         .slice(finalPage * 60, finalPage * 60 + 60)
         .map(
           (j) =>
@@ -316,7 +318,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
   main.dataset.workshopStep = step;
   main.classList.toggle("full-catalog", fullCatalog);
   main.querySelector(".family-heading").innerHTML =
-    `<div class="eyebrow">${step === "delivery" ? "04" : "03"} / ${t(step === "delivery" ? "Exporter" : "Variantes")}</div><h1>${t(step === "delivery" ? "Votre Logo Kit est prêt à partir." : "Choisissez visuellement les versions à livrer.")}</h1>`;
+    `<div class="eyebrow">${step === "delivery" ? (p.mode==="clearspace"?"03":"05") : "03"} / ${t(step === "delivery" ? "Exporter" : "Variantes")}</div><h1>${t(step === "delivery" ? "Votre Logo Kit est prêt à partir." : "Choisissez visuellement les versions à livrer.")}</h1>`;
   const toolbar = main.querySelector(".family-tools");
   const custom = document.createElement("details");
   custom.className = "combination-tools";
@@ -401,7 +403,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
       )
       .join(
         "",
-      )}</div>${p.mode !== "clearspace" && p.colors.length ? `<div class="summary-colors" aria-label="${t("Palette de couleurs")}">${p.colors.map(c => `<span title="${esc(c.name)} · ${c.hex}" style="background:${c.hex}"></span>`).join("")}</div>` : ""}<div class="kit-metrics"><span><strong>${p.enabled.filter(v => catalog(p,v,"original").size).length}</strong>${t("versions du logo")}</span><span><strong>${p.enabled.reduce((sum,v) => sum+CATEGORIES.reduce((n,c) => n+selectedCount(p,v,c),0n),0n)}</strong>${t(p.mode === "clearspace" ? "zones de sécurité" : "déclinaisons")}</span><span><strong>${error ? "—" : jobs.length + (jobs.length>1?1:0)}</strong>${t("fichiers")}</span></div><h2>${t(p.mode === "clearspace" ? "Vos zones de sécurité" : "Logo Kit complet")}</h2><p>${t("Vos variantes sélectionnées, leurs fichiers et les recommandations dans un ZIP.")}</p><p>${p.exports.formats.map((f) => f.toUpperCase()).join(" · ")} · WEB · 72 DPI / PRINT · 300 DPI</p><button class="primary" id="export-kit" ${error || !jobs.length ? "disabled" : ""}>${t("Exporter le Logo Kit complet")}</button><p role="status">${esc(error || String(jobs.length + (jobs.length > 1 ? 1 : 0)) + " " + t("fichiers à exporter"))}</p>`;
+      )}</div>${p.mode !== "clearspace" && p.colors.length ? `<div class="summary-colors" aria-label="${t("Palette de couleurs")}">${p.colors.map(c => `<span title="${esc(c.name)} · ${c.hex}" style="background:${c.hex}"></span>`).join("")}</div>` : ""}<div class="kit-metrics"><span><strong>${p.enabled.filter(v => catalog(p,v,"original").size).length}</strong>${t("versions du logo")}</span><span><strong>${p.enabled.reduce((sum,v) => sum+CATEGORIES.reduce((n,c) => n+selectedCount(p,v,c),0n),0n)}</strong>${t(p.mode === "clearspace" ? "zones de sécurité" : "déclinaisons")}</span><span><strong>${error ? "—" : fileCount}</strong>${t("fichiers")}</span></div><h2>${t(p.mode === "clearspace" ? "Vos zones de sécurité" : "Logo Kit complet")}</h2><p>${t("Vos variantes sélectionnées, leurs fichiers et les recommandations dans un ZIP.")}</p><p>${p.exports.formats.map((f) => f.toUpperCase()).join(" · ")} · WEB · 72 DPI / PRINT · 300 DPI</p><button class="primary" id="export-kit" ${error || !jobs.length ? "disabled" : ""}>${t("Exporter le Logo Kit complet")}</button><p role="status">${esc(error || String(fileCount) + " " + t("fichiers à exporter"))}</p>`;
     main.querySelector(".family-heading").after(summary);
     if (p.mode === "clearspace") summary.querySelector("#export-kit").textContent = t("Exporter les zones de sécurité");
     summary.querySelector("#export-kit").onclick = () => runExport(items);
@@ -411,7 +413,7 @@ export function mountWorkshop(p, edit, runExport, step = workshopStep) {
   const countTarget = document.querySelector("#selection-count");
   if (countTarget) countTarget.textContent =
     error ||
-    `${jobs.length + (jobs.length > 1 ? 1 : 0)} ${t("fichiers à exporter")}`;
+    `${fileCount} ${t("fichiers à exporter")}`;
   if (document.querySelector('[data-action="export"]'))
     document.querySelector('[data-action="export"]').onclick = () => {
       if (error) return;

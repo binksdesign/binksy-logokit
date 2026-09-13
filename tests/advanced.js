@@ -353,7 +353,7 @@ await test("Migration V2 conserve la géométrie", async () => {
     c.wordSize = 2;
   }
   const reopened = await validate(old);
-  assert(reopened.version === 3);
+  assert(reopened.version === 4);
   assert(
     reopened.compositions.horizontal.iconHeight === assets.D.box.height * 3,
   );

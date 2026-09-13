@@ -224,7 +224,7 @@ await test("Ancien projet V1 : migration du clearspace et des formats", async ()
     c.clear = 3;
   }
   const restored = await validate(old);
-  assert(restored.version === 3);
+  assert(restored.version === 4);
   assert(restored.compositions.horizontal.clearMultiplier === 1.5);
   assert(!restored.exports.formats.includes("eps"));
   assert(restored.assets.wordmark.box.height === 100);

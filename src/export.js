@@ -207,6 +207,11 @@ export async function buildFiles(p, items, progress = () => {}) {
     files[job.path] = new Uint8Array(await blob.arrayBuffer());
     await new Promise((r) => setTimeout(r, 0));
   }
+  if (p.brandGuideline?.enabled && p.mode !== "clearspace") {
+    const { guidelineFiles } = await import("./guideline-export.js");
+    Object.assign(files, await guidelineFiles(p));
+    if (Object.keys(files).length > 500 || Object.values(files).reduce((n, x) => n + x.byteLength, 0) > 256e6) throw Error("Lot supérieur aux limites d’export.");
+  }
   return files;
 }
 export async function exportFiles(p, items, progress) {

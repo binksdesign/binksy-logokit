@@ -1,3 +1,4 @@
+import { emptyGuide } from './guideline-model.js';
 import { t } from "./i18n.js";
 export const VARIANTS = ["horizontal", "vertical", "icon", "wordmark"];
 export const LABELS = {
@@ -9,7 +10,8 @@ export const LABELS = {
 export const clone = (x) => structuredClone(x);
 export function project(mode = "compose") {
   return {
-    version: 3,
+    version: 4,
+    brandGuideline: emptyGuide(),
     gradients: [],
     colorSelection: {},
     jpegGlobal: {},

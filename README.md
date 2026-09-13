@@ -77,7 +77,7 @@ Les planches de zone de sécurité claire et foncée sont monochromes dans les d
 
 ## Projets
 
-La clé locale historique `binksy-logo-system` est conservée. La liste `ready` est additive : en mode `compose`, elle complète les quatre variantes générées ; les modes `ready` et `clearspace` utilisent uniquement cette liste. Les SVG complets ne sont jamais recomposés et partagent rôles, couleurs et exports avec les variantes générées. Leurs zones de sécurité et tailles minimales sont indépendantes. Le multiplicateur sélectionné est orange et accessible via `aria-pressed`. Le fichier `.binksy` V3 contient les variantes importées, dimensions indépendantes, rôles/corrections/verrous, gradients, règles de sélection, associations JPEG globales, fichiers exclus et paramètres de livraison. V1/V2 sont migrées en conservant les dimensions visibles : la dépendance historique de l’icône à l’échelle du logotype est remplacée par une hauteur absolue. Sans référence explicite, la protection utilise le petit côté visible du SVG assemblé. Une mesure manuelle existante reste prioritaire.
+La clé locale historique `binksy-logo-system` est conservée. La liste `ready` est additive : en mode `compose`, elle complète les quatre variantes générées ; les modes `ready` et `clearspace` utilisent uniquement cette liste. Les SVG complets ne sont jamais recomposés et partagent rôles, couleurs et exports avec les variantes générées. Leurs zones de sécurité et tailles minimales sont indépendantes. Le multiplicateur sélectionné est orange et accessible via `aria-pressed`. Le fichier `.binksy` V4 contient les variantes importées, dimensions indépendantes, rôles/corrections/verrous, gradients, règles de sélection, associations JPEG globales, fichiers exclus et paramètres de livraison. V1/V2/V3 sont migrées en conservant les dimensions visibles : la dépendance historique de l’icône à l’échelle du logotype est remplacée par une hauteur absolue. Sans référence explicite, la protection utilise le petit côté visible du SVG assemblé. Une mesure manuelle existante reste prioritaire.
 
 FR/EN est mémorisé dans `binksy-locale` et inscrit dans le projet à la sauvegarde. La préférence active de l’appareil est conservée lors de l’import. La suppression de projet passe obligatoirement par une confirmation ; elle n’efface pas les fichiers exportés.
 
@@ -113,4 +113,29 @@ Une seule arborescence : `(NOM) LOGOKIT/LOGOS/Variante/WEB/PNG|SVG|JPEG`, `PRINT
 
 `src/export-formats.js` centralise formats, destinations, cadrage et palette TXT ; `src/format-editor.js` porte les contrôles et le cadrage centré. `tests/delivery.html` vérifie les fichiers réels : chemins, dimensions, DPI, position des pixels, dégradés par forme et migration. `tests/export-formats.test.js` vérifie les règles communes.
 
-Les dégradés proposent les couleurs de palette et leurs nuances claires/foncées, le remplissage, le tracé, son opacité et l’exclusion individuelle des formes avec survol de repérage. Les versions icône/logotype bicolores utilisent uniquement la palette et restent décochées par défaut. Les choix hérités sont conservés autant que possible dans V3.
+Les dégradés proposent les couleurs de palette et leurs nuances claires/foncées, le remplissage, le tracé, son opacité et l’exclusion individuelle des formes avec survol de repérage. Les versions icône/logotype bicolores utilisent uniquement la palette et restent décochées par défaut. Les choix hérités sont conservés autant que possible dans V4.
+
+## Brand Guideline et assistant · V4
+
+Le parcours principal devient **Importer → Assembler le logo → Versions du logo → Brand Guideline → Exporter**. Le guide est facultatif et son bouton Ignorer conserve les exports historiques. Le parcours de zone de sécurité seule reste inchangé.
+
+Le guide partage un rendu vectoriel entre canvas, SVG et PDF. Douze pages initiales et une bibliothèque éditoriale complètent les variantes, clearspace, tailles et palette existants. Formats exclusifs : 16:9 (960 × 540 pt), A4 paysage (297 × 210 mm), A4 portrait (210 × 297 mm). Titres de 24–28 pt et corps de 10,5–12 pt par défaut ; tailles modifiables.
+
+- `guideline-model.js` : données V4 validées, pages, ressources et opérations de pages.
+- `guideline-layout.js`, `guideline-theme.js`, `guideline-svg.js` : liste d’éléments, thèmes et rendu partagé.
+- `guideline-editor.js`, `guideline-interactions.js`, `guideline-media.js` : canvas, inspecteur, saisie et images.
+- `guideline-fonts.js`, `guideline-export.js` : polices exactes, PDF multipage et SVG indépendants.
+- `ai-providers.js`, `ai-context.js`, `ai.js` : trois protocoles, actions limitées à l’étape, propositions validées et coffre local séparé des projets. OpenCode Go est exclu.
+- `project-storage.js` : conservation du stockage historique et secours IndexedDB pour les médias volumineux.
+
+Les TTF sont incorporées dans le PDF. Les OTF sont vectorisées avec avertissement. Le choix SVG texte conserve une dépendance aux polices d’origine ; le choix tracés convertit les textes avec leur police réelle. Flou/lueur sont rasterisés uniquement dans leur démonstration PDF ; les pages restent vectorielles. Pas de garantie de calques Illustrator ou de CMJN ICC.
+
+Tests supplémentaires : `tests/guideline.html` génère un projet synthétique, ses PDF/SVG dans les trois formats et un kit ZIP. Pour la vérification avec de vraies polices, placer localement `Arial.ttf`, `Georgia.ttf` et `STIXGeneral.otf` dans `tests/.local-fixtures/` (ignoré par Git, polices non distribuées). `npm test` couvre données, sécurité et adaptateurs réseau avec réponses simulées ; les appels réels nécessitent la clé et l’autorisation navigateur du fournisseur.
+
+**English:** Optional Brand Guideline adds a shared SVG canvas, page library, theme, real font/image imports and multipage vector PDF plus individual SVG exports. V1/V2/V3 migrate to V4 with the guide disabled. AI actions are scoped to the current step and require explicit application. Credentials remain outside project files. OpenCode Go is excluded. TTF is embedded, OTF text is outlined with a warning; only blur/glow demonstrations may be rasterized in PDF. No page-wide raster fallback, Illustrator-layer or ICC-CMYK guarantee.
+
+Les repères et le magnétisme accompagnent les marges ; les alignements et le premier plan agissent sur la page. Les blocs texte réduisent leur corps si nécessaire (minimum 6 pt) et un contrôle refuse les débordements restants avant le PDF. Les poids des polices importées proviennent de leurs fichiers. Les règles de proportions/espacement sont indisponibles pour un SVG assemblé, dont les composants ne sont pas séparables. La perspective est une approximation par bandes vectorielles.
+
+La mise en page du guide suit une grille éditoriale : couvertures colorées, titres de 24–28 pt, corps de 10,5–12 pt, marges et folios discrets. Instrument Sans est fournie localement sous licence SIL OFL (voir `public/fonts/InstrumentSans-OFL.txt`), et incorporée aux PDF lorsque utilisée. Les polices importées restent prioritaires. Source : https://github.com/google/fonts/tree/main/ofl/instrumentsans.
+
+Les neuf pages éditoriales proposent des textes fictifs FR/EN signalés « Texte d’exemple · À personnaliser ». Les textes saisis sur la page ou dans le brief sont prioritaires. Réappliquer le thème conserve les textes et les positions personnalisés.

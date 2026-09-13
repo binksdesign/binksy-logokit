@@ -1,17 +1,47 @@
 import { language } from "./i18n.js";
 // Product documentation: paired FR/EN paragraphs.
 const sections = [
-  [["Dimensions et livraison unique", "Dimensions and unified delivery"], [
-    ["Les tailles standards 1000, 2000, 3000, 4000 et 5000 px sont cochables séparément. Les cas d’usage (profil, story, bannière, favicon, signature) et les formats personnalisés avec nom obligatoire sont distincts. Chaque format possède un cadrage partagé entre variantes : logo centré, proportions fixes, poignées et curseur, 80 % par défaut. Le réglage d’un profil ne modifie pas une story ni une taille standard.", "Standard sizes 1000, 2000, 3000, 4000 and 5000 px are independently selectable. Use cases (profile, story, banner, favicon, signature) and custom formats with required names are separate. Each format shares framing across variants: centered logo, fixed proportions, handle and slider, 80% by default. A profile adjustment does not change a story or a standard size."],
-    ["Le ZIP utilise (NOM) LOGOKIT/LOGOS/Variante/WEB/PNG, SVG, JPEG ; PRINT contient les PDF et bitmaps 300 DPI ; CAS D’USAGE contient exclusivement les presets d’usage et formats personnalisés à 72 DPI. Les dimensions standards ne deviennent jamais des cas d’usage. CLEARSPACE/Variante contient directement ses planches. Le TXT contient chaque couleur, son nom, HEX, RVB et CMJN approximatif sans profil ICC.", "ZIP structure is (NAME) LOGOKIT/LOGOS/Variant/WEB/PNG, SVG, JPEG; PRINT holds PDFs and 300 DPI bitmaps; CAS D’USAGE exclusively holds use presets and custom formats at 72 DPI. Standard dimensions never become use cases. CLEARSPACE/Variant directly holds its boards. TXT includes every palette color, name, HEX, RGB and approximate CMYK without an ICC profile."],
-    ["Plusieurs couleurs propose aussi icône et logotype de couleurs différentes, uniquement dans la palette. Ces suggestions sont décochées par défaut et présentées progressivement. Un dégradé créé est disponible sur chaque variante compatible ; son identifiant partage les modifications sans fusionner les dégradés distincts.", "Multiple colors also offers different icon and wordmark colors exclusively from the palette. These suggestions start unchecked and appear progressively. A created gradient is available on every compatible variant; its identifier shares edits without merging distinct gradients."]
-  ]],
-  [["Trois parcours, un inspecteur contextuel", "Three workflows, a contextual inspector"], [
-    ["L’accueil propose exactement Variantes à créer, Variantes déjà prêtes et Juste la zone de sécurité. Les deux premiers parcours partagent couleurs, dégradés et livraisons. Variantes à créer combine les variantes générées depuis icon / wordmark et les SVG complets supplémentaires de ready. Variantes déjà prêtes utilise uniquement ready. Le troisième réutilise les SVG assemblés : plusieurs imports, un SVG par version, renommage, mesure et export de planches uniquement. Aucun réglage de palette ni recoloration. Les peintures, dégradés et opacités d’origine restent conservés, même sur les planches de ce mode.", "Home offers exactly Create variants, Ready-made variants and Just clear space. The first two workflows share colors, gradients and deliveries. Create variants combines variants generated from icon / wordmark with additional complete SVGs in ready. Ready-made variants uses ready only. The third reuses assembled SVGs: multiple imports, one SVG per version, renaming, measurement and board exports only. No palette settings or recoloring. Original paints, gradients and opacities remain preserved, including on this mode’s boards."],
-    ["Pour une variante générée, l’inspecteur affiche une tâche à la fois : Composition, Position, Guides ou Plus de réglages. Les tailles indépendantes et l’espacement sont dans Composition, les positions et largeurs dans Position, grille et magnétisme dans Guides, les tailles minimales dans Plus de réglages. Cliquer/déplacer un élément cible sa position. Le zoom reste au-dessus du canvas ; Mode focus masque les panneaux et Afficher les panneaux les restaure.", "For a generated variant, the inspector shows one task at a time: Composition, Position, Guides or More settings. Independent sizes and spacing are in Composition, positions and widths in Position, grid and snapping in Guides, minimum sizes in More settings. Clicking/dragging an element targets its position. Zoom stays above the canvas; Focus mode hides panels and Show panels restores them."],
-    ["Zone de sécurité propose Automatique, Utiliser une partie du logo et Mesurer directement sur le logo. Définir visuellement active le dessin d’un carré, dans toutes les directions, avec dimension en direct. Le magnétisme vise les bords des éléments ; Alt le désactive. Au relâchement, la dimension devient immédiatement X1 et le multiplicateur passe à 1. Le nom reste modifiable dans Guides. Échap abandonne le dessin en cours. Les corrections numériques, les anciens repères et multiplicateurs restent disponibles.", "Clear space offers Automatic, Use part of the logo and Measure on the logo. Define visually draws a square in any direction, displaying its dimension live. Snapping targets element bounds; Alt disables it. On release, the dimension immediately becomes X1 and the multiplier becomes 1. Rename it in Guides. Escape cancels drawing. Numeric corrections, legacy references and multipliers remain available."],
-    ["La mesure et son nom sont enregistrés dans .binksy V3 et dans Undo/Redo. Le carré temporaire n’entre jamais dans les exports. Le nom apparaît sur les planches et les recommandations. Appliquer à d’autres versions copie dimension, description, méthode et multiplicateur aux seules versions cochées, sans modifier leurs tailles ni leurs noms. C’est une copie en unités SVG, pas une normalisation automatique entre fichiers à échelles différentes.", "The measurement and its name are stored in .binksy V3 and Undo/Redo. The temporary square never enters exports. Its name appears on boards and recommendations. Apply to other versions copies the dimension, description, method and multiplier only to checked versions, without changing their sizes or names. This copies SVG units; it does not automatically normalize files with different scales."]
-  ]],
+  [
+    ["Dimensions et livraison unique", "Dimensions and unified delivery"],
+    [
+      [
+        "Les tailles standards 1000, 2000, 3000, 4000 et 5000 px sont cochables séparément. Les cas d’usage (profil, story, bannière, favicon, signature) et les formats personnalisés avec nom obligatoire sont distincts. Chaque format possède un cadrage partagé entre variantes : logo centré, proportions fixes, poignées et curseur, 80 % par défaut. Le réglage d’un profil ne modifie pas une story ni une taille standard.",
+        "Standard sizes 1000, 2000, 3000, 4000 and 5000 px are independently selectable. Use cases (profile, story, banner, favicon, signature) and custom formats with required names are separate. Each format shares framing across variants: centered logo, fixed proportions, handle and slider, 80% by default. A profile adjustment does not change a story or a standard size.",
+      ],
+      [
+        "Le ZIP utilise (NOM) LOGOKIT/LOGOS/Variante/WEB/PNG, SVG, JPEG ; PRINT contient les PDF et bitmaps 300 DPI ; CAS D’USAGE contient exclusivement les presets d’usage et formats personnalisés à 72 DPI. Les dimensions standards ne deviennent jamais des cas d’usage. CLEARSPACE/Variante contient directement ses planches. Le TXT contient chaque couleur, son nom, HEX, RVB et CMJN approximatif sans profil ICC.",
+        "ZIP structure is (NAME) LOGOKIT/LOGOS/Variant/WEB/PNG, SVG, JPEG; PRINT holds PDFs and 300 DPI bitmaps; CAS D’USAGE exclusively holds use presets and custom formats at 72 DPI. Standard dimensions never become use cases. CLEARSPACE/Variant directly holds its boards. TXT includes every palette color, name, HEX, RGB and approximate CMYK without an ICC profile.",
+      ],
+      [
+        "Plusieurs couleurs propose aussi icône et logotype de couleurs différentes, uniquement dans la palette. Ces suggestions sont décochées par défaut et présentées progressivement. Un dégradé créé est disponible sur chaque variante compatible ; son identifiant partage les modifications sans fusionner les dégradés distincts.",
+        "Multiple colors also offers different icon and wordmark colors exclusively from the palette. These suggestions start unchecked and appear progressively. A created gradient is available on every compatible variant; its identifier shares edits without merging distinct gradients.",
+      ],
+    ],
+  ],
+  [
+    [
+      "Trois parcours, un inspecteur contextuel",
+      "Three workflows, a contextual inspector",
+    ],
+    [
+      [
+        "L’accueil propose exactement Variantes à créer, Variantes déjà prêtes et Juste la zone de sécurité. Les deux premiers parcours partagent couleurs, dégradés et livraisons. Variantes à créer combine les variantes générées depuis icon / wordmark et les SVG complets supplémentaires de ready. Variantes déjà prêtes utilise uniquement ready. Le troisième réutilise les SVG assemblés : plusieurs imports, un SVG par version, renommage, mesure et export de planches uniquement. Aucun réglage de palette ni recoloration. Les peintures, dégradés et opacités d’origine restent conservés, même sur les planches de ce mode.",
+        "Home offers exactly Create variants, Ready-made variants and Just clear space. The first two workflows share colors, gradients and deliveries. Create variants combines variants generated from icon / wordmark with additional complete SVGs in ready. Ready-made variants uses ready only. The third reuses assembled SVGs: multiple imports, one SVG per version, renaming, measurement and board exports only. No palette settings or recoloring. Original paints, gradients and opacities remain preserved, including on this mode’s boards.",
+      ],
+      [
+        "Pour une variante générée, l’inspecteur affiche une tâche à la fois : Composition, Position, Guides ou Plus de réglages. Les tailles indépendantes et l’espacement sont dans Composition, les positions et largeurs dans Position, grille et magnétisme dans Guides, les tailles minimales dans Plus de réglages. Cliquer/déplacer un élément cible sa position. Le zoom reste au-dessus du canvas ; Mode focus masque les panneaux et Afficher les panneaux les restaure.",
+        "For a generated variant, the inspector shows one task at a time: Composition, Position, Guides or More settings. Independent sizes and spacing are in Composition, positions and widths in Position, grid and snapping in Guides, minimum sizes in More settings. Clicking/dragging an element targets its position. Zoom stays above the canvas; Focus mode hides panels and Show panels restores them.",
+      ],
+      [
+        "Zone de sécurité propose Automatique, Utiliser une partie du logo et Mesurer directement sur le logo. Définir visuellement active le dessin d’un carré, dans toutes les directions, avec dimension en direct. Le magnétisme vise les bords des éléments ; Alt le désactive. Au relâchement, la dimension devient immédiatement X1 et le multiplicateur passe à 1. Le nom reste modifiable dans Guides. Échap abandonne le dessin en cours. Les corrections numériques, les anciens repères et multiplicateurs restent disponibles.",
+        "Clear space offers Automatic, Use part of the logo and Measure on the logo. Define visually draws a square in any direction, displaying its dimension live. Snapping targets element bounds; Alt disables it. On release, the dimension immediately becomes X1 and the multiplier becomes 1. Rename it in Guides. Escape cancels drawing. Numeric corrections, legacy references and multipliers remain available.",
+      ],
+      [
+        "La mesure et son nom sont enregistrés dans .binksy V3 et dans Undo/Redo. Le carré temporaire n’entre jamais dans les exports. Le nom apparaît sur les planches et les recommandations. Appliquer à d’autres versions copie dimension, description, méthode et multiplicateur aux seules versions cochées, sans modifier leurs tailles ni leurs noms. C’est une copie en unités SVG, pas une normalisation automatique entre fichiers à échelles différentes.",
+        "The measurement and its name are stored in .binksy V3 and Undo/Redo. The temporary square never enters exports. Its name appears on boards and recommendations. Apply to other versions copies the dimension, description, method and multiplier only to checked versions, without changing their sizes or names. This copies SVG units; it does not automatically normalize files with different scales.",
+      ],
+    ],
+  ],
   [
     ["Palette et réglages partagés", "Palette and shared settings"],
     [
@@ -33,8 +63,8 @@ const sections = [
     ["1. Automatique, puis modifier", "1. Automatic, then edit"],
     [
       [
-        "Parcours : Importer → Assembler le logo → Versions du logo → Exporter. Le mode Juste la zone de sécurité passe directement d’Importer à Zone de sécurité puis Exporter. Binksy analyse les SVG, prépare les compositions et propose les couleurs sans configuration obligatoire. L’utilisateur vérifie les résultats puis exporte. Réutiliser ses corrections explicites ; ne jamais les remplacer silencieusement par des recommandations.",
-        "Workflow: Import → Build → Variants → Export. Binksy analyzes SVGs, prepares compositions and suggests colors without mandatory configuration. The user reviews the results and exports. Reuse explicit corrections; never silently replace them with recommendations.",
+        "Parcours : Importer → Assembler le logo → Versions du logo → Brand Guideline → Exporter. Le mode Juste la zone de sécurité passe directement d’Importer à Zone de sécurité puis Exporter. Binksy analyse les SVG, prépare les compositions et propose les couleurs sans configuration obligatoire. L’utilisateur vérifie les résultats puis exporte. Réutiliser ses corrections explicites ; ne jamais les remplacer silencieusement par des recommandations.",
+        "Workflow: Import → Build → Variants → Brand Guideline → Export. Binksy analyzes SVGs, prepares compositions and suggests colors without mandatory configuration. The user reviews the results and exports. Reuse explicit corrections; never silently replace them with recommendations.",
       ],
       [
         "Les étapes sont accessibles librement après un premier import. Réglages avancés, Ajuster les couleurs manuellement, Personnaliser les combinaisons et Personnaliser l’export sont facultatifs. Chaque choix visuel montre le vrai logo.",
@@ -154,3 +184,34 @@ export function agentContent() {
     )
     .join("");
 }
+
+// V4 additions describe the shipped controls and the actual PDF limitations.
+sections.unshift([
+  ["Brand Guideline facultative · V4", "Optional Brand Guideline · V4"],
+  [
+    [
+      "Le parcours Logo Kit ajoute Brand Guideline entre Versions du logo et Exporter. L’ouverture crée douze pages à partir du projet. Ignorer la Brand Guideline désactive son inclusion dans le kit. Juste la zone de sécurité conserve ses trois étapes. Les fichiers V1/V2/V3 restent importables avec le guide désactivé ; les nouvelles sauvegardes utilisent V4.",
+      "The Logo Kit workflow adds Brand Guideline between Logo versions and Export. Opening it creates twelve pages from the project. Skip Brand Guideline disables its inclusion in the kit. Just clear space retains its three steps. V1/V2/V3 files remain importable with the guide disabled; new saves use V4.",
+    ],
+    [
+      "Les seuls formats sont 16:9, A4 paysage et A4 portrait. Les titres sont mesurés et les corps de texte compacts. Le thème partage fonds, texte, accent, marges et espacements. La bibliothèque permet ajout, duplication, suppression et déplacement de pages par glisser-déposer ou boutons. Le canvas partage le rendu SVG utilisé par les exports ; le zoom ne change pas les dimensions du document.",
+      "The only formats are 16:9, A4 landscape and A4 portrait. Titles and body copy use restrained sizes. The theme shares backgrounds, text, accent, margins and spacing. The library supports adding, duplicating, deleting and reordering pages by drag and drop or buttons. The canvas shares the SVG export renderer; zoom does not change document dimensions.",
+    ],
+    [
+      "Les pages de présentation, histoire, mission, objectifs, valeurs, positionnement, personnalité, public et signature proposent des textes fictifs FR/EN à personnaliser. Les textes existants du brief et des pages restent prioritaires. Instrument Sans est fournie localement sous licence SIL OFL ; vos polices importées restent prioritaires. Réappliquer le thème conserve les textes et les positions.",
+      "Introduction, history, mission, goals, values, positioning, personality, audience and tagline pages offer fictional FR/EN starter copy. Existing brief and page copy takes priority. Instrument Sans is bundled locally under SIL OFL; imported fonts retain priority. Reapplying the theme preserves copy and positions.",
+    ],
+    [
+      "Sélectionnez un élément pour le déplacer, redimensionnez avec la poignée ou les valeurs précises. Double-cliquez un texte pour le saisir sur la page. Importez vos JPEG/PNG/WebP et polices TTF/OTF. Les images restent des ressources réutilisées, avec cadrage et zoom ; les polices peuvent être affectées aux rôles typographiques. Aucun visuel n’est généré par IA. Les modifications utilisent l’historique et la sauvegarde locale, avec IndexedDB lorsque les médias dépassent le quota localStorage.",
+      "Select an element to move it, resize using its handle or precise values. Double-click text to edit on the page. Import your own JPEG/PNG/WebP and TTF/OTF fonts. Images remain shared resources with crop and zoom; fonts can be assigned to typographic roles. No images are AI-generated. Changes use history and local saving, with IndexedDB when media exceeds the localStorage quota.",
+    ],
+    [
+      "Le PDF conserve les logos et formes en vectoriel et incorpore les TTF. Les textes OTF sont convertis en tracés avec avertissement. Les SVG proposent texte dépendant des polices originales ou tracés utilisant la police réelle. Les exemples de flou/lueur seuls peuvent devenir raster dans le PDF ; jamais la page entière. Les effets complexes déjà présents dans un logo restent refusés en PDF. Aucun CMJN ICC ni calque Illustrator n’est garanti. Les fichiers sont ajoutés sous BRAND GUIDELINE/PDF et SVG, selon les choix, sans changer LOGOS et CLEARSPACE.",
+      "PDF retains vector logos and shapes and embeds TTF fonts. OTF text is outlined with a warning. SVG offers text depending on the original fonts or outlines using the actual font. Only blur/glow demonstrations may become raster in PDF; never an entire page. Existing complex logo effects remain unsupported in PDF. ICC CMYK and Illustrator layers are not guaranteed. Files are added under BRAND GUIDELINE/PDF and SVG according to selection, without changing LOGOS and CLEARSPACE.",
+    ],
+    [
+      "L’assistant utilise uniquement le contexte et les actions de l’étape active. Ses réponses structurées sont validées puis affichées avant Appliquer ; aucune réponse JavaScript n’est exécutée. Les décisions couleur manuelles sont prioritaires. Les clés sont séparées des projets, mémorisées uniquement sur demande et envoyées exclusivement au fournisseur choisi. Modèles actualisables et ID manuel restent disponibles. Les fournisseurs peuvent refuser un accès navigateur (CORS) ; l’application reste entièrement utilisable sans IA. OpenCode Go n’est pas intégré.",
+      "The assistant uses only the active step’s context and actions. Structured responses are validated and previewed before Apply; no returned JavaScript is executed. Manual color decisions take priority. Keys are separate from projects, remembered only on request and sent exclusively to the selected provider. Refreshable models and manual IDs remain available. Providers may deny browser access (CORS); the application remains usable without AI. OpenCode Go is not integrated.",
+    ],
+  ],
+]);

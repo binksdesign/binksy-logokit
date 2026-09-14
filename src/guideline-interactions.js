@@ -14,11 +14,15 @@ export function selectionControls(canvas, p, page, element, commit, redraw) {
         y: element.y / H,
         w: element.w / W,
         h: element.h / H,
-        size: element.size || 12,
+
         ...page.styles[element.id],
         ...changes,
       };
   };
+  const layer = document.createElement("div");
+  layer.className = "bg-interaction-layer";
+  layer.style.aspectRatio = `${W} / ${H}`;
+  canvas.append(layer);
   const overlay = document.createElement("div");
   overlay.className = "bg-selection";
   Object.assign(overlay.style, {
@@ -27,7 +31,7 @@ export function selectionControls(canvas, p, page, element, commit, redraw) {
     width: (element.w / W) * 100 + "%",
     height: (element.h / H) * 100 + "%",
   });
-  canvas.append(overlay);
+  layer.append(overlay);
   const handle = document.createElement("button");
   handle.className = "bg-resize";
   handle.setAttribute("aria-label", t("Redimensionner"));
@@ -35,7 +39,7 @@ export function selectionControls(canvas, p, page, element, commit, redraw) {
   handle.onpointerdown = (event) => {
     event.preventDefault();
     event.stopPropagation();
-    const rect = canvas.getBoundingClientRect(),
+    const rect = canvas.querySelector("svg").getBoundingClientRect(),
       startX = event.clientX,
       startY = event.clientY;
     let w = element.w / W,
@@ -73,12 +77,12 @@ export function selectionControls(canvas, p, page, element, commit, redraw) {
           width: (element.w / W) * 100 + "%",
           height: (element.h / H) * 100 + "%",
           fontSize:
-            (element.size * canvas.getBoundingClientRect().width) / W + "px",
+            (element.size * canvas.querySelector("svg").getBoundingClientRect().width) / W + "px",
           fontFamily: element.font
             ? "bg-" + element.font
             : "bg-binksy-instrument-sans",
         });
-        canvas.append(editor);
+        layer.append(editor);
         editor.focus();
         editor.select();
         let canceled = false;

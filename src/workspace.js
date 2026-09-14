@@ -16,7 +16,7 @@ export const hasArtwork = (p) =>
     ? p.ready.length > 0
     : !!(p.assets.icon || p.assets.wordmark || p.ready?.length);
 export function disclosure(id, label, body) {
-  return `<details open class="optional" data-disclosure="${id}"><summary>${t(label)}</summary>${body}</details>`;
+  return `<details class="optional" data-disclosure="${id}"><summary>${t(label)}</summary>${body}</details>`;
 }
 function projectPanel(p, projects) {
   return `<section><label class="field"><span>${t("Nom de la marque")}</span><input id="brand" value="${esc(p.brand)}" maxlength="100"></label>${disclosure("project", "Gérer le projet", `<select id="projects" aria-label="${t("Projet actif")}">${projects.map((x) => `<option value="${esc(x.id)}" ${x.id === p.id ? "selected" : ""}>${esc(x.id === p.id ? p.brand : x.brand)}</option>`).join("")}</select><button data-action="new">${t("Nouveau projet")}</button><button data-action="import-project">${t("Importer .binksy")}</button>`)}</section>`;
@@ -36,7 +36,7 @@ function constructions(p) {
     .join("")}</section>`;
 }
 export function palettePanel(p) {
-  return `<section class="palette-panel"><h2>${t("Palette de couleurs")}</h2><div><button class="ai-action" data-ai-recommendation="colorNames">${t("Recommandation de l’IA")} · ${t("Noms des couleurs")}</button><button class="ai-action" data-ai-recommendation="colorRoles">${t("Recommandation de l’IA")} · ${t("Rôles des couleurs")}</button></div><div class="palette-swatches">${p.colors.map((col) => `<button class="palette-swatch" data-edit-color="${esc(col.id)}" style="--swatch:${col.hex}" aria-label="${esc(col.name)} · ${col.hex}" title="${esc(col.name)} · ${col.hex}"><span data-no-i18n>${esc(col.name)}</span></button>`).join("")}<button class="palette-add" data-action="add-color">+ ${t("Ajouter une couleur")}</button></div></section>`;
+  return `<section class="palette-panel"><h2>${t("Palette de couleurs")}</h2><div><button class="ai-action icon-action" data-ai-recommendation="colorNames" aria-label="${t("Noms des couleurs")}" data-tooltip="${t("Noms des couleurs")}">✦</button><button class="ai-action icon-action" data-ai-recommendation="colorRoles" aria-label="${t("Rôles des couleurs")}" data-tooltip="${t("Rôles des couleurs")}">✦</button></div><div class="palette-swatches">${p.colors.map((col) => `<button class="palette-swatch" data-edit-color="${esc(col.id)}" style="--swatch:${col.hex}" aria-label="${esc(col.name)} · ${col.hex}" title="${esc(col.name)} · ${col.hex}"><span data-no-i18n>${esc(col.name)}</span></button>`).join("")}<button class="palette-add" data-action="add-color">+ ${t("Ajouter une couleur")}</button></div></section>`;
 }
 function properties(p, number, selected, inspector) {
   const c = p.compositions[p.active],
@@ -77,7 +77,7 @@ function properties(p, number, selected, inspector) {
         ];
   if (p.mode === "clearspace" || !tabs.some(([id]) => id === inspector))
     inspector = "guides";
-  const minimum = `<section><h3>${t("Tailles minimales")}</h3><div class="minimum-preview" style="max-width:${Math.min(c.minDigital, 240)}px">${compositionSVG(p, p.active)}</div><div class="two-fields"><label>Print · mm<input data-comp="minPrint" type="number" min="1" max="1000" value="${c.minPrint}"></label><label>Digital · px<input data-comp="minDigital" type="number" min="1" max="10000" value="${c.minDigital}"></label></div></section>`;
+  const minimum = `<section><h3>${t("Tailles minimales")} <button class="ai-action icon-action" data-ai-recommendation="minimum" aria-label="${t("Recommandation IA")}" data-tooltip="${t("Recommandation IA")}">✦</button></h3><div class="minimum-preview" style="max-width:${Math.min(c.minDigital, 240)}px">${compositionSVG(p, p.active)}</div><div class="two-fields"><label>Print · mm<input data-comp="minPrint" type="number" min="1" max="1000" value="${c.minPrint}"></label><label>Digital · px<input data-comp="minDigital" type="number" min="1" max="10000" value="${c.minDigital}"></label></div></section>`;
   const composition = `<section>${l.parts
     .filter((q) => q.key !== "ready")
     .map((q) =>
@@ -105,7 +105,7 @@ function properties(p, number, selected, inspector) {
         ])
       : ""
   }</section>`;
-  const guides = `<section><div class="canvas-expert">${["grid", "snap"].map((key, i) => `<label class="check"><input type="checkbox" data-setting="${key}" ${p[key] ? "checked" : ""}>${t(["Grille", "Magnétisme"][i])}</label>`).join("")}</div>${clearPanel(p)}</section>`;
+  const guides = `<section><div class="canvas-expert">${["grid", "snap"].map((key, i) => `<label class="check"><input type="checkbox" data-setting="${key}" ${p[key] ? "checked" : ""}>${t(["Grille", "Magnétisme"][i])}</label>`).join("")}</div><button class="ai-action icon-action" data-ai-recommendation="clearspace" aria-label="${t("Recommandation IA")}" data-tooltip="${t("Recommandation IA")}">✦</button>${clearPanel(p)}</section>`;
   return `<section class="inspector-title"><h2 data-no-i18n>${esc(variantName(p, p.active))}</h2>${isReadyVariant(p) || p.mode !== "compose" ? `<label class="field">${t("Nom de la version")}<input id="variant-name" value="${esc(p.ready.find((v) => v.id === p.active)?.name || "")}" maxlength="100"></label>` : ""}</section><div class="inspector-tabs" role="tablist" aria-label="${t("Réglages de la version")}">${tabs
     .filter(([id]) => p.mode !== "clearspace" || id === "guides")
     .map(
@@ -159,7 +159,7 @@ export function workspace(
         : "";
   const right =
     view === "compose" && ready
-      ? properties(p, number, selected, inspector) + `<section><h2>${t("Recommandation de l’IA")}</h2><button class="ai-action" data-ai-recommendation="clearspace">${t("Zone de sécurité")}</button><button class="ai-action" data-ai-recommendation="minimum">${t("Taille minimale")}</button></section>`
+      ? properties(p, number, selected, inspector)
       : view === "delivery"
         ? disclosure("export", "Personnaliser l’export", exportPanel()) + (p.mode!=="clearspace"?`<section><h2>Brand Guideline</h2><p>${t(p.brandGuideline.enabled?"Guide inclus dans le kit":"Guide non inclus")}${p.brandGuideline.enabled?` · ${p.brandGuideline.pages.length} ${t("pages")}`:""}</p><button data-view="guideline">${t("Modifier le guide")}</button></section>`:"")
         : view === "family"

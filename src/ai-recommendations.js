@@ -14,8 +14,8 @@ export async function visualMessage(text, svg) {
 export function recommendationContext(p,kind) {
   return {kind,brand:p.brand, palette:p.colors.map(c=>({...c,rgb:c.hex.slice(1).match(/../g).map(n=>parseInt(n,16))})),variants:variantIds(p).map(id=>({id,name:variantName(p,id),minimum:{print:p.compositions[id]?.minPrint,digital:p.compositions[id]?.minDigital},clearspace:clearMeasure(p,id),width:layout(p,id).width,height:layout(p,id).height})),activeVariant:p.active};
 }
-export async function recommendationMessage(p,kind) {
-  return visualMessage(JSON.stringify(recommendationContext(p,kind)),compositionSVG(p,p.active));
+export async function recommendationMessage(p,kind,request = "",pendingProposal = null) {
+  return visualMessage(JSON.stringify({...recommendationContext(p,kind),request,pendingProposal}),compositionSVG(p,p.active));
 }
 export function recommendationProject(p,proposal,kind,variant) {
   if(!proposal || typeof proposal.message!=='string' || !Array.isArray(proposal.actions)||proposal.actions.length>100)throw Error('Proposition invalide.');

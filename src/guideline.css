@@ -812,3 +812,22 @@
 .bg-wizard > nav button { min-height:40px; color:#555; }
 .bg-wizard > nav button[aria-current="step"] { color:#fff; }
 .bg-wizard > footer { height:auto; min-height:0; }
+/* Context controls live in screen space; never enter the exported SVG. */
+.bg-context-toolbar { position:absolute; z-index:8; display:flex; align-items:flex-start; gap:4px; max-width:100%; padding:6px; background:#fff; color:#222; border:1px solid #d6d6d6; border-radius:8px; box-shadow:0 4px 18px #0002; }
+.bg-context-primary { display:flex; align-items:center; flex-wrap:wrap; gap:4px; }
+.bg-context-toolbar select { max-width:140px; width:auto; min-height:34px; font-size:12px; }
+.bg-context-toolbar input[type=number] { width:64px; min-height:34px; }
+.bg-context-toolbar button,.bg-context-toolbar .file-button { min-height:34px; margin:0; padding:6px 9px; font-size:12px; }
+.bg-context-more { position:relative; flex-shrink:0; }
+.bg-context-more>summary { padding:8px; cursor:pointer; list-style:none; }
+.bg-context-more>div { position:absolute; right:0; top:38px; width:260px; max-height:320px; overflow:auto; padding:16px; background:#fff; border:1px solid #ccc; box-shadow:0 4px 18px #0002; }
+.bg-context-more .field { margin:8px 0; }
+.bg-context-more input,.bg-context-more select { max-width:100%; }
+@media(max-width:700px) {
+  .bg-context-toolbar { position:relative; left:0!important; top:0!important; width:100%; margin-top:8px; }
+  .bg-context-toolbar select,.bg-context-toolbar button,.bg-context-toolbar input { min-height:44px; }
+  .bg-context-more>div { right:0; max-width:80vw; }
+}
+
+.bg-interaction-layer { position:absolute; top:0; left:0; width:100%; pointer-events:none; }
+.bg-interaction-layer .bg-inline-text { pointer-events:auto; }

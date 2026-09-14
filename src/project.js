@@ -109,6 +109,7 @@ export async function validate(data) {
   ])
     if (Number.isFinite(e[key]))
       result.exports[key] = Math.round(Math.min(max, Math.max(min, e[key])));
+  result.exports.printBitmaps = e.printBitmaps === undefined ? undefined : e.printBitmaps === true;
   result.exports.customFormats = customFormats(e);
   result.exports.rasterFormats = Array.isArray(e.rasterFormats) ? e.rasterFormats.filter(id=>typeof id === "string") : undefined;
   result.exports.destinations = Array.isArray(e.destinations) ? [...new Set(e.destinations.filter(d=>["WEB","PRINT"].includes(d)))] : ["WEB","PRINT"];

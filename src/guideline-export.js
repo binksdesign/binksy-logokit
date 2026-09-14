@@ -4,13 +4,12 @@ import "svg2pdf.js";
 import { zipSync, strToU8 } from "fflate";
 import {
   guidelineSVG,
-  renderText,
   fittedText,
-  textLines,
+  textMetrics,
 } from "./guideline-svg.js";
 import { pageElements } from "./guideline-layout.js";
 import { dimensions } from "./guideline-theme.js";
-import { loadFonts, fontFor } from "./guideline-fonts.js";
+import { loadFonts } from "./guideline-fonts.js";
 import { slug } from "./model.js";
 import { mount } from "./svg.js";
 export function exportWarnings(p, format) {
@@ -20,7 +19,7 @@ export function exportWarnings(p, format) {
     format !== "svg" &&
     g.resources.some((r) => r.type === "font" && r.format === "otf")
   )
-    w.push("Les textes OTF seront vectorisés dans le PDF.");
+    w.push("Les textes sont vectorisés dans le PDF avec les polices du document.");
   if (format !== "pdf" && g.exports.text === "text")
     w.push("Les SVG avec texte nécessitent les polices originales.");
   if (
@@ -49,7 +48,7 @@ export function validateLayout(p) {
         throw Error("Élément hors page : " + (index + 1) + ".");
       if (
         e.type === "text" &&
-        (textLines(e, g).length - 1) * e.size * (e.leading || 1.4) + e.size >
+        textMetrics(e,g).height >
           e.h + 0.1
       )
         throw Error(
@@ -138,42 +137,15 @@ export async function guidelinePDF(p) {
       orientation: W > H ? "landscape" : "portrait",
       compress: true,
     });
-  const usedFonts = new Map(
-    g.pages
-      .flatMap((page, i) =>
-        pageElements(p, page, i)
-          .filter((e) => e.type === "text")
-          .map((e) => fontFor(g, e)),
-      )
-      .filter(Boolean)
-      .map((r) => [r.id, r]),
-  );
-  for (const r of [...usedFonts.values()].filter((r) => r.format === "ttf")) {
-    const name = r.id + ".ttf";
-    doc.addFileToVFS(name, r.data.split(",")[1]);
-    doc.addFont(name, "bg-" + r.id, "normal");
-  }
   for (let i = 0; i < g.pages.length; i++) {
     if (i) doc.addPage([W, H], W > H ? "landscape" : "portrait");
     const root = new DOMParser().parseFromString(
-      guidelineSVG(p, g.pages[i], i, { editor: true }),
+      guidelineSVG(p, g.pages[i], i, { editor: true, paths: true }),
       "image/svg+xml",
     ).documentElement;
     const dispose = mount(root);
     let releaseImages = () => {};
     try {
-      // jsPDF embeds TTF; OTF uses exact outlines, never a substituted typeface.
-      for (const e of pageElements(p, g.pages[i], i).filter(
-        (e) => e.type === "text",
-      )) {
-        const resource = fontFor(g, e);
-        const node = [...root.querySelectorAll("[data-guide-element]")].find(
-          (n) => n.getAttribute("data-guide-element") === e.id,
-        );
-        if (resource?.format === "otf") node.innerHTML = renderText(e, g, true);
-        else if (resource)
-          node.querySelector("text")?.setAttribute("font-weight", "normal");
-      }
       await effectImage(root);
       // svg2pdf parses data URLs with one large regular expression. Real-world
       // embedded images can overflow that parser's call stack, so feed it Blob

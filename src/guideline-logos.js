@@ -31,3 +31,10 @@ export function bestLogoColor(p,variant,background) {
   };
   return choices.map(c=>({c,score:score(c)})).sort((a,b)=>b.score-a.score)[0]?.c.id || 'original';
 }
+
+export function commonLogoColor(p, variants, background) {
+  if (!variants.length) return null;
+  const choices = variants.map(v=>logoChoices(p,v));
+  return choices[0].filter(c=>c.hex && !c.gradient && choices.every(list=>list.some(other=>other.id===c.id && other.hex===c.hex)))
+    .sort((a,b)=>contrast(b.hex,background)-contrast(a.hex,background))[0]?.id || null;
+}

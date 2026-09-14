@@ -17,7 +17,8 @@ test("Dimensions, uses and DPI remain independent", () => {
     framing: { profile: 0.4, "web-3000": 0.7 },
   };
   const targets = rasterTargets(e);
-  assert.equal(targets.length, 6);
+  assert.equal(targets.length, 4);
+  assert.equal(rasterTargets({...e,printBitmaps:true}).length,6);
   for (const f of targets) {
     assert.equal(f.dpi, f.destination === "PRINT" ? 300 : 72);
     assert.equal(f.destination === "CAS D’USAGE", f.kind === "use");

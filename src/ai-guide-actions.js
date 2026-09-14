@@ -32,7 +32,7 @@ function validators(p) {
   const resource=v=>g.resources.some(r=>r.id===v && r.type==='image');
   return {color,variant,resource,
     settings:{guides:bool,explanation:bool,hex:bool,rgb:bool,cmyk:bool,pantone:bool,roles:bool,text:v=>v==='auto'||color(v),muted:v=>v==='auto'||color(v),rule:v=>v==='auto'||color(v),accent:v=>v==='auto'||color(v)},
-    element:{text:str,fill:v=>v==='auto'||color(v),variant,role:v=>ROLES.includes(v),size:v=>num(v,5,150),x:v=>num(v,0,1),y:v=>num(v,0,1),w:v=>num(v,.001,1),h:v=>num(v,.001,1),hidden:bool,resource,fit:v=>['cover','contain'].includes(v),zoom:v=>num(v,1,5),panX:v=>num(v,0,1),panY:v=>num(v,0,1)},
+    element:{font:x=>x===''||g.resources.some(r=>r.id===x&&r.type==='font'),weight:x=>num(x,100,900),leading:x=>num(x,.8,3),tracking:x=>num(x,-3,20),align:x=>['left','center','right'].includes(x),text:str,fill:v=>v==='auto'||color(v),variant,role:v=>[...ROLES,"accent"].includes(v),size:v=>num(v,5,150),x:v=>num(v,0,1),y:v=>num(v,0,1),w:v=>num(v,.001,1),h:v=>num(v,.001,1),hidden:bool,resource,fit:v=>['cover','contain'].includes(v),zoom:v=>num(v,1,5),panX:v=>num(v,0,1),panY:v=>num(v,0,1)},
     global:{background:color,text:v=>v==='auto'||color(v),muted:v=>v==='auto'||color(v),rule:v=>v==='auto'||color(v),accent:v=>v==='auto'||color(v),secondary:color,margin:v=>num(v,12,80),spacing:v=>num(v,0,100),grid:v=>num(v,0,100),numbers:bool,headers:bool,footers:bool,brandName:bool,guides:bool,density:v=>['comfortable','compact'].includes(v)}
   };
 }
@@ -111,8 +111,8 @@ export function applyGuideAction(p,a,scope) {
     if('font' in a.values) {const f=g.resources.find(r=>r.id===s.font);s.family=f?.family||'Instrument Sans';s.weight=f?.weight||400;}
     if(s.size){s.pt=s.size;s.px=s.size*4/3;}
   } else if(a.type==='updateColorAssociation') {
-    if(![a.foreground,a.background].every(id=>finalPalette(p).some(c=>c.id===id))||!['recommended','avoid','hide'].includes(a.decision))throw Error('Association invalide.');
-    g.pairs[a.foreground+':'+a.background]={allowed:a.decision==='recommended',hidden:a.decision==='hide',manual:true,source:'ai'};
+    if(![a.foreground,a.background].every(id=>finalPalette(p).some(c=>c.id===id))||!['recommended','allowed','avoid','hide'].includes(a.decision))throw Error('Association invalide.');
+    g.pairs[a.foreground+':'+a.background]={state:a.decision==='hide'?'avoid':a.decision,allowed:['recommended','allowed'].includes(a.decision),hidden:false,manual:true,source:'ai'};
   } else if(a.type==='togglePage') {
     if(!page||!bool(a.enabled))throw Error('Page invalide.');
     page.disabled=!a.enabled;
@@ -128,4 +128,4 @@ updateTypography {type,role,values:{font?,size?,weight?,leading?,tracking?}};
 updateColorAssociation {type,foreground,background,decision:recommended|avoid|hide}; togglePage {type,pageId,enabled}.
 Never invent colours or logo descriptors. A proposal is one transaction, never applied before user clicks Apply. Return a short human message, including when no action is possible.`;
 
-export const autoInstructions = ` Use the literal auto for text/muted/fill and logo colorId to restore automatic contrast; a palette hex or actual descriptor ID is a persistent manual choice. updateAccentTypography {type,values:{enabled?,font?}}; addColorRole {type,name}; updatePaletteRole {type,id,role}. These document-wide actions require document scope. Accent typography is optional and used only for captions. Role names are in context.colorRoles.`;
+export const autoInstructions = ` Use the literal auto for text/muted/fill and logo colorId to restore automatic contrast; a palette hex or actual descriptor ID is a persistent manual choice. updateAccentTypography {type,values:{enabled?,font?}}; addColorRole {type,name}; updatePaletteRole {type,id,role}. These document-wide actions require document scope. Accent typography is an optional independent role; never replace caption. Use updateTypography with role accent for size, leading, tracking and an available font weight. Role names are in context.colorRoles.`;

@@ -1,3 +1,5 @@
+import { finalPalette } from "./guideline-config.js";
+import { typeStyle } from "./guideline-theme.js";
 import { layout } from './model.js';
 import { dimensions, pageTheme } from './guideline-theme.js';
 
@@ -27,7 +29,7 @@ export function minimumGroups(p,page) {
 }
 export function paginateMinimumPages(p) {
   const ids=new Set(p.brandGuideline.pages.map(page=>page.id));
-  return p.brandGuideline.pages.flatMap(page=>{
+  return paginateContentPages(p).flatMap(page=>{
     if(page.type!=='minimum')return [page];
     const groups=minimumGroups(p,page);
     if(groups.length<2)return [page];
@@ -38,4 +40,43 @@ export function paginateMinimumPages(p) {
       generatedKey:page.generatedKey ? page.generatedKey+(i?`-part-${i+1}`:'') : '',
       elements:i?[]:page.elements};});
   });
+}
+
+export function pairCapacity(p) {
+  const {width,height}=dimensions(p.brandGuideline), m=pageTheme(p,{}).margin;
+  return Math.max(1, Math.floor((width-2*m)/175)) * Math.max(1,Math.floor((height-2*m-116)/100));
+}
+export function hierarchyGroups(p) {
+  const g=p.brandGuideline, {height}=dimensions(g), available=height-2*pageTheme(p,{}).margin-116;
+  const roles=['title','subtitle','heading','body','small','caption',...(g.accentTypography?.enabled?['accent']:[])];
+  const groups=[[]]; let used=0;
+  for(const role of roles) {
+    const s=typeStyle(g,role), h=Math.max(56,s.size*s.leading*2+12);
+    if(used+h>available && groups.at(-1).length){groups.push([]);used=0;}
+    groups.at(-1).push(role);used+=h;
+  }
+  return groups;
+}
+function paginateContentPages(p) {
+  const pages=p.brandGuideline.pages, result=[];
+  for(const page of pages) {
+    if(page.paginationRoot && pages.some(root=>root.id===page.paginationRoot)) continue;
+    if(!['pairs','accessibility','hierarchy'].includes(page.type)){result.push(page);continue;}
+    const groups=page.type==='hierarchy'?hierarchyGroups(p):Array.from({length:Math.max(1,Math.ceil(finalPalette(p).length**2/pairCapacity(p)))},(_,i)=>i);
+    const siblings=pages.filter(a=>a.id===page.id || a.paginationRoot===page.id);
+    const sharedStyles=Object.assign({},...siblings.map(a=>a.styles));
+    const lastCustom=siblings.reduce((last,a,i)=>a.elements.length?Math.max(last,i):last,0);
+    while(groups.length<=lastCustom)groups.push(page.type==='hierarchy'?[]:groups.length);
+    groups.forEach((group,i)=>{
+      const id=i?`${page.id}-content-${i+1}`:page.id;
+      const previous=pages.find(a=>a.id===id);
+      result.push({...structuredClone(previous || page),id,paginationRoot:i?page.id:undefined,
+        styles:structuredClone(sharedStyles),
+        pairOffset:page.type==='hierarchy'?0:i*pairCapacity(p),
+        hierarchyRoles:page.type==='hierarchy'?group:undefined,
+        generatedKey:i?`${page.generatedKey || page.id}-content-${i+1}`:page.generatedKey,
+        elements:previous?.elements || (i?[]:page.elements)});
+    });
+  }
+  return result;
 }

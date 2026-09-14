@@ -31,13 +31,15 @@ export function fontControls(g) {
           .map((f) => f.weight)
           .join(" · ")}</span></div>`,
     )
-    .join("")}</div>${field("Ajouter une typographie d’accent", `<input type="checkbox" data-accent-enabled ${g.accentTypography?.enabled ? "checked" : ""}>`)}${[...ROLES,...(g.accentTypography?.enabled ? ["accent"] : [])].map((role) => {
+    .join("")}</div>${g.accentTypography?.enabled ? "" : `<button type="button" data-add-accent>+ ${t("Ajouter une typographie d’accent")}</button>`}${[...ROLES,...(g.accentTypography?.enabled ? ["accent"] : [])].map((role) => {
     const s = typeStyle(g, role);
-    return `<details class="bg-type-role"><summary>${t(role)} <span>${esc(s.family)} · ${s.weight}</span></summary>${field("Police", `<select data-type-font="${role}">${option("", "Instrument Sans", s.font)}${fonts.map((f) => option(f.id, f.family + " · " + f.weight, s.font)).join("")}</select>`)}<div class="two-fields">${field("Taille pt", `<input data-type-size="${role}" type="number" min="5" max="150" step=".25" value="${s.size}">`)}${field("Taille px", `<input data-type-px="${role}" type="number" min="6.67" max="200" step=".25" value="${+((s.size * 4) / 3).toFixed(2)}">`)}</div>${field("Interlignage", `<input data-type-leading="${role}" type="number" min=".8" max="3" step=".05" value="${s.leading}">`)}${field("Tracking", `<input data-type-tracking="${role}" type="number" min="-3" max="20" step=".1" value="${s.tracking}">`)}</details>`;
+    return `<details class="bg-type-role"><summary>${t(role)} <span>${esc(s.family)} · ${s.weight}</span></summary>${field("Police", `<select data-type-font="${role}">${option("", "Instrument Sans", s.font)}${fonts.map((f) => option(f.id, f.family + " · " + f.weight, s.font)).join("")}</select>`)}${field("Graisse", `<select data-type-weight="${role}">${[...new Set([400,...fonts.filter(f=>f.family===s.family).map(f=>f.weight)])].map(w=>option(String(w),String(w),String(s.weight))).join("")}</select>`)}<div class="two-fields">${field("Taille pt", `<input data-type-size="${role}" type="number" min="5" max="150" step=".25" value="${s.size}">`)}${field("Taille px", `<input data-type-px="${role}" type="number" min="6.67" max="200" step=".25" value="${+((s.size * 4) / 3).toFixed(2)}">`)}</div>${field("Interlignage", `<input data-type-leading="${role}" type="number" min=".8" max="3" step=".05" value="${s.leading}">`)}${field("Tracking", `<input data-type-tracking="${role}" type="number" min="-3" max="20" step=".1" value="${s.tracking}">`)}${role === "accent" ? `<button type="button" data-remove-accent>${t("Retirer la typographie d’accent")}</button>` : ""}</details>`;
   }).join("")}`;
 }
 export function bindFonts(host, g, update, notice, assign) {
   host.querySelector("[data-accent-enabled]")?.addEventListener("change",e=>update(()=>{g.accentTypography={enabled:e.target.checked};}));
+  host.querySelector("[data-add-accent]")?.addEventListener("click",()=>update(()=>{g.accentTypography={enabled:true};g.typography.accent ||= {...typeStyle(g,"body")};}));
+  host.querySelector("[data-remove-accent]")?.addEventListener("click",()=>update(()=>{g.accentTypography.enabled=false;}));
   const input = host.querySelector("[data-font-import]");
   if (input)
     input.onchange = async () => {
@@ -54,7 +56,7 @@ export function bindFonts(host, g, update, notice, assign) {
         notice(t(e.message));
       }
     };
-  for (const key of ["font", "size", "px", "leading", "tracking"])
+  for (const key of ["font", "weight", "size", "px", "leading", "tracking"])
     host.querySelectorAll(`[data-type-${key}]`).forEach(
       (el) =>
         (el.onchange = () => {
@@ -69,6 +71,10 @@ export function bindFonts(host, g, update, notice, assign) {
                 family: f?.family || "Instrument Sans",
                 weight: f?.weight || 400,
               });
+            } else if (key === "weight") {
+              const f=g.resources.find(f=>f.type==="font" && f.family===s.family && f.weight===+el.value);
+              if(f)s.font=f.id;
+              s.weight=+el.value;
             } else if (key === "px") s.size = +el.value * 0.75;
             else s[key] = +el.value;
             s.pt = s.size;

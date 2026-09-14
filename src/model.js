@@ -66,6 +66,7 @@ export function project(mode = "compose") {
       contrast: 3,
       clearspace: true,
       destinations: ["WEB", "PRINT"],
+      printBitmaps: false,
       rasterFormats: ["web-3000"],
       customFormats: [],
       framing: {},

@@ -1,3 +1,4 @@
+import { pairState } from "./guideline-pairs.js";
 import {
   prepareGuide,
   generateGuide,
@@ -62,10 +63,9 @@ export function mountGuideWizard(host, p, edit, notice) {
       )
       .join("");
   if (step === 3)
-    content = `<p class="bg-wizard-note">${t("Cochez les associations à valider. Décochez celles à éviter.")}</p><div class="bg-pair-review">${colors.flatMap(foreground=>colors.filter(background=>background.id!==foreground.id).map(background=>{
-      const key=foreground.id+":"+background.id, decision=g.pairs[key], recommended=contrast(foreground.hex,background.hex)>=4.5;
-      const allowed=decision?.manual ? decision.allowed : recommended;
-      return `<label class="bg-pair-choice" style="--pair-bg:${background.hex};--pair-fg:${foreground.hex}"><input type="checkbox" data-setup-pair="${esc(key)}" ${allowed?"checked":""}><span class="bg-pair-sample">Aa</span><span><strong>${esc(foreground.name)} ${t("sur")} ${esc(background.name)}</strong><small>${contrast(foreground.hex,background.hex).toFixed(2)}:1 · ${t(allowed?"Validée":"À éviter")}</small></span></label>`;
+    content = `<div class="bg-pair-review">${colors.flatMap(foreground=>colors.map(background=>{
+      const key=foreground.id+":"+background.id,state=pairState(g,foreground,background);
+      return `<label class="bg-pair-choice" style="--pair-bg:${background.hex};--pair-fg:${foreground.hex}"><span class="bg-pair-sample">Aa</span><span><strong>${esc(foreground.name)} ${t("sur")} ${esc(background.name)}</strong><select data-setup-pair="${esc(key)}" aria-label="${esc(foreground.name+' / '+background.name)}">${[["recommended","✓ Recommandée"],["allowed","○ Autorisée"],["avoid","× À éviter"]].map(([value,label])=>`<option value="${value}" ${state===value?'selected':''}>${t(label)}</option>`).join('')}</select></span></label>`;
     })).join("")}</div>`;
   if (step === 4)
     content =
@@ -136,7 +136,7 @@ export function mountGuideWizard(host, p, edit, notice) {
     });
   };
   host.querySelectorAll("[data-setup-pair]").forEach(el=>el.onchange=()=>update(()=>{
-    g.pairs[el.dataset.setupPair]={allowed:el.checked,hidden:false,manual:true,source:"manual"};
+    g.pairs[el.dataset.setupPair]={state:el.value,allowed:el.value!=="avoid",hidden:false,manual:true,source:"manual"};
     s.associationsReviewed=true;
   }));
   host.querySelector('[data-add-color-role]')?.addEventListener('click',()=>{

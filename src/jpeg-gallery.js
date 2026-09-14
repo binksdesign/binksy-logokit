@@ -65,7 +65,7 @@ export function mountJpegGallery(root, p, variants, edit, refresh, target) {
     )
     .join(
       "",
-    )}</select></label><button id="reset-global-pairs">${t("Revenir aux recommandations")}</button></div>${!p.exports.formats.includes("jpeg") ? `<p class="jpeg-format-note">${t("JPEG n’est pas activé pour l’export.")} <button id="enable-jpeg">${t("Inclure les JPEG")}</button></p>` : ""}<p>${t("Chaque aperçu montre le fond et la marge du fichier JPEG.")}</p>${warning ? `<p role="status">${warning}</p>` : ""}<div class="family-grid jpeg-grid">${
+    )}</select></label><button id="reset-global-pairs">${t("Revenir aux recommandations")}</button></div>${!p.exports.formats.includes("jpeg") ? `<p class="jpeg-format-note">${t("JPEG n’est pas activé pour l’export.")} <button id="enable-jpeg">${t("Inclure les JPEG")}</button></p>` : ""}${warning ? `<p role="status">${warning}</p>` : ""}<div class="family-grid jpeg-grid">${
     pairs
       .map(({ pair, item, jobs }, i) => {
         const included =
@@ -77,7 +77,7 @@ export function mountJpegGallery(root, p, variants, edit, refresh, target) {
               !p.excludedFiles?.includes(job.key) &&
               !p.excludedFiles?.includes(job.path),
           );
-        return `<article class="delivery ${included ? "selected" : ""}"><label><input type="checkbox" data-jpeg-pair="${i}" ${included ? "checked" : ""} aria-label="${esc(variantName(p, item.variant))} · ${esc(item.color.name)} · ${esc(pair.background.name)}"><span data-no-i18n>${esc(variantName(p, item.variant))}</span><small data-no-i18n>${esc(item.color.name)} / ${esc(pair.background.name)}</small><div class="delivery-preview" data-pair-preview="${i}">${jpegPreview(p, pair, target)}</div></label>${target ? "" : `<button data-jpeg-framing="${i}">${t("Taille du logo dans l’image")}</button>`}<span class="pair-contrast">${pair.ratio.toFixed(1)}:1 · ${t(pair.recommended ? "Contraste conseillé" : "Contraste faible")}</span><details open><summary>${t("Appliquer ce fond aux autres versions")}</summary><label class="check"><input type="checkbox" data-global-pair="${esc(pair.globalId)}" ${pair.enabled ? "checked" : ""}>${t("Utiliser cette association pour toutes les versions")}</label></details></article>`;
+        return `<article class="delivery ${included ? "selected" : ""}"><label><input type="checkbox" data-jpeg-pair="${i}" ${included ? "checked" : ""} aria-label="${esc(variantName(p, item.variant))} · ${esc(item.color.name)} · ${esc(pair.background.name)}"><span data-no-i18n>${esc(variantName(p, item.variant))}</span><small data-no-i18n>${esc(item.color.name)} / ${esc(pair.background.name)}</small><div class="delivery-preview" data-pair-preview="${i}">${jpegPreview(p, pair, target)}</div></label>${target ? "" : `<button data-jpeg-framing="${i}">${t("Taille du logo dans l’image")}</button>`}<span class="pair-contrast">${pair.ratio.toFixed(1)}:1 · ${t(pair.recommended ? "Contraste conseillé" : "Contraste faible")}</span><details><summary>${t("Appliquer ce fond aux autres versions")}</summary><label class="check"><input type="checkbox" data-global-pair="${esc(pair.globalId)}" ${pair.enabled ? "checked" : ""}>${t("Utiliser cette association pour toutes les versions")}</label></details></article>`;
       })
       .join("") ||
     `<p>${t("Aucun JPEG dans cette sélection. Choisissez une autre catégorie.")}</p>`

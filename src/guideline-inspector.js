@@ -1,4 +1,4 @@
-import { logoChoices } from "./guideline-logos.js";
+import { pairState } from "./guideline-pairs.js";
 import {
   field,
   option,
@@ -8,7 +8,7 @@ import {
   bindFonts,
   bindMedia,
 } from "./guideline-controls.js";
-import { FORMATS, MISUSES } from "./guideline-model.js";
+import { FORMATS, MISUSES, PAGE_TYPES } from "./guideline-model.js";
 import {
   finalPalette,
   assignFontRoles,
@@ -43,7 +43,7 @@ export function inspectorHTML(p, a, elementPanel, selected) {
     )
     .join(
       "",
-    )}${field("Marges", `<input data-bg-theme="margin" type="number" min="12" max="80" value="${T.margin}">`)}${["headers", "footers", "numbers", "brandName"].map((key) => field({ headers: "En-têtes", footers: "Pieds de page", numbers: "Numéros de pages", brandName: "Nom de la marque" }[key], `<input data-global-toggle="${key}" type="checkbox" ${g.theme[key] !== false ? "checked" : ""}>`)).join("")}<details open><summary>${t("Système typographique")}</summary>${fontControls(g)}</details><button data-reopen-setup>${t("Modifier la préparation")}</button>`;
+    )}${field("Marges", `<input data-bg-theme="margin" type="number" min="12" max="80" value="${T.margin}">`)}${["headers", "footers", "numbers", "brandName"].map((key) => field({ headers: "En-têtes", footers: "Pieds de page", numbers: "Numéros de pages", brandName: "Nom de la marque" }[key], `<input data-global-toggle="${key}" type="checkbox" ${g.theme[key] !== false ? "checked" : ""}>`)).join("")}<details><summary>${t("Système typographique")}</summary>${fontControls(g)}</details><button data-reopen-setup>${t("Modifier la préparation")}</button>`;
   let local =
     field("Inclure cette page", `<input type="checkbox" data-page-enabled ${a.disabled ? "" : "checked"}>`) +
     field("Titre", `<input data-bg-title value="${esc(a.title)}">`) +
@@ -53,6 +53,7 @@ export function inspectorHTML(p, a, elementPanel, selected) {
       a.background || T.background,
       "Fond de page",
     );
+  local += `<details><summary>${t("Options avancées")}</summary>`;
   local += [ ['text','Texte principal'],['muted','Texte secondaire'] ].map(([key,label])=>paletteSelect(p,`data-page-color="${key}"`,a.settings?.[key] || 'auto',label)).join('');
   if (
     EDITORIAL_TYPES.includes(a.type) ||
@@ -82,7 +83,7 @@ export function inspectorHTML(p, a, elementPanel, selected) {
   if (["logos", "minimum", "clearspace", "misuse", "cover"].includes(a.type)) {
     const multiple = ["logos", "minimum"].includes(a.type);
     const included = multiple ? (a.variants.length ? a.variants : p.enabled) : [a.variants[0] || p.active];
-    local += `<fieldset><legend>${t("Versions du logo")}</legend>${(multiple ? variantIds(p) : included).map(v => `${multiple ? `<label class="check"><input type="checkbox" data-guide-variant="${v}" ${included.includes(v) ? "checked" : ""} ${included.length === 1 && included.includes(v) ? "disabled" : ""}>${esc(variantName(p,v))}</label>` : ""}${included.includes(v) ? field("Version colorimétrique", `<select data-guide-logo-color="${v}">${option("auto","Automatique",a.logoColors?.[v] || "auto")}${logoChoices(p,v).map(c=>option(c.id,c.name,a.logoColors?.[v] || "auto")).join("")}</select>`) : ""}`).join("")}</fieldset>`;
+    local += `<fieldset><legend>${t("Versions du logo")}</legend>${(multiple ? variantIds(p) : included).map(v => `${multiple ? `<label class="check"><input type="checkbox" data-guide-variant="${v}" ${included.includes(v) ? "checked" : ""} ${included.length === 1 && included.includes(v) ? "disabled" : ""}>${esc(variantName(p,v))}</label>` : ""}`).join("")}</fieldset>`;
   }
   if (a.type === "clearspace") {
     const c = p.compositions[a.variants[0] || p.active];
@@ -132,9 +133,7 @@ export function inspectorHTML(p, a, elementPanel, selected) {
     pairForeground = fg?.id;
     pairBackground = bg?.id;
     if (fg && bg) {
-      const good =
-        g.pairs[fg.id + ":" + bg.id]?.allowed ??
-        contrast(fg.hex, bg.hex) >= 4.5;
+      const state=pairState(g,fg,bg);
       local +=
         field(
           "Texte",
@@ -146,7 +145,7 @@ export function inspectorHTML(p, a, elementPanel, selected) {
         ) +
         field(
           "Association",
-          `<select data-pair-allowed>${option("yes", "Recommandée", good ? "yes" : "no")}${option("no", "À éviter", good ? "yes" : "no")}${option("hide", "Ne pas afficher", g.pairs[fg.id + ":" + bg.id]?.hidden ? "hide" : "")}</select>`,
+          `<select data-pair-allowed>${option("recommended", "Recommandée", state)}${option("allowed", "Autorisée", state)}${option("avoid", "À éviter", state)}</select>`,
         );
     }
   }
@@ -176,7 +175,8 @@ export function inspectorHTML(p, a, elementPanel, selected) {
       media || {},
       g.resources.find((r) => r.id === media?.resource),
     );
-  return `<div class="bg-inspector-heading"><span>${t("Page")} ${g.pages.indexOf(a) + 1}</span><strong>${esc(a.title || t(a.type === "clearspace" ? "Zone de sécurité" : a.type))}</strong></div><div class="bg-inspector-tabs" role="tablist"><button data-inspector-tab="page" role="tab" aria-selected="${tab === "page"}">${t("Réglages page")}</button><button data-inspector-tab="global" role="tab" aria-selected="${tab === "global"}">${t("Réglages globaux")}</button></div><div role="tabpanel">${tab === "global" ? global : elementPanel || local}</div>`;
+  local += "</details>";
+  return `<div class="bg-inspector-heading"><span>${t("Page")} ${g.pages.indexOf(a) + 1}</span><strong>${esc(a.title || t(PAGE_TYPES[a.type]))}</strong></div><div class="bg-inspector-tabs" role="tablist"><button data-inspector-tab="page" role="tab" aria-selected="${tab === "page"}">${t("Réglages page")}</button><button data-inspector-tab="global" role="tab" aria-selected="${tab === "global"}">${t("Réglages globaux")}</button></div><div role="tabpanel">${tab === "global" ? global : `<details open><summary>${t("Réglages page")}</summary>${local}</details>`}</div>`;
 }
 export function bindInspector(host, p, a, selected, update, rerender, notice) {
   const g = p.brandGuideline;
@@ -229,8 +229,9 @@ export function bindInspector(host, p, a, selected, update, rerender, notice) {
       update(
         () =>
           (g.pairs[pairForeground + ":" + pairBackground] = {
-            allowed: e.target.value === "yes",
-            hidden: e.target.value === "hide",
+            state: e.target.value,
+            allowed: e.target.value !== "avoid",
+            hidden: false,
             manual: true,
             source: "manual",
           }),
@@ -287,8 +288,7 @@ export function bindInspector(host, p, a, selected, update, rerender, notice) {
     () =>
       selected?.type === "image"
         ? a.elements.find((e) => e.id === selected.id) ||
-          a.media ||
-          (a.media = {})
+          (a.styles[selected.id] ||= {})
         : a.media || (a.media = {}),
     update,
     notice,

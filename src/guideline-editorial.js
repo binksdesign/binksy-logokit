@@ -1,3 +1,5 @@
+import { pairCapacity } from "./guideline-minimum.js";
+import { pairState } from "./guideline-pairs.js";
 import { minimumRows } from "./guideline-minimum.js";
 import {
   dimensions,
@@ -277,7 +279,7 @@ export function editorialPage(p, a, index) {
     variants.forEach((v, i) => {
       const x = m + (i % cols) * (w + gap),
         y = top + Math.floor(i / cols) * (h + gap);
-      rect("logo-bg-" + v, x, y, w, h - 24, i % 2 ? T.secondary : T.background);
+      if (a.type === "construction") rect("logo-bg-" + v, x, y, w, h - 24, T.background);
       logo("logo-" + v, v, x + 20, y + 15, w - 40, h - 60);
       caption("logo-label-" + v, variantName(p, v), x, y + h - 19, w);
     });
@@ -381,51 +383,15 @@ export function editorialPage(p, a, index) {
       );
     });
   } else if (a.type === "pairs" || a.type === "accessibility") {
-    const pairs = palette.flatMap((bg) =>
-      palette
-        .filter((fg) => fg.id !== bg.id && !g.pairs[fg.id + ":" + bg.id]?.hidden)
-        .map((fg) => ({
-          bg,
-          fg,
-          good:
-            g.pairs[fg.id + ":" + bg.id]?.allowed ??
-            contrast(bg.hex, fg.hex) >= 4.5,
-        })),
-    );
-    [true, false].forEach((good, group) => {
-      const x = portrait ? m : m + group * (cw * 0.5 + 12),
-        y = portrait ? top + group * (ch * 0.5 + 12) : top,
-        w = portrait ? cw : cw * 0.5 - 12,
-        h = portrait ? ch * 0.5 - 12 : ch;
-      caption(
-        "pairs-heading-" + group,
-        t(good ? "Associations recommandées" : "Associations à éviter"),
-        x,
-        y,
-        w,
-      );
-      const list = pairs.filter((q) => q.good === good).slice(0, 4),
-        rh = (h - 32) / Math.max(1, list.length);
-      list.forEach(({ bg, fg }, i) => {
-        rect(
-          "pair-field-" + group + "-" + i,
-          x,
-          y + 32 + i * rh,
-          w,
-          rh - 10,
-          bg.hex,
-        );
-        text(
-          "pair-text-" + group + "-" + i,
-          "Aa — " + p.brand,
-          x + 16,
-          y + 38 + i * rh,
-          w - 32,
-          rh - 18,
-          "heading",
-          { fill: fg.hex },
-        );
-      });
+    const pairs=palette.flatMap(bg=>palette.map(fg=>({bg,fg,state:pairState(g,fg,bg)})));
+    const capacity=pairCapacity(p), cols=Math.max(1,Math.floor(cw/175)), gap=16;
+    const visible=pairs.slice(a.pairOffset || 0,(a.pairOffset || 0)+capacity);
+    const w=(cw-gap*(cols-1))/cols, h=84;
+    visible.forEach(({bg,fg,state},i)=>{
+      const id=fg.id+'-'+bg.id, x=m+(i%cols)*(w+gap), y=top+Math.floor(i/cols)*100;
+      rect('pair-field-'+id,x,y,w,h-24,bg.hex);
+      text('pair-text-'+id,'Aa — '+p.brand,x+12,y+10,w-24,38,'heading',{fill:fg.hex});
+      caption('pair-status-'+id,t({recommended:'✓ Recommandée',allowed:'○ Autorisée',avoid:'× À éviter'}[state]),x,y+h-20,w);
     });
   } else if (a.type === "fonts") {
     const fonts = g.resources.filter((r) => r.type === "font"),
@@ -470,8 +436,9 @@ export function editorialPage(p, a, index) {
       );
     });
   } else if (a.type === "hierarchy") {
-    const rh = ch / ROLES.length;
-    ROLES.forEach((role, i) => {
+    const roles = a.hierarchyRoles || [...ROLES,...(g.accentTypography?.enabled ? ["accent"] : [])];
+    const rh = ch / roles.length;
+    roles.forEach((role, i) => {
       const s = typeStyle(g, role),
         y = top + i * rh;
       caption("type-role-" + role, t(role), m, y, cw * 0.26);
@@ -485,6 +452,7 @@ export function editorialPage(p, a, index) {
             body: "Un texte clair, précis et facile à parcourir.",
             small: "Les détails utiles, au bon endroit.",
             caption: "Une légende pour accompagner le visuel.",
+            accent: "Une signature typographique.",
           }[role],
         ),
         m + cw * 0.28,

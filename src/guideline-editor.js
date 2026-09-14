@@ -1,3 +1,4 @@
+import { mountContextToolbar } from "./guideline-toolbar.js";
 import { logoChoices } from './guideline-logos.js';
 import { paginateMinimumPages } from "./guideline-minimum.js";
 import { mountGuideWizard } from "./guideline-wizard.js";
@@ -125,9 +126,9 @@ export function mountGuideline(host, p, edit, navigate, notice) {
                 .join("")}</select>`,
             ) + field("Version colorimétrique", `<select data-element-logo-color>${option("auto","Automatique",current.styles[selected.id]?.colorId || "auto")}${logoChoices(p,selected.variant).map(c=>option(c.id,c.name,current.styles[selected.id]?.colorId || "auto")).join("")}</select>`)
           : ""
-      }${selected.type === "image" ? mediaControls(selected, g.resources.find(r => r.id === selected.resource)) : ""}${["text", "rect"].includes(selected.type) ? paletteSelect(p, "data-bg-fill", current.styles[selected.id]?.fill || (current.elements.find(e=>e.id===selected.id)?.fill) || "auto", "Couleur") : ""}${button("duplicate-element", "Dupliquer l’élément")}${button("delete-element", "Supprimer l’élément")}${button("front", "Premier plan")}${button("align-left", "Aligner à gauche")}${button("align-center", "Centrer horizontalement")}${button("align-top", "Aligner en haut")}${button("deselect", "Propriétés de la page")}`
+      }${selected.type === "image" ? mediaControls(selected, g.resources.find(r => r.id === selected.resource)) : ""}${["text", "rect"].includes(selected.type) ? paletteSelect(p, "data-bg-fill", current.styles[selected.id]?.fill || (current.elements.find(e=>e.id===selected.id)?.fill) || "auto", "Couleur") : ""}${selected.type === "text" ? ["leading","tracking"].map(k=>field(k,`<input type="number" data-context="${k}" min="${k==='leading'?.8:-3}" max="${k==='leading'?3:20}" step=".1" value="${selected[k] || (k==='leading'?1.4:0)}">`)).join("") : ""}${button("duplicate-element", "Dupliquer l’élément")}${button("delete-element", "Supprimer l’élément")}${button("front", "Premier plan")}${button("align-left", "Aligner à gauche")}${button("align-center", "Centrer horizontalement")}${button("align-top", "Aligner en haut")}${button("deselect", "Propriétés de la page")}`
     : "";
-  host.innerHTML = `<div class="bg-toolbar"><div class="bg-document-title"><strong>Brand Guideline</strong><span>${esc(p.brand)} · ${t(FORMATS[g.format].label)}</span></div><label class="check"><input data-bg-enabled type="checkbox" ${g.enabled ? "checked" : ""}>${t("Inclure dans le kit")}</label>${button("setup", "Préparation")}${button("pdf", "Télécharger le PDF")}<select data-bg-zoom aria-label="Zoom">${[0.5, 0.75, 1, 1.25, 1.5, 2].map((z) => option(String(z), Math.round(z * 100) + "%", String(zoom))).join("")}</select></div><div class="bg-workspace"><aside class="bg-pages"><div class="bg-panel-heading"><span>${t("Pages")}</span><span>${g.pages.length}</span></div><select data-bg-library aria-label="${t("Bibliothèque de pages")}">${options(PAGE_TYPES, "blank")}</select>${button("add-page", "Ajouter une page")}<ol>${g.pages.map((a, i) => `<li draggable="true" data-bg-page="${a.id}"><button aria-current="${a.id === active}" data-bg-open="${a.id}"><span class="bg-thumbnail" style="aspect-ratio:${W / H}">${thumbnail(p, a, i)}</span><span>${String(i + 1).padStart(2, "0")} ${esc(a.title || t(PAGE_TYPES[a.type]))}</span></button></li>`).join("")}</ol>${button("up", "Monter")}${button("down", "Descendre")}${button("duplicate-page", "Dupliquer la page")}${button("delete-page", "Supprimer la page")}</aside><section class="bg-center"><div class="bg-stage-heading"><span>${String(g.pages.indexOf(current) + 1).padStart(2, "0")} / ${String(g.pages.length).padStart(2, "0")}</span><strong>${esc(current.title || t(PAGE_TYPES[current.type]))}</strong><span>${t(FORMATS[g.format].label)}</span></div><div class="bg-canvas" style="--bg-ratio:${W / H};--bg-zoom:${zoom}">${guidelineSVG(p, current, g.pages.indexOf(current), { editor: true })}</div><div class="bg-insert">${button("text", "Ajouter un texte")}${button("rect", "Ajouter une forme")}<label class="file-button">${t("Importer des images")}<input data-bg-images type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></label></div><p class="bg-hint">${t("Double-cliquez pour éditer. Déplacez les éléments sur la page.")} ${t("Les textes sont ajustés à leur bloc si nécessaire.")}</p></section><aside class="bg-properties">${inspectorHTML(p, current, elementPanel, selected)}</aside></div>`;
+  host.innerHTML = `<div class="bg-toolbar"><div class="bg-document-title"><strong>Brand Guideline</strong><span>${esc(p.brand)} · ${t(FORMATS[g.format].label)}</span></div><label class="check"><input data-bg-enabled type="checkbox" ${g.enabled ? "checked" : ""}>${t("Inclure dans le kit")}</label>${button("setup", "Préparation")}${button("pdf", "Télécharger le PDF")}${button("svg", "Exporter les pages SVG")}<select data-bg-text-mode aria-label="${t("Texte SVG")}">${option("text","Texte éditable",g.exports.text)}${option("paths","Texte vectorisé",g.exports.text)}</select><select data-bg-zoom aria-label="Zoom">${[0.5, 0.75, 1, 1.25, 1.5, 2].map((z) => option(String(z), Math.round(z * 100) + "%", String(zoom))).join("")}</select></div><div class="bg-workspace"><aside class="bg-pages"><div class="bg-panel-heading"><span>${t("Pages")}</span><span>${g.pages.length}</span></div><select data-bg-library aria-label="${t("Bibliothèque de pages")}">${options(PAGE_TYPES, "blank")}</select>${button("add-page", "Ajouter une page")}<ol>${g.pages.map((a, i) => `<li draggable="true" data-bg-page="${a.id}"><button aria-current="${a.id === active}" data-bg-open="${a.id}"><span class="bg-thumbnail" style="aspect-ratio:${W / H}">${thumbnail(p, a, i)}</span><span>${String(i + 1).padStart(2, "0")} ${esc(a.title || t(PAGE_TYPES[a.type]))}</span></button></li>`).join("")}</ol>${button("up", "Monter")}${button("down", "Descendre")}${button("duplicate-page", "Dupliquer la page")}${button("delete-page", "Supprimer la page")}</aside><section class="bg-center"><div class="bg-stage-heading"><span>${String(g.pages.indexOf(current) + 1).padStart(2, "0")} / ${String(g.pages.length).padStart(2, "0")}</span><strong>${esc(current.title || t(PAGE_TYPES[current.type]))}</strong><span>${t(FORMATS[g.format].label)}</span></div><div class="bg-canvas" style="--bg-ratio:${W / H};--bg-zoom:${zoom}">${guidelineSVG(p, current, g.pages.indexOf(current), { editor: true })}<div class="bg-context-toolbar" role="toolbar" aria-label="${t("Élément sélectionné")}">${selected ? `<details class="bg-context-more"><summary aria-label="${t("Options avancées")}" title="${t("Options avancées")}">•••</summary><div>${elementPanel}</div></details>` : ""}</div></div><div class="bg-insert">${button("text", "Ajouter un texte")}${button("rect", "Ajouter une forme")}<label class="file-button">${t("Importer des images")}<input data-bg-images type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></label></div></section><aside class="bg-properties">${inspectorHTML(p, current, "", null)}</aside></div>`;
   host.querySelectorAll("details").forEach((d) => {
     if (openPanels.has(d.querySelector("summary")?.textContent)) d.open = true;
   });
@@ -150,7 +151,7 @@ export function mountGuideline(host, p, edit, navigate, notice) {
         y: selected.y / H,
         w: selected.w / W,
         h: selected.h / H,
-        size: selected.size || 12,
+
         ...current.styles[selection],
         ...Object.fromEntries(
           Object.entries(changes).map(([k, v]) => [
@@ -169,8 +170,7 @@ export function mountGuideline(host, p, edit, navigate, notice) {
       y: 0.25,
       w: 0.45,
       h: 0.25,
-      size: 12,
-      fill: theme(p).text,
+      fill: "auto",
       text: t("Votre texte"),
       role: "body",
       ...extra,
@@ -406,8 +406,7 @@ export function mountGuideline(host, p, edit, navigate, notice) {
     update(() =>
       modifyElement({
         role: el.value,
-        size: typeStyle(g, el.value).size,
-        font: "",
+        font: undefined, size: undefined, weight: undefined, leading: undefined, tracking: undefined,
       }),
     ),
   );
@@ -543,6 +542,8 @@ export function mountGuideline(host, p, edit, navigate, notice) {
     imports([...el.files]),
   );
   const canvas = host.querySelector(".bg-canvas");
+  canvas.addEventListener("click",event=>{if(event.target.closest(".bg-context-toolbar,[data-guide-element],.bg-selection,.bg-inline-text"))return;selection="";mountGuideline(host,p,edit,navigate,notice);});
+  mountContextToolbar(canvas,p,current,selected,update,notice);
   if (g.theme.guides) {
     const guides = document.createElement("div");
     guides.className = "bg-guides";
@@ -585,7 +586,7 @@ export function mountGuideline(host, p, edit, navigate, notice) {
             y: original.y / H,
             w: original.w / W,
             h: original.h / H,
-            size: original.size || 12,
+
             ...current.styles[id],
             ...(event.key === "ArrowLeft" || event.key === "ArrowRight"
               ? {
@@ -664,7 +665,7 @@ export function mountGuideline(host, p, edit, navigate, notice) {
               y,
               w: e.w / W,
               h: e.h / H,
-              size: e.size || 12,
+
               ...(e.text !== undefined ? { text: e.text } : {}),
             };
         });

@@ -36,7 +36,7 @@ export function textLines(e, g) {
   const font = fontFor(g, e),
     measure = (s) =>
       (font ? fontRun(font, s, e.size).width : s.length * e.size * 0.53) +
-      Math.max(0, s.length - 1) * (e.tracking || 0);
+      Math.max(0, Array.from(s).length - 1) * (e.tracking || 0);
   const lines = [];
   for (const paragraph of String(e.text).normalize("NFC").split("\n")) {
     let line = "";
@@ -62,12 +62,17 @@ export function textLines(e, g) {
   }
   return lines;
 }
+export function textMetrics(e,g) {
+  const resource=fontFor(g,e), font=resource ? parsedFont(resource) : null;
+  const ascent=font?Math.max(0,font.ascender)/font.unitsPerEm*e.size:e.size;
+  const descent=font?Math.max(0,-font.descender)/font.unitsPerEm*e.size:e.size*.25;
+  return {ascent,descent,height:(textLines(e,g).length-1)*e.size*(e.leading || 1.4)+ascent+descent};
+}
 export function fittedText(e, g) {
   let result = { ...e };
   while (
     result.size > 6 &&
-    (textLines(result, g).length - 1) * result.size * (result.leading || 1.4) +
-      result.size >
+    textMetrics(result,g).height >
       result.h
   )
     result.size = Math.max(6, result.size - 0.25);
@@ -78,20 +83,28 @@ export function renderText(e, g, paths = false) {
   const font = fontFor(g, e),
     family = font ? "bg-" + font.id : "Helvetica",
     lines = textLines(e, g),
-    leading = (e.leading || 1.4) * e.size;
+    leading = (e.leading || 1.4) * e.size,
+    baseline = textMetrics(e,g).ascent;
   if (paths && font)
     return lines
       .map((line, i) => {
         const run = fontRun(font, line, e.size, e.tracking || 0);
+        const offset = e.align === "center" ? (e.w-run.width)/2 : e.align === "right" ? e.w-run.width : 0;
         return run.placements
           .map(
             ({ glyph, x }) =>
-              `<path fill="${e.fill}" d="${glyphPathData(glyph.getPath(e.x + x, e.y + e.size + i * leading, e.size, {}, run.font))}"/>`,
+              `<path fill="${e.fill}" d="${glyphPathData(glyph.getPath(e.x + offset + x, e.y + baseline + i * leading, e.size, {}, run.font))}"/>`,
           )
           .join("");
       })
       .join("");
-  return `<text font-variant-ligatures="none" font-family="${family}" font-size="${e.size}" font-weight="${e.weight || 400}" letter-spacing="${e.tracking || 0}" fill="${e.fill}">${lines.map((line, i) => `<tspan x="${e.x}" y="${e.y + e.size + i * leading}">${escape(line)}</tspan>`).join("")}</text>`;
+  return `<text xml:space="preserve" font-variant-ligatures="none" font-kerning="none" font-family="${family}" font-size="${e.size}" font-weight="${e.weight || 400}" fill="${e.fill}">${lines.map((line, i) => {
+    const run = font ? fontRun(font,line,e.size,e.tracking || 0) : null;
+    const width = run?.width || line.length*e.size*.53;
+    const offset = e.align === "center" ? (e.w-width)/2 : e.align === "right" ? e.w-width : 0;
+    const positions = run ? run.placements.map(a=>e.x+offset+a.x).join(" ") : e.x+offset;
+    return `<tspan x="${positions}" y="${e.y + baseline + i * leading}">${escape(line)}</tspan>`;
+  }).join("")}</text>`;
 }
 function effectSVG(svg, e, id) {
   const w = e.w,
@@ -206,16 +219,14 @@ export function guidelineSVG(
   const g = p.brandGuideline,
     { width: W, height: H } = dimensions(g),
     T = pageTheme(p, page);
-  let result = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}" role="img" aria-label="${escape(page.title || page.type)}"><rect width="${W}" height="${H}" fill="${page.background || T.background}"/>${pageElements(
-    p,
-    page,
-    index,
-  )
-    .map(
-      (e) =>
-        `<g ${editor ? `data-guide-element="${escape(e.id)}" tabindex="0" role="button" aria-label="${escape(e.text || e.type)}"` : ""}>${elementSVG(p, e, "bg-" + page.id + "-" + e.id, paths)}</g>`,
-    )
-    .join("")}</svg>`;
+  const groups = {text:'TEXT',logo:'LOGOS',image:'IMAGES',rect:'DECORATION',placeholder:'IMAGES'};
+  const counts = {};
+  const content = pageElements(p,page,index).map(e=>{
+    const group=groups[e.type] || 'DECORATION';
+    counts[group]=(counts[group] || 0)+1;
+    return `<g id="${group}_${counts[group]}" data-name="${group}"><g id="${escape(page.id+'-'+e.id)}" data-name="${escape(e.id)}" ${editor ? `data-guide-element="${escape(e.id)}" tabindex="0" role="button" aria-label="${escape(e.text || e.type)}"` : ''}>${elementSVG(p,e,'bg-'+page.id+'-'+e.id,paths)}</g></g>`;
+  }).join('');
+  let result = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}" role="img" aria-label="${escape(page.title || page.type)}"><g id="BACKGROUND"><rect width="${W}" height="${H}" fill="${page.background || T.background}"/></g>${content}</svg>`;
   if (portable)
     for (const r of fontResources(g))
       result = result.replaceAll(

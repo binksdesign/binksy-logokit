@@ -129,6 +129,8 @@ export function duplicatePage(g, id) {
   if (i < 0) return;
   const copy = structuredClone(g.pages[i]);
   copy.id = uid();
+  copy.paginationRoot = undefined;
+  copy.generatedKey = "";
   g.pages.splice(i + 1, 0, copy);
   return copy;
 }
@@ -234,6 +236,7 @@ export function validateGuide(input, mode) {
     order: limit(v?.order, 0, 1000),
   }));
   g.pairs = dict(input.pairs, (v) => ({
+    state: ["recommended","allowed","avoid"].includes(v?.state) ? v.state : undefined,
     allowed: v?.allowed === true,
     hidden: v?.hidden === true,
     manual: v?.manual === true,
@@ -293,6 +296,9 @@ export function validateGuide(input, mode) {
     a.title = cleanText(source.title, 300);
     a.body = cleanText(source.body);
     a.generatedKey = cleanText(source.generatedKey, 160);
+    a.paginationRoot = cleanText(source.paginationRoot,100) || undefined;
+    a.pairOffset = limit(source.pairOffset,0,10000,0);
+    a.hierarchyRoles = Array.isArray(source.hierarchyRoles) ? source.hierarchyRoles.filter(r=>[...ROLES,"accent"].includes(r)) : undefined;
     a.group = source.group === 'parts' ? 'parts' : 'full';
     a.media = validateMedia(source.media);
     a.ruleOffset = limit(source.ruleOffset, 0, 100);
@@ -339,7 +345,12 @@ export function validateGuide(input, mode) {
       y: limit(e.y, 0, 1),
       w: limit(e.w, 0.01, 1, 0.3),
       h: limit(e.h, 0.01, 1, 0.15),
-      size: limit(e.size, 5, 150, 12),
+      size: Number.isFinite(e.size) ? limit(e.size, 5, 150, 12) : undefined,
+      font: typeof e.font === "string" ? cleanText(e.font,100) : undefined,
+      weight: Number.isFinite(e.weight) ? limit(e.weight,100,900) : undefined,
+      leading: Number.isFinite(e.leading) ? limit(e.leading,.8,3) : undefined,
+      tracking: Number.isFinite(e.tracking) ? limit(e.tracking,-3,20) : undefined,
+      align: ["left","center","right"].includes(e.align) ? e.align : undefined,
       fill: e.fill === "auto" ? "auto" : hex(e.fill),
       colorId: cleanText(e.colorId,300) || undefined,
       zoom: limit(e.zoom, 1, 5, 1),
@@ -354,6 +365,11 @@ export function validateGuide(input, mode) {
       h: Number.isFinite(v?.h) ? limit(v.h, 0.001, 1) : undefined,
       text: typeof v?.text === "string" ? cleanText(v.text) : undefined,
       size: Number.isFinite(v?.size) ? limit(v.size, 5, 150, 12) : undefined,
+      font: typeof v?.font === "string" ? cleanText(v.font,100) : undefined,
+      weight: Number.isFinite(v?.weight) ? limit(v.weight,100,900) : undefined,
+      leading: Number.isFinite(v?.leading) ? limit(v.leading,.8,3) : undefined,
+      tracking: Number.isFinite(v?.tracking) ? limit(v.tracking,-3,20) : undefined,
+      align: ["left","center","right"].includes(v?.align) ? v.align : undefined,
       fill: v?.fill === "auto" ? "auto" : v?.fill ? hex(v.fill) : undefined,
       hidden: v?.hidden === true,
       role: cleanText(v?.role, 100) || undefined,

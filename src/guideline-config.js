@@ -121,7 +121,7 @@ export function generateGuide(p) {
     s = g.setup,
     variants = guideVariants(p);
   const before = new Map(
-    g.pages.filter((a) => a.generatedKey).map((a) => [a.generatedKey, a]),
+    g.pages.filter((a) => a.generatedKey && !a.paginationRoot).map((a) => [a.generatedKey, a]),
   );
   const generated = [];
   const add = (type, key, attrs = {}) => {
@@ -178,7 +178,7 @@ export function generateGuide(p) {
   // Manually added pages and legacy guides are never deleted by the preparation assistant.
   g.pages = [
     ...generated.slice(0, -1),
-    ...g.pages.filter((a) => !a.generatedKey),
+    ...g.pages.filter((a) => !a.generatedKey || a.paginationRoot),
     generated.at(-1),
   ];
   g.enabled = true;

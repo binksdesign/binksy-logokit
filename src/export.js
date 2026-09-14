@@ -115,7 +115,7 @@ export function exportPlan(p, items, includeExcluded = false) {
     for (const format of formats) {
       if (!p.exports.formats.includes(format)) continue;
       const targets = ["png", "jpeg"].includes(format)
-        ? rasterTargets(p.exports, item.variant)
+        ? rasterTargets(p.exports, item.variant, format)
         : [{ destination: format === "pdf" ? "PRINT" : "WEB" }];
       for (const target of targets) {
         const folder = `${root}/LOGOS/${safeFolder(variantName(p, item.variant))}/${target.destination}`;

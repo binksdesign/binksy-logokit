@@ -1,3 +1,4 @@
+import { commonLogoColor } from "./guideline-logos.js";
 import { bestLogoColor } from './guideline-logos.js';
 import { paletteInk } from './guideline-theme.js';
 import { fontFamily } from "./guideline-fonts.js";
@@ -916,16 +917,26 @@ function rawPageElements(p, page, index = 0) {
 }
 
 export function pageElements(p,page,index=0) {
-  const items=rawPageElements(p,page,index), T=pageTheme(p,page);
+  const items=rawPageElements(p,page,index).filter(e=>page.type!=='logos' || !e.id.startsWith('logo-bg-')), T=pageTheme(p,page);
+  const common = page.type === 'logos' ? commonLogoColor(p,items.filter(e=>e.type==='logo').map(e=>e.variant),T.background) : null;
   return items.map((e,i)=>{
     const rect=items.slice(0,i).reverse().find(r=>r.type==='rect' && r.h>2 && r.x<=e.x && r.y<=e.y && r.x+r.w>=e.x+e.w && r.y+r.h>=e.y+e.h);
     const background=rect?.fill==='auto'?T.secondary:rect?.fill || T.background;
+    if(e.type==='placeholder' && e.resource)return {...e,type:'image'};
     if(e.type==='rect' && e.fill==='auto')return {...e,fill:T.secondary};
     if(e.type==='logo') {
       const override=page.styles[e.id], manual=override?.colorId || page.logoColors?.[e.variant] || e.colorId;
-      return {...e,colorId:!manual || manual==='auto'?bestLogoColor(p,e.variant,background):manual,guideColor:paletteInk(p,background)};
+      return {...e,colorId:!manual || manual==='auto'?(common || bestLogoColor(p,e.variant,background)):manual,guideColor:paletteInk(p,background)};
     }
     if(e.type==='text') {
+      const ownStyle = page.elements.find(item=>item.id===e.id) || {};
+      const localStyle = {...ownStyle,...page.styles[e.id]};
+      const resolved = typeStyle(p.brandGuideline, localStyle.role || e.role || 'body');
+      for (const key of ['font','weight','leading','tracking','align'])
+        if (localStyle[key] !== undefined) e[key] = localStyle[key];
+        else if (!e.id.startsWith('font-specimen-') && !e.id.startsWith('font-alphabet-')) e[key] = resolved[key];
+      if ((localStyle.role || ownStyle.type === 'text') && localStyle.size === undefined) e.size = resolved.size;
+
       const override=page.styles[e.id]?.fill;
       if(override && override!=='auto')return e;
       const own=page.elements.find(item=>item.id===e.id)?.fill;

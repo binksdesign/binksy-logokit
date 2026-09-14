@@ -1,3 +1,4 @@
+import { layout, contrast, originalPaints } from './model.js';
 import { catalog, CATEGORIES } from './catalog.js';
 
 // Only real descriptors; never enumerate the unbounded Cartesian catalogue.
@@ -17,4 +18,16 @@ export function logoChoices(p, variant) {
 }
 export function logoColor(p, variant, id) {
   return logoChoices(p, variant).find(c => c.id === id) || null;
+}
+
+export function bestLogoColor(p,variant,background) {
+  const choices=logoChoices(p,variant);
+  const score=c=>{
+    const paints=layout(p,variant).parts.flatMap(part=>(part.asset.roles||[]).map(r=>r.locked?r.paint:c.partColors?.[part.key]||c.mapping?.[r.id]||c.hex||r.paint));
+    if(c.gradient)paints.push(...(c.gradient.stops?.map(s=>s.color)||[c.gradient.from,c.gradient.to]));
+    if(!paints.length)paints.push(...originalPaints(p,variant));
+    const valid=paints.filter(h=>/^#[\da-f]{6}$/i.test(h));
+    return valid.length?valid.reduce((min,h)=>Math.min(min,contrast(h,background)),Infinity):0;
+  };
+  return choices.map(c=>({c,score:score(c)})).sort((a,b)=>b.score-a.score)[0]?.c.id || 'original';
 }

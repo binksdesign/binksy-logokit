@@ -8,7 +8,7 @@ import {
 } from "./guideline-theme.js";
 import {
   finalPalette,
-  COLOR_ROLES,
+  COLOR_ROLES, colorRoles,
   EDITORIAL_TYPES,
 } from "./guideline-config.js";
 import { variantName, layout, clearMeasure } from "./model.js";
@@ -89,7 +89,7 @@ export function editorialPage(p, a, index) {
       contentW = leftW - 2 * m;
     rect("cover-field", 0, 0, leftW, H, T.accent);
     const foreground = ink(T.accent);
-    caption("cover-label", "BRAND GUIDELINES", m, m, contentW, foreground);
+    caption("cover-label", "BRAND GUIDELINES", m, H * 0.24 - 30, contentW, foreground);
     text(
       "cover-brand",
       a.title || p.brand,
@@ -354,10 +354,10 @@ export function editorialPage(p, a, index) {
         "heading",
         { fill: fg },
       );
-      if (a.settings?.roles !== false && COLOR_ROLES[c.role])
+      if (a.settings?.roles !== false && colorRoles(g)[c.role])
         caption(
           "color-role-" + c.id,
-          t(COLOR_ROLES[c.role]),
+          t(colorRoles(g)[c.role]),
           x + 12,
           y + h * 0.56 - 30,
           w - 24,

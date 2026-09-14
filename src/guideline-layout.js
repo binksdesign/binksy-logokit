@@ -1,3 +1,5 @@
+import { bestLogoColor } from './guideline-logos.js';
+import { paletteInk } from './guideline-theme.js';
 import { fontFamily } from "./guideline-fonts.js";
 import { editorialPage } from './guideline-editorial.js';
 import { PAGE_TYPES, MISUSES, ROLES } from "./guideline-model.js";
@@ -232,7 +234,7 @@ export function legacyPageElements(p, page, index = 0) {
     const titleY = H * 0.73;
     text(
       "title",
-      page.title || t("Guide de marque"),
+      page.title || p.brand,
       m,
       titleY,
       portrait ? cw : cw * 0.6,
@@ -879,7 +881,7 @@ export function legacyPageElements(p, page, index = 0) {
     });
   return items
     .map((e) => {
-      if(e.type === "logo") e = {...e, colorId:page.logoColors?.[e.variant] || "original"};
+      if(e.type === "logo") e = {...e, colorId:page.logoColors?.[e.variant] || e.colorId || "auto"};
       const o = page.styles[e.id];
       return o
         ? {
@@ -901,14 +903,40 @@ export function legacyPageElements(p, page, index = 0) {
     .filter((e) => !e.hidden);
 }
 
-export function pageElements(p, page, index = 0) {
+function rawPageElements(p, page, index = 0) {
   if (p.brandGuideline.schema !== 2) return legacyPageElements(p, page, index);
   const g=p.brandGuideline,{width:W,height:H}=dimensions(g);
   const items = editorialPage(p,page,index);
   for(const e of page.elements) items.push({...e,...(e.type==='text'?{...typeStyle(g,e.role||'body'),...e}:{}),x:e.x*W,y:e.y*H,w:e.w*W,h:e.h*H});
   return items.map(e=>{
-    if(e.type === "logo") e = {...e, colorId: page.logoColors?.[e.variant] || "original"};
+    if(e.type === "logo") e = {...e, colorId: page.logoColors?.[e.variant] || e.colorId || "auto"};
     const o=page.styles[e.id]; if(!o)return e;
     return {...e,...(o.role?{...typeStyle(g,o.role),role:o.role}:{}),x:Number.isFinite(o.x)?o.x*W:e.x,y:Number.isFinite(o.y)?o.y*H:e.y,w:e.physicalSize?e.w:Number.isFinite(o.w)?o.w*W:e.w,h:e.physicalSize?e.h:Number.isFinite(o.h)?o.h*H:e.h,size:o.size||e.size,text:o.text??e.text,fill:o.fill||e.fill,variant:o.variant||e.variant,colorId:o.colorId||e.colorId,resource:o.resource||e.resource,fit:o.fit||e.fit,zoom:o.zoom??e.zoom,panX:o.panX??e.panX,panY:o.panY??e.panY,hidden:o.hidden};
   }).filter(e=>!e.hidden);
+}
+
+export function pageElements(p,page,index=0) {
+  const items=rawPageElements(p,page,index), T=pageTheme(p,page);
+  return items.map((e,i)=>{
+    const rect=items.slice(0,i).reverse().find(r=>r.type==='rect' && r.h>2 && r.x<=e.x && r.y<=e.y && r.x+r.w>=e.x+e.w && r.y+r.h>=e.y+e.h);
+    const background=rect?.fill==='auto'?T.secondary:rect?.fill || T.background;
+    if(e.type==='rect' && e.fill==='auto')return {...e,fill:T.secondary};
+    if(e.type==='logo') {
+      const override=page.styles[e.id], manual=override?.colorId || page.logoColors?.[e.variant] || e.colorId;
+      return {...e,colorId:!manual || manual==='auto'?bestLogoColor(p,e.variant,background):manual,guideColor:paletteInk(p,background)};
+    }
+    if(e.type==='text') {
+      const override=page.styles[e.id]?.fill;
+      if(override && override!=='auto')return e;
+      const own=page.elements.find(item=>item.id===e.id)?.fill;
+      if(own && own!=='auto' && override!=='auto')return e;
+      const role=['caption','small'].includes(e.role)?'muted':'text';
+      const manual=page.settings?.[role] || p.brandGuideline.theme[role];
+      if(manual && manual!=='auto' && override!=='auto')return {...e,fill:manual};
+      // Association samples intentionally demonstrate both readable and poor pairs.
+      if(e.id.startsWith('pair-text-'))return e;
+      return {...e,fill:paletteInk(p,background,e.fill==='auto'?undefined:e.fill)};
+    }
+    return e;
+  });
 }

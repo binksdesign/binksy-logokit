@@ -1,5 +1,5 @@
 import { framing } from "./export-formats.js";
-import { editFraming } from "./format-editor.js";
+import { editFraming, framingControls, bindFraming } from "./format-editor.js";
 import { catalog, CATEGORIES, selectedItem, selectedItems } from "./catalog.js";
 import { backgrounds, jpegPairs, variantName } from "./model.js";
 import { jpegPreview, exportPlan } from "./export.js";
@@ -51,7 +51,7 @@ export function mountJpegGallery(root, p, variants, edit, refresh, target) {
     );
     pairs.push({ pair, item, jobs });
   }
-  root.innerHTML = `${target ? `<div class="use-framing"><h3>${t("Cadrage par variante")}</h3>${variants.map(v=>`<label class="field"><span>${esc(variantName(p,v))}</span><input data-use-framing="${v}" type="range" min="5" max="100" value="${Math.round(framing(p.exports,target.id,v)*100)}"><output>${Math.round(framing(p.exports,target.id,v)*100)} %</output></label>`).join("")}</div>` : ""}<div class="jpeg-toolbar"><label>${t("Afficher")}<select id="jpeg-category">${[
+  root.innerHTML = `${target ? framingControls(p, variants, target) : ""}<div class="jpeg-toolbar"><label>${t("Afficher")}<select id="jpeg-category">${[
     ["selected", "Versions sélectionnées"],
     ["all", "Tout voir"],
     ["original", "Original"],
@@ -82,14 +82,8 @@ export function mountJpegGallery(root, p, variants, edit, refresh, target) {
       .join("") ||
     `<p>${t("Aucun JPEG dans cette sélection. Choisissez une autre catégorie.")}</p>`
   }</div><div class="pagination"><button id="jpeg-prev" ${page === 0n ? "disabled" : ""}>${t("Précédente")}</button><label>${t("Page")} <input id="jpeg-page" inputmode="numeric" value="${page + 1n}" aria-label="${t("Aller à la page")}"> / ${max + 1n}</label><button id="jpeg-next" ${page === max ? "disabled" : ""}>${t("Suivante")}</button></div>`;
-  root.querySelectorAll('[data-use-framing]').forEach(el=>{
-    el.oninput=()=>{
-      const variant=el.dataset.useFraming, scale=+el.value/100;
-      el.nextElementSibling.value=el.value+' %';
-      const previewProject={...p,exports:{...p.exports,variantFraming:{...p.exports.variantFraming,[target.id]:{...p.exports.variantFraming?.[target.id],[variant]:scale}}}};
-      root.querySelectorAll('[data-pair-preview]').forEach(node=>{const pair=pairs[+node.dataset.pairPreview].pair;if(pair.variant===variant)node.innerHTML=jpegPreview(previewProject,pair,target);});
-    };
-    el.onchange=()=>edit(()=>{((p.exports.variantFraming ||= {})[target.id] ||= {})[el.dataset.useFraming]=+el.value/100;});
+  if(target) bindFraming(root,p,target,edit,(previewProject,variant)=>{
+    root.querySelectorAll('[data-pair-preview]').forEach(node=>{const pair=pairs[+node.dataset.pairPreview].pair;if(pair.variant===variant)node.innerHTML=jpegPreview(previewProject,pair,target);});
   });
   root.querySelector("#jpeg-category").onchange = (e) => {
     category = e.target.value;

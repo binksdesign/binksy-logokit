@@ -39,7 +39,7 @@ export function inspectorHTML(p, a, elementPanel, selected) {
     ["secondary", "Fond secondaire"],
   ]
     .map(([key, label]) =>
-      paletteSelect(p, `data-bg-theme="${key}"`, T[key], label),
+      paletteSelect(p, `data-bg-theme="${key}"`, g.theme[key] || "auto", label),
     )
     .join(
       "",
@@ -53,6 +53,7 @@ export function inspectorHTML(p, a, elementPanel, selected) {
       a.background || T.background,
       "Fond de page",
     );
+  local += [ ['text','Texte principal'],['muted','Texte secondaire'] ].map(([key,label])=>paletteSelect(p,`data-page-color="${key}"`,a.settings?.[key] || 'auto',label)).join('');
   if (
     EDITORIAL_TYPES.includes(a.type) ||
     a.type === "contact" ||
@@ -81,7 +82,7 @@ export function inspectorHTML(p, a, elementPanel, selected) {
   if (["logos", "minimum", "clearspace", "misuse", "cover"].includes(a.type)) {
     const multiple = ["logos", "minimum"].includes(a.type);
     const included = multiple ? (a.variants.length ? a.variants : p.enabled) : [a.variants[0] || p.active];
-    local += `<fieldset><legend>${t("Versions du logo")}</legend>${(multiple ? variantIds(p) : included).map(v => `${multiple ? `<label class="check"><input type="checkbox" data-guide-variant="${v}" ${included.includes(v) ? "checked" : ""} ${included.length === 1 && included.includes(v) ? "disabled" : ""}>${esc(variantName(p,v))}</label>` : ""}${included.includes(v) ? field("Version colorimétrique", `<select data-guide-logo-color="${v}">${logoChoices(p,v).map(c=>option(c.id,c.name,a.logoColors?.[v] || "original")).join("")}</select>`) : ""}`).join("")}</fieldset>`;
+    local += `<fieldset><legend>${t("Versions du logo")}</legend>${(multiple ? variantIds(p) : included).map(v => `${multiple ? `<label class="check"><input type="checkbox" data-guide-variant="${v}" ${included.includes(v) ? "checked" : ""} ${included.length === 1 && included.includes(v) ? "disabled" : ""}>${esc(variantName(p,v))}</label>` : ""}${included.includes(v) ? field("Version colorimétrique", `<select data-guide-logo-color="${v}">${option("auto","Automatique",a.logoColors?.[v] || "auto")}${logoChoices(p,v).map(c=>option(c.id,c.name,a.logoColors?.[v] || "auto")).join("")}</select>`) : ""}`).join("")}</fieldset>`;
   }
   if (a.type === "clearspace") {
     const c = p.compositions[a.variants[0] || p.active];
@@ -101,13 +102,13 @@ export function inspectorHTML(p, a, elementPanel, selected) {
       paletteSelect(
         p,
         'data-page-color="rule"',
-        a.settings?.rule || T.text,
+        a.settings?.rule || "auto",
         "Repères",
       ) +
       paletteSelect(
         p,
         'data-page-color="text"',
-        a.settings?.text || T.text,
+        a.settings?.text || "auto",
         "Annotations",
       );
   }
@@ -265,7 +266,7 @@ export function bindInspector(host, p, a, selected, update, rerender, notice) {
     (el) =>
       (el.onchange = () =>
         update(() => {
-          if (finalPalette(p).some((c) => c.hex === el.value))
+          if (el.value === "auto" || finalPalette(p).some((c) => c.hex === el.value))
             (a.settings ||= {})[el.dataset.pageColor] = el.value;
         })),
   );

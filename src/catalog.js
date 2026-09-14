@@ -232,7 +232,7 @@ export function setCategory(p, variants, categories, mode) {
         (mode === "recommended" && ["original", "mono"].includes(cat));
     }
 }
-export function selectedItems(p, limit = 500) {
+export function selectedItems(p, limit = 10000) {
   const result = [];
   for (const variant of p.enabled)
     for (const category of CATEGORIES) {
@@ -240,7 +240,7 @@ export function selectedItems(p, limit = 500) {
         count = selectedCount(p, variant, category);
       if (count > BigInt(limit - result.length))
         throw Error(
-          "Plus de 500 déclinaisons sélectionnées. Exportez en plusieurs lots.",
+          "Sélection trop étendue : réduisez les combinaisons avant de préparer les fichiers.",
         );
       if (!count) continue;
       const rule =

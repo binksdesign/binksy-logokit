@@ -1,5 +1,5 @@
 import { normalizeFormats, framing, bitmapRect, USE_FORMATS } from "./export-formats.js";
-import { layout } from "./model.js";
+import { layout, variantName } from "./model.js";
 import { compositionSVG } from "./svg.js";
 import { t } from "./i18n.js";
 import { esc } from "./ui.js";
@@ -15,15 +15,16 @@ export function formatControls(p) {
           .filter((f) => f.kind === kind)
           .map(
             (f) =>
-              `<label class="check"><input type="checkbox" data-raster-format="${esc(f.id)}" ${selected.some((s) => s.id === f.id) ? "checked" : ""}>${esc(t(f.name))} · ${f.width} × ${f.height} px</label>`,
+              `<label class="check"><input type="checkbox" data-raster-format="${esc(f.id)}" ${selected.some((s) => s.id === f.id) ? "checked" : ""}>${f.kind === "web" ? "" : esc(f.kind === "use" && f.id.startsWith("custom-") ? f.name : t(f.name)) + " · "}${f.width} × ${f.height} px</label>`,
           )
           .join("")}</details>`,
     )
     .join(
       "",
-    )}<button type="button" data-custom-format>${t("Créer un format personnalisé")}</button><details open><summary>${t("Destinations")}</summary>${["WEB", "PRINT"].map((d) => `<label class="check"><input type="checkbox" data-destination="${d}" ${(p.exports.destinations || ["WEB", "PRINT"]).includes(d) ? "checked" : ""}>${d} · ${d === "WEB" ? 72 : 300} DPI</label>`).join("")}<p>${t("Les cas d’usage sont livrés à 72 DPI.")}</p></details></section>`;
+    )}<button type="button" data-custom-format>${t("Créer un format personnalisé")}</button>${selected.filter(f=>f.kind === "web").map(f=>`<section data-standard-framing="${esc(f.id)}"><h4>${f.width} × ${f.height} px</h4>${framingControls(p,p.enabled.filter(v=>layout(p,v).parts.length),f)}</section>`).join("")}<details open><summary>${t("Destinations")}</summary>${["WEB", "PRINT"].map((d) => `<label class="check"><input type="checkbox" data-destination="${d}" ${(p.exports.destinations || ["WEB", "PRINT"]).includes(d) ? "checked" : ""}>${d} · ${d === "WEB" ? 72 : 300} DPI</label>`).join("")}<p>${t("Les cas d’usage sont livrés à 72 DPI.")}</p></details></section>`;
 }
 export function bindFormats(root, p, edit, created = () => {}) {
+  root.querySelectorAll("[data-standard-framing]").forEach(section=>{const f=normalizeFormats(p.exports).available.find(f=>f.id===section.dataset.standardFraming);if(f)bindFraming(section,p,f,edit);});
   root.querySelectorAll("[data-raster-format]").forEach(
     (el) =>
       (el.onchange = () =>
@@ -101,13 +102,12 @@ export function editFraming(p, item, edit, formatId) {
   let id = formatId || formats[0].id;
   const d = document.createElement("dialog");
   d.className = "gradient-editor";
-  d.innerHTML = `<form method="dialog"><h2>${t("Taille du logo dans l’image")}</h2><select aria-label="${t("Format")}">${formats.map((f) => `<option value="${esc(f.id)}">${esc(t(f.name))}</option>`).join("")}</select><p>${t("Centré et proportionnel. Toutes les couleurs de cette variante partagent ce cadrage, uniquement pour cette dimension.")}</p><div class="framing-stage checker"><div class="framing-logo">${compositionSVG(p, item.variant, item.color)}<button type="button" class="framing-handle" aria-label="${t("Redimensionner le logo")}"></button></div></div><label class="field">${t("Taille du logo")}<input type="range" min="5" max="100" value="80"><output></output></label><button value="cancel">${t("Annuler")}</button><button class="primary" value="apply">${t("Appliquer")}</button></form>`;
+  d.innerHTML = `<form method="dialog"><h2>${t("Taille du logo dans l’image")}</h2><select aria-label="${t("Format")}">${formats.map((f) => `<option value="${esc(f.id)}">${esc(t(f.name))}</option>`).join("")}</select><p>${t("Centré et proportionnel. Toutes les couleurs de cette variante partagent ce cadrage, uniquement pour cette dimension.")}</p><div class="framing-stage checker"><div class="framing-logo">${framingSVG(p, item.variant)}<button type="button" class="framing-handle" aria-label="${t("Redimensionner le logo")}"></button></div></div><label class="field">${t("Taille du logo")}<input type="range" min="5" max="100" value="80"><output></output></label><button value="cancel">${t("Annuler")}</button><button class="primary" value="apply">${t("Appliquer")}</button></form>`;
   const stage = d.querySelector(".framing-stage"),
     logo = d.querySelector(".framing-logo"),
     range = d.querySelector("input"),
     handle = d.querySelector(".framing-handle");
-  if (item.background)
-    d.querySelector(".framing-stage").style.background = item.background.hex;
+  stage.style.background = "#ffffff";
   const update = () => {
     const f = formats.find((f) => f.id === id),
       scale = framing({ ...p.exports, framing:legacyDraft, variantFraming: draft }, id, item.variant);
@@ -122,10 +122,10 @@ export function editFraming(p, item, edit, formatId) {
   };
   const set = (value) => {
     const scale = Math.max(0.05, Math.min(1, value));
-    if(formats.find(f=>f.id===id)?.kind === "use") (draft[id] ||= {})[item.variant] = scale;
-    else legacyDraft[id] = scale;
+    (draft[id] ||= {})[item.variant] = scale;
     update();
   };
+  d.querySelector("select").value = id;
   d.querySelector("select").onchange = (e) => {
     id = e.target.value;
     update();
@@ -163,4 +163,28 @@ export function editFraming(p, item, edit, formatId) {
   document.body.append(d);
   d.showModal();
   update();
+}
+
+export function framingSVG(p, variant) {
+  // Force black only in this transient framing preview; exported paint locks stay intact.
+  const svg = compositionSVG(p, variant, {hex:'#000000', force:true});
+  return svg;
+}
+export function framingControls(p, variants, target) {
+  return `<div class="use-framing"><h3>${t("Cadrage par variante")}</h3>${variants.map(v => {
+    const scale=framing(p.exports,target.id,v), l=layout(p,v), r=bitmapRect(target.width,target.height,l.width,l.height,scale);
+    return `<label class="field"><span class="variant-framing-preview" data-framing-preview="${esc(v)}" style="aspect-ratio:${target.width}/${target.height}"><span style="width:${r.width/target.width*100}%;height:${r.height/target.height*100}%">${framingSVG(p,v)}</span></span><span>${esc(variantName(p,v))}</span><input data-use-framing="${esc(v)}" type="range" min="5" max="100" value="${Math.round(scale*100)}"><output>${Math.round(scale*100)} %</output></label>`;
+  }).join('')}</div>`;
+}
+export function bindFraming(root,p,target,edit,preview=()=>{}) {
+  root.querySelectorAll('[data-use-framing]').forEach(el=>{
+    el.oninput=()=>{
+      const variant=el.dataset.useFraming, scale=+el.value/100, l=layout(p,variant), r=bitmapRect(target.width,target.height,l.width,l.height,scale);
+      el.nextElementSibling.value=el.value+' %';
+      const node=[...root.querySelectorAll('[data-framing-preview]')].find(n=>n.dataset.framingPreview===variant)?.firstElementChild;
+      if(node){node.style.width=r.width/target.width*100+'%';node.style.height=r.height/target.height*100+'%';}
+      preview({...p,exports:{...p.exports,variantFraming:{...p.exports.variantFraming,[target.id]:{...p.exports.variantFraming?.[target.id],[variant]:scale}}}},variant);
+    };
+    el.onchange=()=>edit(()=>{((p.exports.variantFraming ||= {})[target.id] ||= {})[el.dataset.useFraming]=+el.value/100;});
+  });
 }

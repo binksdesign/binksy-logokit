@@ -1,6 +1,6 @@
 import { t } from "./i18n.js";
 import { escape as esc } from "./guideline-svg.js";
-import { finalPalette, COLOR_ROLES } from "./guideline-config.js";
+import { finalPalette, COLOR_ROLES, colorRoles } from "./guideline-config.js";
 import { typeStyle } from "./guideline-theme.js";
 import { ROLES } from "./guideline-model.js";
 import { importResource, loadFonts } from "./guideline-fonts.js";
@@ -11,11 +11,12 @@ export const field = (label, input) =>
 export const option = (value, label, selected) =>
   `<option value="${esc(value)}" ${value === selected ? "selected" : ""}>${esc(t(label))}</option>`;
 export function paletteSelect(p, attr, selected, label) {
+  const auto = /data-(bg-fill|page-color|bg-theme="(?:text|muted|accent))/.test(attr);
   const colors = finalPalette(p);
   const current = colors.find((c) => c.hex === selected) || colors[0];
   return field(
     label,
-    `<span class="bg-palette-select"><i aria-hidden="true" style="background:${current?.hex || "transparent"}"></i><select ${attr}>${colors.map((c) => option(c.hex, c.name + (COLOR_ROLES[c.role] ? " · " + t(COLOR_ROLES[c.role]) : ""), selected)).join("")}</select></span>`,
+    `<span class="bg-palette-select"><i aria-hidden="true" style="background:${current?.hex || "transparent"}"></i><select ${attr}>${auto ? option("auto", "Automatique", selected || "auto") : ""}${colors.map((c) => option(c.hex, c.name + (COLOR_ROLES[c.role] ? " · " + t(COLOR_ROLES[c.role]) : ""), selected)).join("")}</select></span>`,
   );
 }
 export function fontControls(g) {
@@ -30,12 +31,13 @@ export function fontControls(g) {
           .map((f) => f.weight)
           .join(" · ")}</span></div>`,
     )
-    .join("")}</div>${ROLES.map((role) => {
+    .join("")}</div>${field("Ajouter une typographie d’accent", `<input type="checkbox" data-accent-enabled ${g.accentTypography?.enabled ? "checked" : ""}>`)}${[...ROLES,...(g.accentTypography?.enabled ? ["accent"] : [])].map((role) => {
     const s = typeStyle(g, role);
     return `<details class="bg-type-role"><summary>${t(role)} <span>${esc(s.family)} · ${s.weight}</span></summary>${field("Police", `<select data-type-font="${role}">${option("", "Instrument Sans", s.font)}${fonts.map((f) => option(f.id, f.family + " · " + f.weight, s.font)).join("")}</select>`)}<div class="two-fields">${field("Taille pt", `<input data-type-size="${role}" type="number" min="5" max="150" step=".25" value="${s.size}">`)}${field("Taille px", `<input data-type-px="${role}" type="number" min="6.67" max="200" step=".25" value="${+((s.size * 4) / 3).toFixed(2)}">`)}</div>${field("Interlignage", `<input data-type-leading="${role}" type="number" min=".8" max="3" step=".05" value="${s.leading}">`)}${field("Tracking", `<input data-type-tracking="${role}" type="number" min="-3" max="20" step=".1" value="${s.tracking}">`)}</details>`;
   }).join("")}`;
 }
 export function bindFonts(host, g, update, notice, assign) {
+  host.querySelector("[data-accent-enabled]")?.addEventListener("change",e=>update(()=>{g.accentTypography={enabled:e.target.checked};}));
   const input = host.querySelector("[data-font-import]");
   if (input)
     input.onchange = async () => {

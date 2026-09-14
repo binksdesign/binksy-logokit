@@ -1,16 +1,12 @@
 import { FORMATS } from "./guideline-model.js";
 import { finalPalette } from './guideline-config.js';
-export function contrast(a, b) {
-  const l = (h) => {
-    const c = h
-      .match(/[a-f\d]{2}/gi)
-      .map((v) => parseInt(v, 16) / 255)
-      .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
-    return c[0] * 0.2126 + c[1] * 0.7152 + c[2] * 0.0722;
-  };
-  const x = l(a),
-    y = l(b);
-  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+import { contrast } from './model.js';
+export { contrast } from './model.js';
+export function paletteInk(p, background, preferred) {
+  const colors=finalPalette(p);
+  const candidate=colors.find(c=>c.hex===preferred);
+  if(candidate && contrast(candidate.hex,background)>=4.5)return candidate.hex;
+  return [...colors].sort((a,b)=>contrast(b.hex,background)-contrast(a.hex,background))[0]?.hex || background;
 }
 export function theme(p) {
   const g = p.brandGuideline,
@@ -56,6 +52,7 @@ export function typeStyle(g, role = "body") {
     tracking: 0,
     font: g.typography.body?.font || "",
     ...g.typography[role],
+    ...(role === "caption" && g.accentTypography?.enabled ? g.typography.accent : {}),
   };
   const font = g.resources.find(
     (r) => r.id === style.font && r.type === "font",
@@ -100,27 +97,14 @@ export function inkOn(color) {
     : "#ffffff";
 }
 export function pageTheme(p, page) {
-  const colors = finalPalette(p);
-  const allowed = value => colors.some(c => c.hex.toLowerCase() === String(value).toLowerCase());
-  const foreground = bg => [...colors].sort((a,b) => contrast(b.hex,bg)-contrast(a.hex,bg))[0]?.hex || inkOn(bg);
-  const settings = { ...page.settings };
-  for (const key of ['background', 'secondary', 'text', 'muted', 'accent', 'rule']) if (settings[key] && !allowed(settings[key])) delete settings[key];
-  const base = theme(p),
-    background =
-      (allowed(page.background) ? page.background : '') ||
-      (["cover", "end"].includes(page.type) ? base.accent : base.background),
-    text =
-      page.background || ["cover", "end"].includes(page.type)
-        ? foreground(background)
-        : base.text;
-  return {
-    ...base,
-    background,
-    text,
-    muted: base.muted,
-    rule: base.text,
-    surface: base.secondary,
-    onAccent: foreground(base.accent),
-    ...settings,
+  const colors=finalPalette(p), base=theme(p), settings=page.settings || {};
+  const allowed=value=>colors.some(c=>c.hex.toLowerCase()===String(value).toLowerCase());
+  const background=allowed(settings.background)?settings.background:allowed(page.background)?page.background:['cover','end'].includes(page.type)?base.accent:base.background;
+  const manual=key=>allowed(settings[key])?settings[key]:settings[key]==='auto'?null:allowed(p.brandGuideline.theme[key])?p.brandGuideline.theme[key]:null;
+  const text=manual('text') || paletteInk(p,background,colors.find(c=>c.role==='text')?.hex);
+  return {...base,background,text,secondary:allowed(settings.secondary)?settings.secondary:base.secondary,
+    muted:manual('muted') || paletteInk(p,background,colors.find(c=>c.role==='secondary-text')?.hex),
+    accent:manual('accent') || base.accent,
+    rule:paletteInk(p,background),surface:base.secondary,onAccent:paletteInk(p,base.accent),
   };
 }

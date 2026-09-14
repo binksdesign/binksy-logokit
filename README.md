@@ -71,7 +71,7 @@ Cloudflare : `wrangler.jsonc` sert le dossier `dist`. Aucun déploiement n’est
 
 Les SVG, PNG et PDF sont toujours transparents. Les JPEG utilisent les associations fond/logo recommandées par le ratio de luminance sRGB (3:1 par défaut, réglable). Les choix manuels sont globaux par couleur/combinaison et fond. Les exceptions héritées des anciens projets restent conservées tant qu’une règle globale ne les remplace pas. Le fond du canvas n’influence jamais les exports.
 
-PNG et JPEG partagent un cadrage par dimension ou cas d’usage : logo centré, proportions fixes et occupation de 80 % par défaut. Taille du logo dans l’image ouvre un cadre avec poignée et curseur. Pour les dimensions standards, ce réglage reste partagé entre versions. Chaque dimension supplémentaire possède désormais un cadrage par variante, commun à toutes ses couleurs, avec curseurs et aperçu direct dans son onglet JPEG. Le cadrage reste indépendant du clearspace et des autres formats. La résolution est inscrite dans les métadonnées PNG/JPEG.
+PNG et JPEG partagent un cadrage par variante et par dimension ou cas d’usage : logo centré, proportions fixes et occupation de 80 % par défaut. Taille du logo dans l’image ouvre un cadre avec poignée et curseur. Pour les dimensions standards, ce réglage reste partagé entre versions. Chaque dimension supplémentaire possède désormais un cadrage par variante, commun à toutes ses couleurs, avec curseurs et aperçu direct dans son onglet JPEG. Le cadrage reste indépendant du clearspace et des autres formats. La résolution est inscrite dans les métadonnées PNG/JPEG.
 
 Les planches de zone de sécurité claire et foncée sont monochromes dans les deux modes Logo Kit et conservent les couleurs originales en mode Juste la zone de sécurité, sans rectangle de fond. Elles sont générées une fois par construction sélectionnée, dans les formats transparents choisis (SVG si JPEG seul), directement dans `CLEARSPACE/Variante/`. Les recommandations de taille minimale restent séparées des logos.
 
@@ -83,7 +83,7 @@ FR/EN est mémorisé dans `binksy-locale` et inscrit dans le projet à la sauveg
 
 Les rôles regroupent les peintures identiques par défaut et ciblent des indices de nœuds et propriétés stables. Les rôles peuvent être nommés, corrigés, verrouillés, séparés par élément et fusionnés par peinture/verrou. Les coordonnées des gradients importés restent intactes en original et en mode automatique ; les combinaisons recolorent les stops. Les gradients générés utilisent une direction linéaire globale ou par forme. Les variations claires/foncées modifient L en OKLab à teinte constante, avec réduction de chroma dans le gamut sRGB.
 
-Le catalogue expose toutes les affectations via un index BigInt et monte 12 previews par page ouverte. Les choix de catégorie sont des règles, les choix individuels des exceptions. Les doublons d’affectations déjà représentés par l’original ou les couleurs simples sont exclus. Les changements de palette/rôles réinitialisent les choix générés. Les exports restent limités à 500 fichiers et 256 Mo par lot, sans limiter l’accès au catalogue ; la sélection finale affiche le nombre de fichiers, recommandations incluses pour un ZIP.
+Le catalogue expose toutes les affectations via un index BigInt et monte 12 previews par page ouverte. Les choix de catégorie sont des règles, les choix individuels des exceptions. Les doublons d’affectations déjà représentés par l’original ou les couleurs simples sont exclus. Les changements de palette/rôles réinitialisent les choix générés. Les exports n’ont plus de seuil de 500 fichiers ; ils conservent une protection de 256 Mo par lot, sans limiter l’accès au catalogue ; la sélection finale affiche le nombre de fichiers, recommandations incluses pour un ZIP.
 
 ## Vérification
 
@@ -159,3 +159,12 @@ Tests supplémentaires : `/tests/discoverability.html` contrôle les groupes de 
 Additional dimensions create named JPEG tabs with framing per variant shared across its colors. Standard exports keep their existing framing. Gradient names and logical groups of at least three matching shapes persist in `.binksy`. Guide preparation scrolls inside a bounded workspace. Guide logo colors reference real catalog descriptors, minimum examples preserve physical source dimensions and paginate without scaling, and manual color-pair decisions can recommend, avoid or hide an association.
 
 Chat is restricted to Brand Guideline with enforced current-page/document scope, temporary proposals and atomic Apply/Undo. Earlier stages expose four focused visual recommendations. Provider settings are shared and remain outside project files. Chat uses existing resources and never rewrites upstream compositions. Authenticated live provider generation requires a locally configured key.
+
+
+## Corrections de fiabilité et de cadrage
+
+Les sliders standards et supplémentaires utilisent des previews noir sur blanc et un cadrage par variante, commun aux couleurs. Le scroll est restauré après le montage de la galerie. PRINT, WEB, CAS D’USAGE et CLEARSPACE séparent les formats ; chaque cas d’usage conserve son sous-dossier nommé. La génération reste séquentielle, le ZIP est assemblé par morceaux et le plafond mémoire reste 256 Mo. La préparation garde un plafond de 10 000 déclinaisons pour protéger le catalogue BigInt.
+
+Le guide adapte les textes et repères avec le contraste commun ; les logos utilisent les vrais descripteurs disponibles. Les valeurs explicites sont manuelles et `auto` réactive l’adaptation. Les anciens choix restent conservés. Typographie d’accent optionnelle pour les légendes, rôles de couleurs recherchables et réutilisables, y compris personnalisés : tous ces champs sont persistés et accessibles à l’IA sous forme de propositions. La sérialisation des glyphes évite l’optimisation variadique d’OpenType susceptible de dépasser la pile d’appels sur des tracés complexes, sans retirer de contours.
+
+AI: requests are non-streaming JSON. Empty/output-limited responses retry once; incomplete tool arguments are rejected as a whole. The final tool acknowledgement is parsed and used when the proposal has no message. Provider errors remain visible.

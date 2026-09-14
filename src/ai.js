@@ -223,8 +223,10 @@ export function openAssistant(
       }
       if(recommendation) recommendationProject(currentState.p,proposal,recommendation,recommendationVariant);
       else proposalProject(currentState.p, proposal, requestScope);
-      if (response.call)
-        await acknowledgeTool(response, "validated_pending_user_approval").catch(()=>{status=t("Proposition reçue ; confirmation fournisseur indisponible.");});
+      if (response.call) {
+        const final = await acknowledgeTool(response, "validated_pending_user_approval").catch(()=>{status=t("Proposition reçue ; confirmation fournisseur indisponible.");});
+        if (!proposal.message?.trim() && final?.text?.trim()) proposal.message=final.text;
+      }
       if (!proposal.message?.trim()) proposal.message = t(proposal.actions?.length ? "Proposition prête à appliquer." : "Aucune modification proposée.");
       session.propose(currentState.p, proposal, requestScope);
       session.messages.push({ role: "assistant", content: proposal.message });

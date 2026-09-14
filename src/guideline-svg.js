@@ -1,3 +1,4 @@
+import { glyphPathData } from './glyph-path.js';
 import { logoColor } from "./guideline-logos.js";
 import { pageElements } from "./guideline-layout.js";
 import { dimensions, theme, pageTheme } from "./guideline-theme.js";
@@ -85,7 +86,7 @@ export function renderText(e, g, paths = false) {
         return run.placements
           .map(
             ({ glyph, x }) =>
-              `<path fill="${e.fill}" d="${glyph.getPath(e.x + x, e.y + e.size + i * leading, e.size, {}, run.font).toPathData(3)}"/>`,
+              `<path fill="${e.fill}" d="${glyphPathData(glyph.getPath(e.x + x, e.y + e.size + i * leading, e.size, {}, run.font))}"/>`,
           )
           .join("");
       })
@@ -190,7 +191,7 @@ export function elementSVG(p, e, prefix = "g", paths = false) {
               }
           : e.colorId ? logoColor(p, e.variant, e.colorId) : e.fill ? {hex: e.fill, force: true} : null;
     const svg = e.clearspace
-      ? clearspaceSVG(p, e.variant, "dark", {graphicOnly:true,color})
+      ? clearspaceSVG(p, e.variant, "dark", {graphicOnly:true,color,guideColor:e.guideColor})
       : compositionSVG(source, e.variant, color);
     return `<g transform="translate(${e.x} ${e.y})">${effectSVG(svg, e, prefix)}</g>`;
   }

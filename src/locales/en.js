@@ -855,3 +855,41 @@ Object.assign(en, {
   'Retour au chat':'Back to chat','Modèle':'Model','Rechercher un modèle':'Search models','Actualiser les modèles':'Refresh models','Avancé':'Advanced','ID modèle personnalisé':'Custom model ID','Utiliser ce modèle':'Use this model','Enregistrer':'Save','Tester la connexion':'Test connection',
   'Vous':'You','Que souhaitez-vous ajuster ?':'What would you like to adjust?','Décrivez une modification. Vous pourrez l’affiner avant de l’appliquer.':'Describe a change. You can refine it before applying it.','Configurer l’assistant':'Configure assistant','Proposition':'Proposal','Appliquer':'Apply','Masquer l’aperçu':'Hide preview','Aperçu':'Preview','Envoyer':'Send','Réglages IA':'AI settings','Configuration enregistrée.':'Configuration saved.','Proposition appliquée. Vous pouvez l’annuler avec Cmd/Ctrl+Z.':'Proposal applied. You can undo it with Cmd/Ctrl+Z.'
 });
+
+Object.assign(en, {
+  "Ajouter une typographie d’accent": "Add an accent typeface",
+  "Rechercher ou créer un rôle": "Search or create a role",
+  "Ajouter un rôle personnalisé": "Add a custom role",
+  "Nom du rôle personnalisé": "Custom role name",
+  "Rôle invalide.": "Invalid role.",
+  "Surface": "Surface",
+  "Contraste": "Contrast",
+  "Neutre": "Neutral",
+  "Marque": "Brand",
+  "Bordure": "Border",
+  "Décoratif": "Decorative",
+  "Arrière-plan": "Background",
+  "Premier plan": "Foreground",
+  "Clair": "Light",
+  "Foncé": "Dark",
+  "Support": "Support",
+  "Complémentaire": "Complementary",
+  "Mise en avant": "Highlight",
+  "Interaction": "Interaction",
+  "Bouton": "Button",
+  "Lien": "Link",
+  "Succès": "Success",
+  "Avertissement": "Warning",
+  "Erreur": "Error",
+  "Information": "Information",
+  "Le modèle n’a renvoyé aucune réponse exploitable. Réessaie ou sélectionne un autre modèle.": "The model returned no usable response. Try again or choose another model.",
+  "La réponse a atteint la limite de sortie. Aucune proposition partielle ne peut être appliquée. Réessaie avec une demande plus courte.": "The response reached the output limit. No partial proposal can be applied. Try a shorter request.",
+  "Le fournisseur a interrompu ou bloqué la réponse. Réessaie ou sélectionne un autre modèle.": "The provider interrupted or blocked the response. Try again or choose another model.",
+  "Le modèle a proposé plusieurs appels simultanés. Demandez une proposition unique.": "The model proposed multiple simultaneous calls. Ask for a single proposal.",
+  "Proposition IA incomplète ou invalide. Aucune modification appliquée.": "Incomplete or invalid AI proposal. No changes applied.",
+  "Sélection trop étendue : réduisez les combinaisons avant de préparer les fichiers.": "Selection too large: reduce the combinations before preparing files.",
+  "PDF : tracé ou police trop complexe. La page concernée est indiquée dans le détail.": "PDF: artwork or font is too complex. See the affected page in the details.",
+  "Cadrage centré par variante et par dimension.": "Centered framing per variant and dimension."
+});
+
+Object.assign(en, {"SVG / PNG / PDF transparents. JPEG avec fond. Cadrage centré réglable par variante et par dimension. Couleurs RVB.": "Transparent SVG / PNG / PDF. JPEG with background. Centered framing adjustable per variant and size. RGB colors."});

@@ -8,7 +8,7 @@ import {
 import { t } from "./i18n.js";
 import { jsPDF } from "jspdf";
 import "svg2pdf.js";
-import { zipSync, strToU8 } from "fflate";
+import { Zip, ZipPassThrough, strToU8 } from "fflate";
 import { compositionSVG, svgImage, mount } from "./svg";
 import {
   layout,
@@ -135,7 +135,7 @@ export function exportPlan(p, items, includeExcluded = false) {
           item,
           format,
           target,
-          path: `${folder}/${target.destination === "WEB" ? format.toUpperCase() + "/" : ""}${name}`,
+          path: `${folder}/${target.kind === "use" ? safeFolder(target.name) + "/" : ""}${format.toUpperCase()}/${name}`,
         });
       }
     }
@@ -155,7 +155,7 @@ export function exportPlan(p, items, includeExcluded = false) {
             variant,
             tone,
             format,
-            path: `${root}/CLEARSPACE/${safeFolder(variantName(p, variant))}/${slug(p.brand)}-${slug(variantName(p, variant))}-clearspace-${tone === "light" ? "clair" : "fonce"}.${format}`,
+            path: `${root}/CLEARSPACE/${safeFolder(variantName(p, variant))}/${format.toUpperCase()}/${slug(p.brand)}-${slug(variantName(p, variant))}-clearspace-${tone === "light" ? "clair" : "fonce"}.${format}`,
           });
         }
   }
@@ -190,7 +190,6 @@ export async function buildFiles(p, items, progress = () => {}) {
     throw Error(
       "Aucun fichier à exporter. Activez des associations JPEG ou un format transparent.",
     );
-  if (jobs.length > 500) throw Error("Export limité à 500 fichiers par lot.");
   const files = {};
   let bytes = 0,
     index = 0;
@@ -210,7 +209,7 @@ export async function buildFiles(p, items, progress = () => {}) {
   if (p.brandGuideline?.enabled && p.mode !== "clearspace") {
     const { guidelineFiles } = await import("./guideline-export.js");
     Object.assign(files, await guidelineFiles(p));
-    if (Object.keys(files).length > 500 || Object.values(files).reduce((n, x) => n + x.byteLength, 0) > 256e6) throw Error("Lot supérieur aux limites d’export.");
+    if (Object.values(files).reduce((n, x) => n + x.byteLength, 0) > 256e6) throw Error("Lot supérieur aux limites d’export.");
   }
   return files;
 }
@@ -222,7 +221,7 @@ export async function exportFiles(p, items, progress) {
     return;
   }
   files[slug(p.brand).toUpperCase() + " LOGOKIT/RECOMMANDATIONS.txt"] = strToU8(
-    `BINKSY LOGOKIT — ${p.brand}\n${p.mode === "clearspace" ? t("Planches de zone de sécurité transparentes. Couleurs d’origine du logo conservées.") : t("SVG / PNG / PDF transparents. JPEG avec fond. Cadrage centré partagé par format. Couleurs RVB.")}\n\n` +
+    `BINKSY LOGOKIT — ${p.brand}\n${p.mode === "clearspace" ? t("Planches de zone de sécurité transparentes. Couleurs d’origine du logo conservées.") : t("SVG / PNG / PDF transparents. JPEG avec fond. Cadrage centré réglable par variante et par dimension. Couleurs RVB.")}\n\n` +
       [...new Set(items.map((i) => i.variant))]
         .map((v) => {
           const m = clearMeasure(p, v),
@@ -235,7 +234,7 @@ export async function exportFiles(p, items, progress) {
       "\n\nCMJN : approximation sans profil ICC. / CMYK: approximation without ICC profile.\nWEB : 72 DPI · PRINT : 300 DPI\n",
   );
   download(
-    new Blob([zipSync(files, { level: 0 })], { type: "application/zip" }),
+    await zipFiles(files),
     slug(p.brand) + "-logokit.zip",
   );
 }
@@ -262,4 +261,23 @@ function safeFolder(name) {
       .replace(/^\.+$/, "logo")
       .trim() || "Logo"
   );
+}
+
+export async function zipFiles(files) {
+  const chunks=[];
+  let error;
+  const zip=new Zip((err,data)=>{if(err)error=err;else chunks.push(data);});
+  for(const name of Object.keys(files)) {
+    const entry=new ZipPassThrough(name);zip.add(entry);
+    const data=files[name];
+    for(let offset=0;offset<data.length;offset+=1048576) {
+      entry.push(data.subarray(offset,offset+1048576),offset+1048576>=data.length);
+      if(error)throw error;
+      await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    if(!data.length)entry.push(data,true);
+    delete files[name];
+  }
+  zip.end();if(error)throw error;
+  return new Blob(chunks,{type:'application/zip'});
 }

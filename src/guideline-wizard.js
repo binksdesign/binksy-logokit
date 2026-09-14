@@ -2,7 +2,7 @@ import {
   prepareGuide,
   generateGuide,
   finalPalette,
-  COLOR_ROLES,
+  COLOR_ROLES, colorRoles,
   EDITORIAL_TYPES,
   assignFontRoles,
   guideVariants,
@@ -46,15 +46,11 @@ export function mountGuideWizard(host, p, edit, notice) {
           (c, i) =>
             `<div class="bg-palette-row"><input aria-label="${t("Couleur")}" data-palette-hex="${c.id}" type="color" value="${c.hex}">${field("Nom", `<input data-palette-name="${c.id}" value="${esc(c.name)}">`)}${field(
               "Rôle",
-              `<select data-palette-role="${c.id}">${option("", "Sans rôle", c.role)}${Object.entries(
-                COLOR_ROLES,
-              )
-                .map(([v, label]) => option(v, label, c.role))
-                .join("")}</select>`,
+              `<input data-palette-role="${c.id}" list="guide-color-roles" value="${esc(t(colorRoles(g)[c.role] || c.role || ''))}" placeholder="${t('Rechercher ou créer un rôle')}" maxlength="100">`,
             )}<button data-palette-up="${c.id}" aria-label="${t("Monter")}" ${i === 0 ? "disabled" : ""}>↑</button><button data-palette-remove="${c.id}" aria-label="${t("Retirer de la palette")}" ${colors.length < 2 ? "disabled" : ""}>×</button></div>`,
         )
         .join("") +
-      `<button data-palette-add>+ ${t("Ajouter une couleur")}</button>`;
+      `<datalist id="guide-color-roles">${Object.values(colorRoles(g)).map(label=>`<option value="${esc(t(label))}"></option>`).join("")}</datalist><button type="button" data-add-color-role>+ ${t("Ajouter un rôle personnalisé")}</button><button data-palette-add>+ ${t("Ajouter une couleur")}</button>`;
   if (step === 2)
     content = colors
       .map((c) =>
@@ -129,7 +125,16 @@ export function mountGuideWizard(host, p, edit, notice) {
       );
     update(() => (step === 5 ? generateGuide(p) : s.step++));
   };
-  for (const key of ["hex", "name", "role", "spot"])
+  host.querySelector('[data-add-color-role]')?.addEventListener('click',()=>{
+    const name=prompt(t('Nom du rôle personnalisé'))?.trim().slice(0,100);
+    if(name)update(()=>{g.customColorRoles=[...new Set([...(g.customColorRoles||[]),name])];});
+  });
+  host.querySelectorAll('[data-palette-role]').forEach(el=>el.onchange=()=>update(()=>{
+    const name=el.value.trim(), role=Object.entries(colorRoles(g)).find(([,label])=>t(label)===name)?.[0] || name;
+    if(role && !Object.hasOwn(colorRoles(g),role))g.customColorRoles=[...new Set([...(g.customColorRoles||[]),role])];
+    g.palette.find(c=>c.id===el.dataset.paletteRole).role=role;
+  }));
+  for (const key of ["hex", "name", "spot"])
     host
       .querySelectorAll(`[data-palette-${key}]`)
       .forEach(

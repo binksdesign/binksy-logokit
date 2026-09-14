@@ -111,7 +111,8 @@ function render() {
   if (view !== "compose") focus = false;
   if (!["home", "agent"].includes(view) && !layout(p).parts.some(q => q.key === selected)) selected = layout(p).parts[0]?.key || "icon";
   if (p.mode === "clearspace" && ["family","guideline"].includes(view)) view = "compose";
-  const scrolls = [".left", ".right", "main"].map((selector) => [
+  const windowScroll = { left: window.scrollX, top: window.scrollY };
+  const scrolls = [".left", ".right", "main", ".guided-workspace"].map((selector) => [
     selector,
     $(selector)?.scrollTop || 0,
   ]);
@@ -175,11 +176,12 @@ function render() {
         }
       }),
   );
-  for (const [selector, top] of scrolls)
-    if ($(selector)) $(selector).scrollTop = top;
   if (["import", "compose"].includes(view)) drawStage();
   else if (view === "guideline") mountGuideline($("#workshop"), p, edit, next => { view = next; render(); }, notice);
   else mountWorkshop(p, edit, runExport, view);
+  for (const [selector, top] of scrolls)
+    if ($(selector)) $(selector).scrollTop = top;
+  window.scrollTo({ ...windowScroll, behavior: "instant" });
   if(saving)$("#save-state").textContent=t("Enregistrement…");
   if ($("[data-ai-assistant]")) $("[data-ai-assistant]").onclick = () => openAssistant(p, view, edit, () => ({p, stage: view}));
   document.querySelectorAll("[data-ai-recommendation]").forEach(el=>el.onclick=()=>openAssistant(p,view,edit,()=>({p,stage:view}),{recommendation:el.dataset.aiRecommendation}));

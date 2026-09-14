@@ -3,6 +3,12 @@ import { page, PAGE_TYPES, MISUSES } from "./guideline-model.js";
 import { variantIds, layout } from "./model.js";
 
 export const COLOR_ROLES = {
+  surface: "Surface", contrast: "Contraste", neutral: "Neutre", brand: "Marque",
+  border: "Bordure", icon: "Icône", decorative: "Décoratif", backdrop: "Arrière-plan",
+  foreground: "Premier plan", light: "Clair", dark: "Foncé", support: "Support",
+  complementary: "Complémentaire", highlight: "Mise en avant", interaction: "Interaction",
+  button: "Bouton", link: "Lien", success: "Succès", warning: "Avertissement",
+  error: "Erreur", information: "Information",
   primary: "Principale",
   secondary: "Secondaire",
   accent: "Accent",
@@ -221,3 +227,5 @@ export function assignFontRoles(g) {
     };
   }
 }
+
+export function colorRoles(g){return {...COLOR_ROLES,...Object.fromEntries((g.customColorRoles||[]).map(name=>[name,name]))};}

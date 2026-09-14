@@ -88,6 +88,8 @@ export function emptyGuide() {
     pairs: {},
     distribution: {},
     typography: {},
+    accentTypography: {enabled:false},
+    customColorRoles: [],
     exports: { pdf: true, svg: true, text: "text" },
   };
 }
@@ -205,7 +207,7 @@ export function validateGuide(input, mode) {
   ])
     g.brief[key] = cleanText(input.brief?.[key]);
   for (const key of ["background", "secondary", "text", "muted", "accent", "rule"])
-    if (input.theme?.[key]) g.theme[key] = hex(input.theme[key]);
+    if (input.theme?.[key]) g.theme[key] = input.theme[key] === "auto" ? "auto" : hex(input.theme[key]);
   for (const key of ["margin", "spacing", "grid"])
     if (Number.isFinite(input.theme?.[key]))
       g.theme[key] = limit(input.theme[key], 0, 100);
@@ -238,6 +240,8 @@ export function validateGuide(input, mode) {
     note: cleanText(v?.note, 500),
   }));
   g.distribution = dict(input.distribution, (v) => limit(v, 0, 100));
+  g.accentTypography = {enabled:input.accentTypography?.enabled === true};
+  g.customColorRoles = [...new Set((Array.isArray(input.customColorRoles)?input.customColorRoles:[]).filter(v=>typeof v === "string" && v.trim()).map(v=>cleanText(v.trim(),100)))].slice(0,100);
   g.typography = dict(input.typography, (v) => ({
     font: cleanText(v?.font, 100),
     family: cleanText(v?.family, 100),
@@ -294,7 +298,7 @@ export function validateGuide(input, mode) {
     a.logoColors = dict(source.logoColors, v => cleanText(v, 300));
     a.settings = {};
     for (const key of ['guides', 'explanation', 'hex', 'rgb', 'cmyk', 'pantone', 'roles']) a.settings[key] = source.settings?.[key] !== false;
-    for (const key of ['text', 'muted', 'rule', 'accent']) if (source.settings?.[key]) a.settings[key] = hex(source.settings[key]);
+    for (const key of ['text', 'muted', 'rule', 'accent']) if (source.settings?.[key]) a.settings[key] = source.settings[key] === "auto" ? "auto" : hex(source.settings[key]);
     a.layout = [
       "minimal",
       "typographic",
@@ -335,7 +339,8 @@ export function validateGuide(input, mode) {
       w: limit(e.w, 0.01, 1, 0.3),
       h: limit(e.h, 0.01, 1, 0.15),
       size: limit(e.size, 5, 150, 12),
-      fill: hex(e.fill),
+      fill: e.fill === "auto" ? "auto" : hex(e.fill),
+      colorId: cleanText(e.colorId,300) || undefined,
       zoom: limit(e.zoom, 1, 5, 1),
       panX: limit(e.panX, 0, 1, 0.5),
       panY: limit(e.panY, 0, 1, 0.5),
@@ -348,7 +353,7 @@ export function validateGuide(input, mode) {
       h: Number.isFinite(v?.h) ? limit(v.h, 0.001, 1) : undefined,
       text: typeof v?.text === "string" ? cleanText(v.text) : undefined,
       size: Number.isFinite(v?.size) ? limit(v.size, 5, 150, 12) : undefined,
-      fill: v?.fill ? hex(v.fill) : undefined,
+      fill: v?.fill === "auto" ? "auto" : v?.fill ? hex(v.fill) : undefined,
       hidden: v?.hidden === true,
       role: cleanText(v?.role, 100) || undefined,
       variant: cleanText(v?.variant, 100) || undefined,

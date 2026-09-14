@@ -148,7 +148,7 @@ export async function providerRequest(
   else if (provider.protocol === "gemini") headers["x-goog-api-key"] = key;
   else headers.Authorization = "Bearer " + key;
   const controller = new AbortController(),
-    timer = setTimeout(() => controller.abort(), 45000);
+    timer = setTimeout(() => controller.abort(), 120000);
   try {
     const response = await fetcher(endpoint(provider, custom) + path, {
       method: body ? "POST" : "GET",
@@ -255,86 +255,62 @@ export async function chatCompletion(provider,key,base,model,system,messages,too
     path='/chat/completions';body={model,messages:[{role:'system',content:system},...messages],stream:false,...(tool?{tools:[{type:'function',function:tool}],tool_choice:'auto'}:{})};
     if(provider.id==='openrouter'&&tool)body.provider={require_parameters:true};
   }
-  const result=await providerRequest(target,key,base,path,body,fetcher);
-  if(result.error)throw Error('Erreur fournisseur : aucune réponse exploitable.');
-  let call,answer;
-  if(protocol==='anthropic'){call=result.content?.find(c=>c.type==='tool_use');answer=result.content?.filter(c=>c.type==='text').map(c=>c.text).join('');if(call)call={name:call.name,input:call.input,raw:call};}
-  else if(protocol==='gemini'){const parts=result.candidates?.[0]?.content?.parts||[];call=parts.find(c=>c.functionCall)?.functionCall;answer=parts.map(c=>c.text||'').join('');if(call)call={name:call.name,input:call.args,raw:call};}
-  else if(protocol==='responses'){call=result.output?.find(c=>c.type==='function_call');answer=result.output?.flatMap(c=>c.content||[]).map(c=>c.text||'').join('');if(call)call={name:call.name,input:JSON.parse(call.arguments),raw:call};}
-  else {const msg=result.choices?.[0]?.message;call=msg?.tool_calls?.[0];answer=msg?.content;if(call)call={name:call.function.name,input:JSON.parse(call.function.arguments),raw:call,message:msg};}
-  if(call&&call.name!==tool?.name)throw Error('Outil demandé non autorisé.');
-  if(!call && !(typeof answer==='string'&&answer.trim()))throw Error('Réponse vide ou interrompue.');
-  return {text:answer||'',proposal:call?.input,call,request:{provider:target,key,base,path,body},protocol};
+  let parsed;
+  for(let attempt=0;attempt<2;attempt++) {
+    const result=await providerRequest(target,key,base,path,body,fetcher);
+    try { parsed=parseCompletion(result,protocol,tool); break; }
+    catch(error) {
+      if(!attempt && ['empty','length'].includes(error.code)) {
+        // Regenerate the complete transaction, never splice truncated tool arguments.
+        if(error.code==='length') {
+          if(protocol==='anthropic')body.max_tokens=10000;
+          else if(protocol==='gemini')body.generationConfig={...body.generationConfig,maxOutputTokens:10000};
+          else if(protocol==='responses')body.max_output_tokens=10000;
+          else if(provider.id==='openai')body.max_completion_tokens=10000;
+          else body.max_tokens=10000;
+        }
+        continue;
+      }
+      throw error;
+    }
+  }
+  return {...parsed,request:{provider:target,key,base,path,body},protocol};
 }
+function responseError(message,code) {return Object.assign(Error(message),{code});}
+export function parseCompletion(result,protocol,tool) {
+  if(!result || result.error)throw Error('Erreur fournisseur : aucune réponse exploitable.');
+  const reason=result.stop_reason || result.candidates?.[0]?.finishReason || result.choices?.[0]?.finish_reason || result.incomplete_details?.reason;
+  if(['max_tokens','length','MAX_TOKENS','max_output_tokens'].includes(reason))throw responseError('La réponse a atteint la limite de sortie. Aucune proposition partielle ne peut être appliquée. Réessaie avec une demande plus courte.','length');
+  if(result.status==='incomplete' || result.status==='failed' || ['content_filter','SAFETY','RECITATION','refusal'].includes(reason) || result.promptFeedback?.blockReason)throw Error('Le fournisseur a interrompu ou bloqué la réponse. Réessaie ou sélectionne un autre modèle.');
+  const textContent=value=>typeof value==='string'?value:Array.isArray(value)?value.filter(c=>!c.thought && ['text','output_text',undefined].includes(c.type)).map(c=>typeof c.text==='string'?c.text:c.text?.value||'').join(''):'';
+  let calls=[],answer='',message;
+  if(protocol==='anthropic'){calls=(result.content||[]).filter(c=>c.type==='tool_use').map(c=>({name:c.name,input:c.input,raw:c,content:result.content}));answer=textContent(result.content);}
+  else if(protocol==='gemini'){const parts=result.candidates?.[0]?.content?.parts||[];calls=parts.filter(c=>c.functionCall).map(c=>({name:c.functionCall.name,input:c.functionCall.args,raw:c.functionCall,part:c}));answer=textContent(parts);}
+  else if(protocol==='responses'){calls=(result.output||[]).filter(c=>c.type==='function_call').map(c=>({name:c.name,input:c.arguments,raw:c,output:result.output}));answer=textContent((result.output||[]).flatMap(c=>c.content||[])) || textContent(result.output_text);}
+  else {message=result.choices?.[0]?.message;calls=(message?.tool_calls||[]).map(c=>({name:c.function?.name,input:c.function?.arguments,raw:c,message}));answer=textContent(message?.content) || textContent(message?.refusal);}
+  if(calls.length>1)throw Error('Le modèle a proposé plusieurs appels simultanés. Demandez une proposition unique.');
+  const call=calls[0];
+  if(call){
+    if(call.name!==tool?.name)throw Error('Outil demandé non autorisé.');
+    if(typeof call.input==='string'){try{call.input=JSON.parse(call.input);}catch{throw Error('Proposition IA incomplète ou invalide. Aucune modification appliquée.');}}
+    if(!call.input || typeof call.input!=='object' || Array.isArray(call.input))throw Error('Proposition IA incomplète ou invalide. Aucune modification appliquée.');
+  }
+  if(!call && !answer.trim())throw responseError('Le modèle n’a renvoyé aucune réponse exploitable. Réessaie ou sélectionne un autre modèle.','empty');
+  return {text:answer,proposal:call?.input,call};
+}
+
 export async function acknowledgeTool(result,status,fetcher=fetch){
   if(!result.call)return;
   const {provider,key,base,path,body}=result.request,call=result.call;
   const payload=JSON.stringify({status,applied:false});
   let next;
   if(result.protocol==='openai')next={...body,messages:[...body.messages,call.message,{role:'tool',tool_call_id:call.raw.id,content:payload}],tool_choice:'none'};
-  else if(result.protocol==='anthropic')next={...body,messages:[...body.messages,{role:'assistant',content:[call.raw]},{role:'user',content:[{type:'tool_result',tool_use_id:call.raw.id,content:payload}]}],tool_choice:{type:'none'}};
-  else if(result.protocol==='gemini')next={...body,contents:[...body.contents,{role:'model',parts:[{functionCall:call.raw}]},{role:'user',parts:[{functionResponse:{name:call.name,response:{status,applied:false}}}]}]};
-  else next={...body,input:[...body.input,call.raw,{type:'function_call_output',call_id:call.raw.call_id,output:payload}]};
+  else if(result.protocol==='anthropic')next={...body,messages:[...body.messages,{role:'assistant',content:call.content || [call.raw]},{role:'user',content:[{type:'tool_result',tool_use_id:call.raw.id,content:payload}]}],tool_choice:{type:'none'}};
+  else if(result.protocol==='gemini')next={...body,contents:[...body.contents,{role:'model',parts:[call.part || {functionCall:call.raw}]},{role:'user',parts:[{functionResponse:{name:call.name,response:{status,applied:false}}}]}]};
+  else next={...body,tool_choice:'none',input:[...body.input,...(call.output || [call.raw]),{type:'function_call_output',call_id:call.raw.call_id,output:payload}]};
   const response=await providerRequest(provider,key,base,path,next,fetcher);
-  if(response.error)throw Error('Erreur fournisseur : résultat de l’outil refusé.');
-  return response;
+  return parseCompletion(response,result.protocol,null);
 }
-export async function complete(
-  provider,
-  key,
-  custom,
-  model,
-  system,
-  prompt,
-  fetcher,
-) {
-  let body, path;
-  if (provider.protocol === "anthropic") {
-    path = "/messages";
-    body = {
-      model,
-      max_tokens: 3000,
-      system,
-      messages: [{ role: "user", content: prompt }],
-    };
-  } else if (provider.protocol === "gemini") {
-    path = "/models/" + encodeURIComponent(model) + ":generateContent";
-    body = {
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json" },
-    };
-  } else {
-    path = "/chat/completions";
-    body = {
-      model,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: prompt },
-      ],
-      stream: false,
-    };
-  }
-  const result = await providerRequest(
-    provider,
-    key,
-    custom,
-    path,
-    body,
-    fetcher,
-  );
-  const answer =
-    provider.protocol === "anthropic"
-      ? result.content
-          ?.filter((x) => x.type === "text")
-          .map((x) => x.text)
-          .join("")
-      : provider.protocol === "gemini"
-        ? result.candidates?.[0]?.content?.parts
-            ?.map((x) => x.text || "")
-            .join("")
-        : result.choices?.[0]?.message?.content;
-  if (typeof answer !== "string" || !answer.trim())
-    throw Error("Réponse vide ou interrompue.");
-  return answer;
+export async function complete(provider,key,custom,model,system,prompt,fetcher) {
+  return (await chatCompletion(provider,key,custom,model,system,[{role:'user',content:prompt}],null,fetcher)).text;
 }

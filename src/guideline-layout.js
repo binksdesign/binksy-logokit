@@ -912,7 +912,7 @@ function rawPageElements(p, page, index = 0) {
   return items.map(e=>{
     if(e.type === "logo") e = {...e, colorId: page.logoColors?.[e.variant] || e.colorId || "auto"};
     const o=page.styles[e.id]; if(!o)return e;
-    return {...e,...(o.role?{...typeStyle(g,o.role),role:o.role}:{}),x:Number.isFinite(o.x)?o.x*W:e.x,y:Number.isFinite(o.y)?o.y*H:e.y,w:e.physicalSize?e.w:Number.isFinite(o.w)?o.w*W:e.w,h:e.physicalSize?e.h:Number.isFinite(o.h)?o.h*H:e.h,size:o.size||e.size,text:o.text??e.text,fill:o.fill||e.fill,variant:o.variant||e.variant,colorId:o.colorId||e.colorId,resource:o.resource||e.resource,fit:o.fit||e.fit,zoom:o.zoom??e.zoom,panX:o.panX??e.panX,panY:o.panY??e.panY,hidden:o.hidden};
+    return {...e,...(o.role?{...typeStyle(g,o.role),role:o.role}:{}),x:Number.isFinite(o.x)?o.x*W:e.x,y:Number.isFinite(o.y)?o.y*H:e.y,w:e.physicalSize?e.w:Number.isFinite(o.w)?o.w*W:e.w,h:e.physicalSize?e.h:Number.isFinite(o.h)?o.h*H:e.h,size:o.size||e.size,text:o.text??e.text,fill:o.fill||e.fill,variant:o.variant||e.variant,colorId:o.colorId||e.colorId,resource:o.resource||e.resource,fit:o.fit||e.fit,zoom:o.zoom??e.zoom,panX:o.panX??e.panX,panY:o.panY??e.panY,rotation:o.rotation??e.rotation,opacity:o.opacity??e.opacity,z:o.z??e.z,hidden:o.hidden};
   }).filter(e=>!e.hidden);
 }
 
@@ -920,6 +920,8 @@ export function pageElements(p,page,index=0) {
   const items=rawPageElements(p,page,index).filter(e=>page.type!=='logos' || !e.id.startsWith('logo-bg-')), T=pageTheme(p,page);
   const common = page.type === 'logos' ? commonLogoColor(p,items.filter(e=>e.type==='logo').map(e=>e.variant),T.background) : null;
   return items.map((e,i)=>{
+    const transform=page.styles[e.id];
+    e={...e,z:transform?.z??e.z??i,rotation:transform?.rotation??e.rotation,opacity:transform?.opacity??e.opacity};
     const rect=items.slice(0,i).reverse().find(r=>r.type==='rect' && r.h>2 && r.x<=e.x && r.y<=e.y && r.x+r.w>=e.x+e.w && r.y+r.h>=e.y+e.h);
     const background=rect?.fill==='auto'?T.secondary:rect?.fill || T.background;
     if(e.type==='placeholder' && e.resource)return {...e,type:'image'};
@@ -934,7 +936,7 @@ export function pageElements(p,page,index=0) {
       const resolved = typeStyle(p.brandGuideline, localStyle.role || e.role || 'body');
       for (const key of ['font','weight','leading','tracking','align'])
         if (localStyle[key] !== undefined) e[key] = localStyle[key];
-        else if (!e.id.startsWith('font-specimen-') && !e.id.startsWith('font-alphabet-')) e[key] = resolved[key];
+        else if (!e.id.startsWith('font-specimen-') && !e.id.startsWith('font-alphabet-') && !(key==='leading' && e.id.startsWith('type-sample-'))) e[key] = resolved[key];
       if ((localStyle.role || ownStyle.type === 'text') && localStyle.size === undefined) e.size = resolved.size;
 
       const override=page.styles[e.id]?.fill;
@@ -949,5 +951,5 @@ export function pageElements(p,page,index=0) {
       return {...e,fill:paletteInk(p,background,e.fill==='auto'?undefined:e.fill)};
     }
     return e;
-  });
+  }).sort((a,b)=>a.z-b.z);
 }

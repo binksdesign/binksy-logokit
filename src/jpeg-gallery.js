@@ -1,5 +1,4 @@
-import { framing } from "./export-formats.js";
-import { editFraming, framingControls, bindFraming } from "./format-editor.js";
+import { framingControls, bindFraming } from "./format-editor.js";
 import { catalog, CATEGORIES, selectedItem, selectedItems } from "./catalog.js";
 import { backgrounds, jpegPairs, variantName } from "./model.js";
 import { jpegPreview, exportPlan } from "./export.js";
@@ -77,7 +76,7 @@ export function mountJpegGallery(root, p, variants, edit, refresh, target) {
               !p.excludedFiles?.includes(job.key) &&
               !p.excludedFiles?.includes(job.path),
           );
-        return `<article class="delivery ${included ? "selected" : ""}"><label><input type="checkbox" data-jpeg-pair="${i}" ${included ? "checked" : ""} aria-label="${esc(variantName(p, item.variant))} · ${esc(item.color.name)} · ${esc(pair.background.name)}"><span data-no-i18n>${esc(variantName(p, item.variant))}</span><small data-no-i18n>${esc(item.color.name)} / ${esc(pair.background.name)}</small><div class="delivery-preview" data-pair-preview="${i}">${jpegPreview(p, pair, target)}</div></label>${target ? "" : `<button data-jpeg-framing="${i}">${t("Taille du logo dans l’image")}</button>`}<span class="pair-contrast">${pair.ratio.toFixed(1)}:1 · ${t(pair.recommended ? "Contraste conseillé" : "Contraste faible")}</span><details><summary>${t("Appliquer ce fond aux autres versions")}</summary><label class="check"><input type="checkbox" data-global-pair="${esc(pair.globalId)}" ${pair.enabled ? "checked" : ""}>${t("Utiliser cette association pour toutes les versions")}</label></details></article>`;
+        return `<article class="delivery ${included ? "selected" : ""}"><label><input type="checkbox" data-jpeg-pair="${i}" ${included ? "checked" : ""} aria-label="${esc(variantName(p, item.variant))} · ${esc(item.color.name)} · ${esc(pair.background.name)}"><span data-no-i18n>${esc(variantName(p, item.variant))}</span><small data-no-i18n>${esc(item.color.name)} / ${esc(pair.background.name)}</small><div class="delivery-preview" data-pair-preview="${i}">${jpegPreview(p, pair, target)}</div></label><details><summary>${t("Appliquer ce fond aux autres versions")}</summary><label class="check"><input type="checkbox" data-global-pair="${esc(pair.globalId)}" ${pair.enabled ? "checked" : ""}>${t("Utiliser cette association pour toutes les versions")}</label></details></article>`;
       })
       .join("") ||
     `<p>${t("Aucun JPEG dans cette sélection. Choisissez une autre catégorie.")}</p>`
@@ -114,13 +113,6 @@ export function mountJpegGallery(root, p, variants, edit, refresh, target) {
       p.jpegOverrides = {};
       p.jpegExceptions = {};
     });
-  root
-    .querySelectorAll("[data-jpeg-framing]")
-    .forEach(
-      (el) =>
-        (el.onclick = () =>
-          editFraming(p, pairs[+el.dataset.jpegFraming].pair, edit, target?.id)),
-    );
   root.querySelectorAll("[data-jpeg-pair]").forEach(
     (el) =>
       (el.onchange = () =>

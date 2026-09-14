@@ -831,3 +831,7 @@
 
 .bg-interaction-layer { position:absolute; top:0; left:0; width:100%; pointer-events:none; }
 .bg-interaction-layer .bg-inline-text { pointer-events:auto; }
+
+.bg-canvas > svg { overflow:visible; }
+.bg-canvas .bg-context-toolbar { z-index:6; }
+.bg-rotate { position:absolute; width:16px; height:16px; padding:0; border:1px solid #f50; border-radius:50%; background:white; left:calc(50% - 8px); top:-26px; pointer-events:auto; cursor:grab; }

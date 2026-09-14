@@ -2216,3 +2216,22 @@ header .header-actions .ai-launcher { width:auto; height:42px; min-width:132px; 
 .variant-overview small { display:block; margin:0; color:#666; font-size:12px; line-height:1.4; }
 .variant-overview button:hover { background:#fff; }
 .icon-action { animation:none!important; }
+
+/* Canvas-first controls and document-level tooltips. */
+[data-tooltip]:hover::after,[data-tooltip]:focus-visible::after { content:none; }
+.global-tooltip { position:fixed; inset:auto; margin:0; max-width:min(260px,calc(100vw - 16px)); padding:7px 10px; border:0; border-radius:5px; background:#202020; color:#fff; font:12px/1.4 sans-serif; pointer-events:none; overflow-wrap:anywhere; }
+.ai-action.icon-action,.ai-launcher,[data-ai-recommendation] { border-radius:50%; width:32px; height:32px; min-width:32px; min-height:32px; padding:5px; flex-shrink:0; animation:none; box-shadow:none; }
+.compose-context { position:absolute; top:45px; left:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:center; max-width:calc(100% - 24px); padding:8px; border:1px solid #ddd; border-radius:8px; background:#fff; color:#222; z-index:5; box-shadow:0 3px 14px #0001; }
+.compose-context label { display:flex; gap:5px; align-items:center; font-size:11px; }
+.compose-context input { width:72px; padding:5px; }
+.compose-context details>div { position:absolute; right:0; top:100%; display:grid; gap:8px; padding:12px; width:240px; background:#fff; border:1px solid #ddd; border-radius:6px; }
+.clear-settings .clear-value { display:block; padding:2px 0; margin:4px 0; border:0; background:none; font-size:10px; font-weight:400; color:#777; }
+.inspector-content .clear-settings { padding:8px 0; }
+.clear-settings .field { margin-bottom:8px; }
+.inspector-content .clear-settings>h3 { margin-top:8px; }
+.canvas-expert { align-items:center; gap:10px; }
+.canvas-expert .ai-action { margin-left:auto; }
+.clear-settings .measure-button { margin:8px 0; }
+.clear-settings .multipliers { margin:8px 0; }
+.ai-action:hover,.ai-launcher:hover,[data-ai-recommendation]:hover { box-shadow:0 0 0 2px #ffb06b55; }
+@media (max-width:600px) { .compose-context { top:38px; gap:5px; padding:6px; } .compose-context label { gap:3px; } .compose-context input { width:58px; } }

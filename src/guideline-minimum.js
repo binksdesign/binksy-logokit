@@ -1,5 +1,4 @@
 import { finalPalette } from "./guideline-config.js";
-import { typeStyle } from "./guideline-theme.js";
 import { layout } from './model.js';
 import { dimensions, pageTheme } from './guideline-theme.js';
 
@@ -47,15 +46,7 @@ export function pairCapacity(p) {
   return Math.max(1, Math.floor((width-2*m)/175)) * Math.max(1,Math.floor((height-2*m-116)/100));
 }
 export function hierarchyGroups(p) {
-  const g=p.brandGuideline, {height}=dimensions(g), available=height-2*pageTheme(p,{}).margin-116;
-  const roles=['title','subtitle','heading','body','small','caption',...(g.accentTypography?.enabled?['accent']:[])];
-  const groups=[[]]; let used=0;
-  for(const role of roles) {
-    const s=typeStyle(g,role), h=Math.max(56,s.size*s.leading*2+12);
-    if(used+h>available && groups.at(-1).length){groups.push([]);used=0;}
-    groups.at(-1).push(role);used+=h;
-  }
-  return groups;
+  return [['title','subtitle','heading','body','small','caption',...(p.brandGuideline.accentTypography?.enabled?['accent']:[])]];
 }
 function paginateContentPages(p) {
   const pages=p.brandGuideline.pages, result=[];
@@ -65,6 +56,10 @@ function paginateContentPages(p) {
     const groups=page.type==='hierarchy'?hierarchyGroups(p):Array.from({length:Math.max(1,Math.ceil(finalPalette(p).length**2/pairCapacity(p)))},(_,i)=>i);
     const siblings=pages.filter(a=>a.id===page.id || a.paginationRoot===page.id);
     const sharedStyles=Object.assign({},...siblings.map(a=>a.styles));
+    if(page.type==='hierarchy'){
+      result.push({...structuredClone(page),hierarchyRoles:groups[0],styles:structuredClone(sharedStyles),elements:siblings.flatMap(a=>structuredClone(a.elements))});
+      continue;
+    }
     const lastCustom=siblings.reduce((last,a,i)=>a.elements.length?Math.max(last,i):last,0);
     while(groups.length<=lastCustom)groups.push(page.type==='hierarchy'?[]:groups.length);
     groups.forEach((group,i)=>{

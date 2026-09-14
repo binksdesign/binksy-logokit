@@ -1,3 +1,4 @@
+import './tooltips.js';
 import {exportWarnings} from "./guideline-export.js";
 import { prepareGuide } from './guideline-config.js';
 import { readProjects, storeProjects } from './project-storage.js';
@@ -48,10 +49,10 @@ let projects = [],
   p,
   view = "home",
   zoom = 1,
-  inspector = "composition",
+  inspector = "guides",
   focus = false,
   cancelMeasurement = null,
-  selected = "icon",
+  selected = "",
   font = null,
   saving,
   gesture = null,
@@ -109,7 +110,7 @@ function render() {
   if(view !== "guideline") document.querySelector('.ai-chat[data-kind="chat"]')?.close();
   cancelMeasurement?.();
   if (view !== "compose") focus = false;
-  if (!["home", "agent"].includes(view) && !layout(p).parts.some(q => q.key === selected)) selected = layout(p).parts[0]?.key || "icon";
+  if (!["home", "agent"].includes(view) && selected && !layout(p).parts.some(q => q.key === selected)) selected = layout(p).parts[0]?.key || "icon";
   if (p.mode === "clearspace" && ["family","guideline"].includes(view)) view = "compose";
   const windowScroll = { left: window.scrollX, top: window.scrollY };
   const scrolls = [".left", ".right", "main", ".guided-workspace", ".bg-wizard-content", ".bg-pages", ".bg-center", ".bg-properties"].map((selector) => [
@@ -243,6 +244,25 @@ function drawStage() {
       });
     };
   });
+  stage.querySelector('#canvas').onpointerdown = event => {
+    if (cancelMeasurement || event.target.closest('[data-drag],[data-resize]')) return;
+    selected = ''; render();
+  };
+  if (selected && view === 'compose') {
+    const q = l.parts.find(part => part.key === selected);
+    const bar = document.createElement('div');
+    bar.className = 'compose-context';
+    const input = (key,label,value) => `<label>${t(label)}<input type="number" step="any" title="${t(label)} · ${key.endsWith('Height') || key==='width' ? 'px' : 'X'}" data-precise="${key}" value="${value}"></label>`;
+    bar.innerHTML = input(selected+'Height','Hauteur',q.h)+input('width','Largeur',q.w)+`<details><summary aria-label="${t('Options avancées')}">•••</summary><div>`+input(selected+'X','Position X',c[selected+'X'])+input(selected+'Y','Position Y',c[selected+'Y'])+input('gap','Espacement',c.gap)+`<select data-precise="align" aria-label="${t('Alignement')}">${[['start','Début'],['center','Centre'],['end','Fin']].map(([v,label])=>`<option value="${v}" ${c.align===v?'selected':''}>${t(label)}</option>`).join('')}</select><select data-precise="center" aria-label="${t('Centrage')}">${[['real','Centrage exact'],['optical','Centrage visuel']].map(([v,label])=>`<option value="${v}" ${c.center===v?'selected':''}>${t(label)}</option>`).join('')}</select><button data-context-reset>${t('Réinitialiser la composition')}</button></div></details>`;
+    bar.onpointerdown = event => event.stopPropagation();
+    bar.querySelectorAll('[data-precise]').forEach(node => node.onchange = () => {
+      const key=node.dataset.precise, value=node.type==='number'?Number(node.value):node.value;
+      if(node.type==='number' && (!Number.isFinite(value) || node.value===''))return;
+      edit(()=>{if(key==='width')c[selected+'Height']=Math.max(1,Math.min(100000,value*q.h/q.w));else c[key]=typeof value==='number'?Math.max(key.endsWith('Height')?1:key==='gap'?0:-10,Math.min(key.endsWith('Height')?100000:key==='gap'?5:10,value)):value;});
+    });
+    bar.querySelector('[data-context-reset]').onclick=()=>action('reset');
+    stage.append(bar);
+  }
   resizeHandles();
   translateDOM(stage);
 }
@@ -529,9 +549,9 @@ function beginDrag(e) {
     c = p.compositions[p.active],
     initial = { x: c[key + "X"], y: c[key + "Y"] },
     X = layout(p).X;
-  history.push(p);
+  let moved = false;
   selected = key;
-  inspector = "position";
+  inspector = "guides";
   el.setPointerCapture(e.pointerId);
   const part = layout(p).parts.find((q) => q.key === key);
   el.onpointermove = (event) => {
@@ -542,6 +562,8 @@ function beginDrag(e) {
         p.snap && !event.altKey
           ? Math.round(v * 4) / 4
           : Math.round(v * 100) / 100;
+    if (!moved && Math.hypot(point.x-start.x,point.y-start.y) < .5) return;
+    if (!moved) { history.push(p); moved=true; }
     c[key + "X"] = Math.max(
       -10,
       Math.min(10, snap(initial.x + (point.x - start.x) / X)),
@@ -576,7 +598,7 @@ function beginDrag(e) {
   };
   const end = () => {
     el.onpointermove = null;
-    save();
+    if (moved) save();
     render();
   };
   el.onpointerup = end;

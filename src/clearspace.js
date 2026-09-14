@@ -2,9 +2,9 @@ import { t } from "./i18n.js";
 const escapeText = value => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[c]);
 import { layout, clearMeasure } from "./model";
 import { compositionSVG } from "./svg";
-export function clearGuides(l, s, tone = "dark") {
+export function clearGuides(l, s, tone = "dark", color) {
   if (!s) return "";
-  const ink = tone === "light" ? "#ededed" : "#333333",
+  const ink = /^#[\da-f]{6}$/i.test(color) ? color : tone === "light" ? "#ededed" : "#333333",
     x = l.x - s,
     y = l.y - s,
     w = l.width + 2 * s,
@@ -24,7 +24,7 @@ export function clearGuides(l, s, tone = "dark") {
       .join("")
   );
 }
-export function clearspaceSVG(p, v, tone = "dark") {
+export function clearspaceSVG(p, v, tone = "dark", options = {}) {
   const l = layout(p, v),
     m = clearMeasure(p, v);
   if (!m.space)
@@ -32,12 +32,13 @@ export function clearspaceSVG(p, v, tone = "dark") {
       "Définissez la mesure de référence du clearspace pour cette variante.",
     );
   const s = m.space,
-    pad = Math.max(20, l.width * 0.08),
+    pad = options.graphicOnly ? 0 : Math.max(20, l.width * 0.08),
     x = l.x - s - pad,
-    y = l.y - s - pad - 35,
+    y = l.y - s - pad - (options.graphicOnly ? 0 : 35),
     w = l.width + 2 * s + 2 * pad,
-    h = l.height + 2 * s + 2 * pad + 85,
+    h = l.height + 2 * s + 2 * pad + (options.graphicOnly ? 0 : 85),
     ink = tone === "light" ? "#ededed" : "#333333";
   const fs = Math.min(14, w / 42);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${x} ${y} ${w} ${h}"><text x="${x + w / 2}" y="${y + 24}" text-anchor="middle" font-family="Arial" font-size="${fs}" fill="${ink}">${t("Zone de sécurité")}</text>${clearGuides(l, s, tone)}<svg x="${l.x}" y="${l.y}" width="${l.width}" height="${l.height}" viewBox="${l.x} ${l.y} ${l.width} ${l.height}">${compositionSVG(p, v, { hex: ink, force: true }).replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg><text x="${x + w / 2}" y="${y + h - 18}" text-anchor="middle" font-family="Arial" font-size="${fs}" fill="${ink}">X = ${escapeText(m.label)} × ${m.multiplier} · ${m.space.toFixed(2)} ${t("unités")}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${x} ${y} ${w} ${h}"><text x="${x + w / 2}" y="${y + 24}" text-anchor="middle" font-family="Arial" font-size="${fs}" fill="${ink}">${t("Zone de sécurité")}</text>${clearGuides(l, s, tone, options.guideColor)}<svg x="${l.x}" y="${l.y}" width="${l.width}" height="${l.height}" viewBox="${l.x} ${l.y} ${l.width} ${l.height}">${compositionSVG(p, v, options.color ?? { hex: ink, force: true }).replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg><text x="${x + w / 2}" y="${y + h - 18}" text-anchor="middle" font-family="Arial" font-size="${fs}" fill="${ink}">X = ${escapeText(m.label)} × ${m.multiplier} · ${m.space.toFixed(2)} ${t("unités")}</text></svg>`;
+  return options.graphicOnly ? svg.replace(/<text\b[^>]*>[\s\S]*?<\/text>/g, "") : svg;
 }

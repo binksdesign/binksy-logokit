@@ -189,8 +189,7 @@ await test("Import multicolore : palette automatique, inspection et verrouillage
   click('nav [data-view="family"]');
   assert(find("[data-edit-color]"));
   assert(find(".delivery svg"));
-  assert(!find('[data-disclosure="logo-colors"]').open);
-  click('[data-disclosure="logo-colors"] > summary');
+  assert(find('[data-disclosure="logo-colors"]').open);
   const chip = find('[data-highlight-asset="wordmark"]');
   chip.click();
   assert(
@@ -258,6 +257,7 @@ await test("Système complet : toutes les combinaisons restent accessibles", () 
 await test("Dégradés : modes visuels, stops, orientation et participation", async () => {
   click('[data-gallery-filter="gradient"]');
   click("[data-create-gradient]");
+  input('.gradient-editor [name="gradient-name"]', "Gradient QA");
   click('.gradient-editor [value="apply"]');
   await wait(()=>!find("dialog"));
   change('[data-section="gradient"] [data-work-select]', true);
@@ -324,7 +324,7 @@ await test("Cadrage : annuler, poignées centrées, réglage partagé", async ()
 await test("Export : kit complet par défaut et personnalisation conservée", async () => {
   click('nav [data-view="delivery"]');
   assert(find("#export-kit"));
-  assert(!find('[data-disclosure="export"]').open);
+  assert(find('[data-disclosure="export"]').open);
   for (const f of ["svg", "png", "jpeg", "pdf"])
     assert(find(`[data-format="${f}"]`).checked);
   assert(!find('[data-export-preset]'));

@@ -2131,3 +2131,88 @@ header .language-switch button:hover { background:#333; color:#efefef; }
 .framing-handle {position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;padding:0;background:#ff5500;border:2px solid white;cursor:nwse-resize;touch-action:none;}
 .gradient-palette {display:flex;gap:6px;flex-wrap:wrap;margin:12px 0;}
 .gradient-palette button {width:28px;height:28px;padding:0;border:1px solid #999;}
+/* Five-step kit navigation keeps its own row on laptop and smaller screens. */
+@media (max-width: 1250px) {
+  header:has([data-ai-assistant]) { flex-wrap: wrap; height: auto; min-height: 78px; padding-top: 10px; gap: 8px 16px; }
+  header:has([data-ai-assistant]) nav { order: 3; flex: 0 0 100%; height: 46px; min-width: 0; overflow-x: auto; justify-content: flex-start; }
+  header:has([data-ai-assistant]) nav button { flex: 0 0 auto; }
+}
+@media (max-width: 600px) {
+  header:has([data-ai-assistant]) .header-actions { flex-wrap: wrap; margin-left:auto; max-width:100%; gap:6px; }
+  header:has([data-ai-assistant]) { padding-left:12px; padding-right:12px; }
+}
+
+/* Discoverable controls and stable gradient selection. */
+.gradient-track { margin-inline: 16px; overflow: visible; touch-action: none; }
+.gradient-track [data-stop][aria-pressed="true"] { outline: 3px solid var(--accent, #ff6500); outline-offset: 3px; z-index: 2; }
+.stop-row.active { outline: 2px solid var(--accent, #ff6500); outline-offset: 2px; }
+.role-row > span { font-size: 12px; grid-column: 1 / -1; }
+.gallery-filters [data-custom-format] { background: #ef5b16; color: #fff; flex-shrink: 0; }
+.ai-action,
+.ai-launcher,
+[data-ai-recommendation] {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  border-color: #ff9a56;
+  background: linear-gradient(115deg,#d94708,#ff741c 38%,#ffad58 58%,#e14c0c);
+  background-size: 240% 240%;
+  color: #fff;
+  box-shadow: 0 0 0 1px #ffb06b55, 0 0 18px #ff650066, 0 8px 24px #be3d1633;
+  animation: assistant-flow 5.5s ease-in-out infinite alternate;
+}
+.ai-action:hover,
+.ai-launcher:hover,
+[data-ai-recommendation]:hover { box-shadow: 0 0 0 1px #ffc08b88, 0 0 25px #ff650088, 0 10px 28px #be3d1644; }
+.ai-action:focus-visible,
+.ai-launcher:focus-visible,
+[data-ai-recommendation]:focus-visible { outline: 2px solid #171717; outline-offset: 3px; box-shadow: 0 0 0 5px #ffb16f, 0 0 28px #ff650099; }
+.ai-action:disabled,
+.ai-launcher:disabled,
+[data-ai-recommendation]:disabled { animation: none; box-shadow: none; }
+.ai-launcher { position: fixed; bottom: 28px; right: 24px; z-index: 80; border-radius: 24px; padding: 12px 18px; }
+@keyframes assistant-flow { from { background-position: 0% 45%; } to { background-position: 100% 55%; } }
+@media(prefers-reduced-motion:reduce) { .ai-action,.ai-launcher,[data-ai-recommendation] { animation:none; } }
+
+.use-framing {display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:16px 0 24px;}
+.use-framing h3 {grid-column:1/-1;margin:0;}
+.use-framing label {margin:0;}
+.use-framing input {width:100%;}
+
+body:has(.ai-chat[open]) .ai-launcher { visibility: hidden; }
+
+header .header-actions .ai-launcher { width:auto; height:42px; min-width:132px; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 18px; color:#fff; }
+
+.field > .variant-framing-preview{display:flex;align-items:center;justify-content:center;background:#fff;width:100%;max-width:240px;overflow:hidden}.variant-framing-preview>span{display:block}.variant-framing-preview svg{display:block;width:100%;height:100%}
+
+.bg-pair-review { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px; }
+.bg-pair-choice { display:grid; grid-template-columns:auto 58px 1fr; align-items:center; gap:10px; min-height:72px; padding:8px; border:1px solid #d5d5ce; background:#fff; cursor:pointer; }
+.bg-pair-choice:has(input:checked) { border-color:#ff6500; box-shadow:inset 3px 0 #ff6500; }
+.bg-pair-choice input { width:18px; height:18px; }
+.bg-pair-sample { display:grid; place-items:center; width:58px; height:48px; background:var(--pair-bg); color:var(--pair-fg); font-size:24px; font-weight:650; }
+.bg-pair-choice strong,.bg-pair-choice small { display:block; line-height:1.35; }
+.bg-pair-choice small { margin-top:4px; color:#696960; }
+.variant-overview { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; padding:0 28px 20px; }
+.variant-overview button { display:grid; gap:6px; text-align:left; padding:14px; border:1px solid var(--line); background:transparent; }
+.variant-overview button[aria-pressed=true] { border-color:var(--accent); background:#fff; box-shadow:inset 0 -3px var(--accent); }
+.variant-overview-art { display:block; height:50px; margin-bottom:10px; }
+.variant-overview-art svg { width:100%; height:100%; }
+.variant-folder { margin:16px 28px; }
+.variant-folder>h2 { margin:0 0 12px; }
+.variant-folder-actions { display:flex; justify-content:flex-end; gap:8px; margin-bottom:12px; }
+.variant-folder .workflow-section { margin:10px 0; }
+.variant-section>summary { display:flex; padding:16px; cursor:pointer; }
+.variant-section .family-grid { grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); }
+.variant-section .delivery { position:relative; }
+.variant-section [data-work-single] { position:absolute; right:8px; bottom:8px; }
+.icon-action { position:relative; min-width:36px; min-height:36px; padding:6px!important; }
+[data-tooltip] { position:relative; }
+[data-tooltip]:hover::after,[data-tooltip]:focus-visible::after { content:attr(data-tooltip); position:absolute; bottom:calc(100% + 6px); right:0; width:max-content; max-width:240px; padding:7px 10px; border-radius:4px; background:#202020; color:white; font-size:12px; z-index:30; pointer-events:none; }
+.export-recap { margin:16px 0; font-size:13px; }
+@media(max-width:700px){.variant-overview{padding:12px;grid-template-columns:repeat(2,minmax(0,1fr));}.variant-folder{margin:12px;}.icon-action{min-width:44px;min-height:44px;}.variant-folder-actions{flex-wrap:wrap;}}
+/* Overview counts remain visible when the header navigation collapses on mobile. */
+.variant-overview { height:auto; }
+.variant-overview button { color:#252525; }
+.variant-overview small { display:block; margin:0; color:#666; font-size:12px; line-height:1.4; }
+.variant-overview button:hover { background:#fff; }
+.icon-action { animation:none!important; }

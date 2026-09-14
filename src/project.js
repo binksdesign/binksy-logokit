@@ -1,3 +1,4 @@
+import { validateGuide } from './guideline-model.js';
 import { customFormats } from "./export-formats.js";
 import { gradientSettings, synchronizeGradients } from "./gradient.js";
 import { project, VARIANTS, variantIds, isReadyVariant, CLEAR_REFS } from "./model";
@@ -5,7 +6,7 @@ import { importSVG } from "./svg";
 import { restoreRoles, hexColor, shade } from "./paints.js";
 export async function validate(data) {
   if (
-    ![1, 2, 3].includes(data?.version) ||
+    ![1, 2, 3, 4, 5].includes(data?.version) ||
     typeof data.brand !== "string" ||
     !data.assets ||
     !data.compositions
@@ -81,7 +82,7 @@ export async function validate(data) {
             /^[\w-]+$/.test(c.id) &&
             !["original", "black", "white"].includes(c.id),
         )
-        .map((c) => ({ id: c.id, name: c.name.slice(0, 100), hex: c.hex }))
+        .map((c) => ({ id: c.id, name: c.name.slice(0, 100), hex: c.hex, role: typeof c.role === "string" ? c.role.slice(0,100) : "" }))
     : [];
   result.excluded = Array.isArray(data.excluded)
     ? data.excluded.filter((x) => typeof x === "string")
@@ -108,10 +109,12 @@ export async function validate(data) {
   ])
     if (Number.isFinite(e[key]))
       result.exports[key] = Math.round(Math.min(max, Math.max(min, e[key])));
+  result.exports.printBitmaps = e.printBitmaps === undefined ? undefined : e.printBitmaps === true;
   result.exports.customFormats = customFormats(e);
   result.exports.rasterFormats = Array.isArray(e.rasterFormats) ? e.rasterFormats.filter(id=>typeof id === "string") : undefined;
   result.exports.destinations = Array.isArray(e.destinations) ? [...new Set(e.destinations.filter(d=>["WEB","PRINT"].includes(d)))] : ["WEB","PRINT"];
   result.exports.framing = Object.fromEntries(Object.entries(e.framing || {}).filter(([id,n])=>/^[\w-]+$/.test(id)&&Number.isFinite(n)&&n>=.05&&n<=1));
+  result.exports.variantFraming = Object.fromEntries(Object.entries(e.variantFraming || {}).filter(([id])=>/^[\w-]+$/.test(id)).map(([id,values])=>[id,Object.fromEntries(Object.entries(values || {}).filter(([v,n])=>/^[\w-]+$/.test(v)&&Number.isFinite(n)&&n>=.05&&n<=1))]));
   result.canvas = data.canvas === "#000000" ? "#000000" : "#ffffff";
   result.jpegOverrides = Object.fromEntries(
     Object.entries(data.jpegOverrides || {}).filter(
@@ -259,5 +262,6 @@ export async function validate(data) {
     }
   }
   result.locale = data.locale === "en" ? "en" : "fr";
+  result.brandGuideline = validateGuide(data.version >= 4 ? data.brandGuideline : null, result.mode);
   return result;
 }

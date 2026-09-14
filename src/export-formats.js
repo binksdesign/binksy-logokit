@@ -43,6 +43,8 @@ export function customFormats(e) {
       width: f.width,
       height: f.height,
       kind: "use",
+      background: ["transparent", "color"].includes(f.background) ? f.background : undefined,
+      raster: ["png", "jpeg", "both"].includes(f.raster) ? f.raster : undefined,
     }));
 }
 export function normalizeFormats(e) {
@@ -70,18 +72,18 @@ export function normalizeFormats(e) {
   ];
   return { available, selected: available.filter((f) => ids.includes(f.id)) };
 }
-export function framing(e, id) {
-  return Math.max(0.05, Math.min(1, Number(e.framing?.[id]) || 0.8));
+export function framing(e, id, variant) {
+  return Math.max(0.05, Math.min(1, Number(e.variantFraming?.[id]?.[variant] ?? e.framing?.[id]) || 0.8));
 }
-export function rasterTargets(e) {
-  return normalizeFormats(e).selected.flatMap((f) =>
+export function rasterTargets(e, variant, format) {
+  return normalizeFormats(e).selected.filter(f => !format || (!f.background && !f.raster) || f.raster === "both" || format === (f.raster || (f.background === "transparent" ? "png" : "jpeg"))).flatMap((f) =>
     f.kind === "use"
-      ? [{ ...f, destination: "CAS D’USAGE", dpi: 72, scale: framing(e, f.id) }]
-      : (e.destinations || ["WEB", "PRINT"]).map((destination) => ({
+      ? [{ ...f, destination: "CAS D’USAGE", dpi: 72, scale: framing(e, f.id, variant) }]
+      : (e.printBitmaps === undefined ? (e.destinations || ["WEB", "PRINT"]) : e.printBitmaps ? ["WEB", "PRINT"] : ["WEB"]).map((destination) => ({
           ...f,
           destination,
           dpi: destination === "PRINT" ? 300 : 72,
-          scale: framing(e, f.id),
+          scale: framing(e, f.id, variant),
         })),
   );
 }

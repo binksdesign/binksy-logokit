@@ -31,6 +31,10 @@ export function editGradient(p, item, edit) {
       const stop = g.stops[+el.dataset.stop];
       el.style.left = stop.offset * 100 + "%";
       el.style.background = stop.color;
+      el.setAttribute("aria-pressed", String(+el.dataset.stop === selected));
+    });
+    dialog.querySelectorAll(".stop-row").forEach((row, i) => {
+      row.classList.toggle("active", i === selected);
     });
     dialog
       .querySelectorAll("[data-mode-preview]")
@@ -47,8 +51,8 @@ export function editGradient(p, item, edit) {
     const activeStop = g.stops[selected];
     g.stops.sort((a, b) => a.offset - b.offset);
     selected = Math.max(0, g.stops.indexOf(activeStop));
-    dialog.innerHTML = `<form method="dialog"><div class="section-title"><h2>${t("Modifier le dégradé")}</h2><button value="cancel" aria-label="${t("Annuler")}">×</button></div>
-      <div class="gradient-live checker"></div>
+    dialog.innerHTML = `<form method="dialog"><div class="section-title"><h2>${t("Modifier le dégradé")}</h2><button value="cancel" formnovalidate aria-label="${t("Annuler")}">×</button></div>
+      <label class="field">${t("Nom du dégradé")}<input name="gradient-name" required maxlength="100" value="${esc(g.name || "")}"></label><div class="gradient-live checker"></div>
       <div class="visual-options">${[
         ["auto", "Automatique"],
         ["global", "Dégradé global"],
@@ -71,7 +75,7 @@ export function editGradient(p, item, edit) {
       <button type="button" data-add-stop >+ ${t("Ajouter une couleur")}</button>
       <div class="visual-options angles">${[0, 90, 45, -45].map((angle, i) => `<button type="button" data-gradient-angle="${angle}" aria-pressed="${g.angle === angle}"><div data-angle-preview="${angle}"></div>${t(["Horizontal", "Vertical", "45°", "−45°"][i])}</button>`).join("")}</div>
       <label class="field">${t("Angle du dégradé")}<input name="angle" type="number" min="-360" max="360" value="${g.angle || 0}"></label>
-      <details><summary>${t("Application du dégradé")}</summary><label class="field">${t("Appliquer à")}<select data-gradient-paint>${[
+      <details open><summary>${t("Application du dégradé")}</summary><label class="field">${t("Appliquer à")}<select data-gradient-paint>${[
         ["both", "Remplissage et tracé"],
         ["fill", "Remplissage"],
         ["stroke", "Tracé"],
@@ -102,7 +106,7 @@ export function editGradient(p, item, edit) {
             .join("")}`;
         })
         .join("")}</details>
-      <details><summary>${t("Formes participant au dégradé")}</summary><p>${t("Décochez une couleur pour conserver ses formes originales.")}</p>${rolesFor(
+      <details open><summary>${t("Formes participant au dégradé")}</summary><p>${t("Décochez une couleur pour conserver ses formes originales.")}</p>${rolesFor(
         p,
         item.variant,
       )
@@ -111,7 +115,8 @@ export function editGradient(p, item, edit) {
             `<label class="check"><input type="checkbox" data-participate="${esc(r.id)}" ${g.excludedRoles.includes(r.id) || r.locked ? "" : "checked"} ${r.locked ? "disabled" : ""}><i class="paint-dot" style="background:${r.paint}"></i>${t("Couleur")} ${i + 1}${r.locked ? " · " + t("Verrouiller") : ""}</label>`,
         )
         .join("")}</details>
-      <div class="dialog-actions"><button value="cancel">${t("Annuler")}</button><button class="primary" value="apply">${t("Appliquer")}</button></div></form>`;
+      <div class="dialog-actions"><button value="cancel" formnovalidate>${t("Annuler")}</button><button class="primary" value="apply">${t("Appliquer")}</button></div></form>`;
+    dialog.querySelector('[name="gradient-name"]').oninput = e => { g.name = e.target.value; e.target.setCustomValidity(e.target.value.trim() ? "" : t("Nom obligatoire")); };
     update();
     dialog.querySelectorAll("[data-palette-stop]").forEach(
       (el) =>
@@ -182,7 +187,8 @@ export function editGradient(p, item, edit) {
     dialog.querySelectorAll("[data-stop-color]").forEach(
       (el) =>
         (el.oninput = () => {
-          g.stops[+el.dataset.stopColor].color = el.value;
+          selected = +el.dataset.stopColor;
+          g.stops[selected].color = el.value;
           update();
         }),
     );
@@ -205,6 +211,7 @@ export function editGradient(p, item, edit) {
     );
     dialog.querySelector("[data-add-stop]").onclick = () => {
       g.stops.push({ offset: 0.5, color: g.stops[selected]?.color || g.from });
+      selected = g.stops.length - 1;
       render();
     };
     dialog.querySelectorAll("[data-participate]").forEach(
@@ -220,12 +227,15 @@ export function editGradient(p, item, edit) {
       const stop = g.stops[+el.dataset.stop];
       el.onclick = () => {
         selected = g.stops.indexOf(stop);
+        update();
         dialog
           .querySelectorAll("[data-stop]")
           .forEach((b) => b.setAttribute("aria-pressed", b === el));
         dialog.querySelectorAll("[data-stop-color]")[selected]?.focus();
       };
       el.onpointerdown = (e) => {
+        selected = g.stops.indexOf(stop);
+        update();
         el.setPointerCapture(e.pointerId);
         const box = dialog
           .querySelector(".gradient-track")
@@ -260,7 +270,8 @@ export function editGradient(p, item, edit) {
         .forEach((el) => (g.stops[+el.dataset.stopColor].color = el.value));
       g.angle = +dialog.querySelector('[name="angle"]').value;
       update();
-      edit(() => updateGradient(p, g));
+      g.name = dialog.querySelector('[name="gradient-name"]').value.trim();
+      if (g.name) edit(() => updateGradient(p, g));
     }
     dialog.remove();
   };

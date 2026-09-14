@@ -1,3 +1,4 @@
+import { emptyGuide } from './guideline-model.js';
 import { t } from "./i18n.js";
 export const VARIANTS = ["horizontal", "vertical", "icon", "wordmark"];
 export const LABELS = {
@@ -9,7 +10,8 @@ export const LABELS = {
 export const clone = (x) => structuredClone(x);
 export function project(mode = "compose") {
   return {
-    version: 3,
+    version: 5,
+    brandGuideline: emptyGuide(),
     gradients: [],
     colorSelection: {},
     jpegGlobal: {},
@@ -44,8 +46,8 @@ export function project(mode = "compose") {
           clearRef: "wordmarkHeight",
           clearMultiplier: 0.5,
           references: {},
-          minPrint: v === "icon" ? 8 : 25,
-          minDigital: v === "icon" ? 24 : 120,
+          minPrint: { horizontal: 30, vertical: 25, icon: 8, wordmark: 22 }[v],
+          minDigital: { horizontal: 144, vertical: 120, icon: 32, wordmark: 110 }[v],
         },
       ]),
     ),
@@ -64,6 +66,7 @@ export function project(mode = "compose") {
       contrast: 3,
       clearspace: true,
       destinations: ["WEB", "PRINT"],
+      printBitmaps: false,
       rasterFormats: ["web-3000"],
       customFormats: [],
       framing: {},

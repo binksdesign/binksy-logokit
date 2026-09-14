@@ -1,3 +1,8 @@
+import {exportWarnings} from "./guideline-export.js";
+import { prepareGuide } from './guideline-config.js';
+import { readProjects, storeProjects } from './project-storage.js';
+import { mountGuideline } from './guideline-editor.js';
+import { openAssistant } from './ai.js';
 import { formatControls, bindFormats } from "./format-editor.js";
 import { startVisualMeasure, copyClearRule } from "./visual-measure.js";
 import { editColor } from "./palette.js";
@@ -52,7 +57,7 @@ let projects = [],
   gesture = null,
   busy = false;
 try {
-  projects = JSON.parse(localStorage.getItem("binksy-logo-system") || "[]");
+  projects = await readProjects();
   if (!Array.isArray(projects)) projects = [];
   p = projects[0] ? await validate(projects[0]) : project();
 } catch {
@@ -68,10 +73,11 @@ function save() {
   projects = projects.map((x) => (x.id === p.id ? clone(p) : x));
   clearTimeout(saving);
   $("#save-state").textContent = t("Enregistrement…");
-  saving = setTimeout(() => {
+  saving = setTimeout(async () => {
+    const task=saving;
     try {
-      localStorage.setItem("binksy-logo-system", JSON.stringify(projects));
-      $("#save-state").textContent = t("Enregistré sur cet appareil");
+      await storeProjects(projects);
+      if(saving===task){saving=null;$("#save-state").textContent = t("Enregistré sur cet appareil");}
     } catch {
       $("#save-state").textContent =
         "Sauvegarde impossible — exportez le projet";
@@ -100,11 +106,13 @@ function number(label, key, value, min, max, step = 1, suffix = "") {
   return `<label class="field"><span>${label}<output id="o-${key}">${Number(value).toFixed(step < 1 ? 2 : 0)}${suffix}</output></span><div class="range-row"><input aria-label="${label}" type="range" data-comp="${key}" min="${min}" max="${key.endsWith("Height") ? Math.max(1000, Math.ceil(value * 2)) : max}" step="${step}" value="${value}"><input aria-label="${label} précis" type="number" data-comp="${key}" min="${min}" max="${max}" step="${step}" value="${value}"></div></label>`;
 }
 function render() {
+  if(view !== "guideline") document.querySelector('.ai-chat[data-kind="chat"]')?.close();
   cancelMeasurement?.();
   if (view !== "compose") focus = false;
   if (!["home", "agent"].includes(view) && !layout(p).parts.some(q => q.key === selected)) selected = layout(p).parts[0]?.key || "icon";
-  if (p.mode === "clearspace" && view === "family") view = "compose";
-  const scrolls = [".left", ".right", "main"].map((selector) => [
+  if (p.mode === "clearspace" && ["family","guideline"].includes(view)) view = "compose";
+  const windowScroll = { left: window.scrollX, top: window.scrollY };
+  const scrolls = [".left", ".right", "main", ".guided-workspace", ".bg-wizard-content", ".bg-pages", ".bg-center", ".bg-properties"].map((selector) => [
     selector,
     $(selector)?.scrollTop || 0,
   ]);
@@ -115,6 +123,7 @@ function render() {
     bindLanding();
     bindLanguage();
     bindProjectDeletion();
+    if(saving)$("#save-state").textContent=t("Enregistrement…");
     translateDOM();
     return;
   }
@@ -167,15 +176,24 @@ function render() {
         }
       }),
   );
-  for (const [selector, top] of scrolls)
-    if ($(selector)) $(selector).scrollTop = top;
   if (["import", "compose"].includes(view)) drawStage();
+  else if (view === "guideline") mountGuideline($("#workshop"), p, edit, next => { view = next; render(); }, notice);
   else mountWorkshop(p, edit, runExport, view);
+  const restoreScroll = () => {
+    for (const [selector, top] of scrolls)
+      if ($(selector)) $(selector).scrollTop = top;
+    window.scrollTo(windowScroll.left, windowScroll.top);
+  };
+  restoreScroll();
+  requestAnimationFrame(restoreScroll);
+  if(saving)$("#save-state").textContent=t("Enregistrement…");
+  if ($("[data-ai-assistant]")) $("[data-ai-assistant]").onclick = () => openAssistant(p, view, edit, () => ({p, stage: view}));
+  document.querySelectorAll("[data-ai-recommendation]").forEach(el=>el.onclick=()=>openAssistant(p,view,edit,()=>({p,stage:view}),{recommendation:el.dataset.aiRecommendation}));
   translateDOM();
 }
 function exportPanel() {
   const e = p.exports;
-  return `<div class="properties-title">EXPORT</div><section><div class="section-title">FORMATS</div><div class="formats">${(p.mode === "clearspace" ? ["svg", "png", "pdf"] : ["svg", "png", "jpeg", "pdf"]).map((f) => `<label><input type="checkbox" data-format="${f}" ${e.formats.includes(f) ? "checked" : ""}>${f.toUpperCase()}</label>`).join("")}</div><p class="muted">SVG, PNG et PDF toujours transparents.</p></section>${formatControls(p)}<section>${p.mode !== "clearspace" ? `<label class="field"><span>Contraste JPEG recommandé</span><select aria-label="Seuil de contraste JPEG" data-export="contrast">${[3, 4.5, 7].map((n) => `<option value="${n}" ${e.contrast === n ? "selected" : ""}>${n}:1</option>`).join("")}</select></label><label class="check"><input data-export="clearspace" type="checkbox" ${e.clearspace ? "checked" : ""}>Inclure les planches clearspace</label>` : ""}</section>${p.mode !== "clearspace" ? `<section><div class="section-title">NOMMAGE</div><label class="field"><span>Modèle de nom</span><input data-naming="pattern" value="${esc(p.naming.pattern)}" maxlength="200"></label><div class="tokens">${["brand", "variant", "orientation", "color", "background", "format", "size"].map((k) => `<button data-token="${k}">{${k}}</button>`).join("")}</div><div class="two-fields"><label>Séparateur<select data-naming="separator">${["-", "_", "."].map((s) => `<option ${s === p.naming.separator ? "selected" : ""}>${s}</option>`).join("")}</select></label><label>Casse<select data-naming="uppercase"><option value="false">minuscules</option><option value="true" ${p.naming.uppercase ? "selected" : ""}>MAJUSCULES</option></select></label></div><code class="filename">${esc(filename(p, baseFamily(p)[0] || { variant: "horizontal", color: { id: "black", name: "black" } }, e.formats[0] || "svg", "transparent"))}</code></section>` : ""}<div class="export-bottom"><span id="selection-count"></span><button class="primary export-button" data-action="export" ${busy ? "disabled" : ""}>Exporter la sélection ${arrow}</button><p class="muted">ZIP automatique pour plusieurs fichiers.<br>Recommandations incluses dans le ZIP.</p></div>`;
+  return `<div class="properties-title">EXPORT</div><section><div class="section-title">FORMATS</div><div class="formats">${(p.mode === "clearspace" ? ["svg", "png", "pdf"] : ["svg", "png", "jpeg", "pdf"]).map((f) => `<label><input type="checkbox" data-format="${f}" ${e.formats.includes(f) ? "checked" : ""}>${f.toUpperCase()}</label>`).join("")}</div><p class="muted">SVG, PNG et PDF toujours transparents.</p></section>${formatControls(p)}${p.brandGuideline?.enabled?exportWarnings(p).map(w=>`<p class="muted">${esc(t(w))}</p>`).join(""):""}<section>${p.mode !== "clearspace" ? `<label class="field"><span>Contraste JPEG recommandé</span><select aria-label="Seuil de contraste JPEG" data-export="contrast">${[3, 4.5, 7].map((n) => `<option value="${n}" ${e.contrast === n ? "selected" : ""}>${n}:1</option>`).join("")}</select></label><label class="check"><input data-export="clearspace" type="checkbox" ${e.clearspace ? "checked" : ""}>Inclure les planches clearspace</label>` : ""}</section>${p.mode !== "clearspace" ? `<section><div class="section-title">NOMMAGE</div><label class="field"><span>Modèle de nom</span><input data-naming="pattern" value="${esc(p.naming.pattern)}" maxlength="200"></label><div class="tokens">${["brand", "variant", "orientation", "color", "background", "format", "size"].map((k) => `<button data-token="${k}">{${k}}</button>`).join("")}</div><div class="two-fields"><label>Séparateur<select data-naming="separator">${["-", "_", "."].map((s) => `<option ${s === p.naming.separator ? "selected" : ""}>${s}</option>`).join("")}</select></label><label>Casse<select data-naming="uppercase"><option value="false">minuscules</option><option value="true" ${p.naming.uppercase ? "selected" : ""}>MAJUSCULES</option></select></label></div><code class="filename">${esc(filename(p, baseFamily(p)[0] || { variant: "horizontal", color: { id: "black", name: "black" } }, e.formats[0] || "svg", "transparent"))}</code></section>` : ""}<div class="export-bottom"><span id="selection-count"></span><button class="primary export-button" data-action="export" ${busy ? "disabled" : ""}>Exporter la sélection ${arrow}</button><p class="muted">ZIP automatique pour plusieurs fichiers.<br>Recommandations incluses dans le ZIP.</p></div>`;
 }
 function drawStage() {
   const l = layout(p),
@@ -235,6 +253,7 @@ function bind() {
     (el) =>
       (el.onclick = () => {
         view = el.dataset.view;
+        if (view === "guideline" && !p.brandGuideline.setup && p.mode !== "clearspace") { edit(() => prepareGuide(p)); return; }
         if (view === "delivery" && p.mode !== "clearspace" &&
             p.exports.formats.join(",") !== "svg,png,jpeg,pdf") {
           edit(() => { p.exports.formats = ["svg", "png", "jpeg", "pdf"]; });
@@ -637,6 +656,7 @@ document.addEventListener("keydown", (e) => {
   if (
     (e.metaKey || e.ctrlKey) &&
     e.key.toLowerCase() === "z" &&
+    !document.querySelector(".ai-dialog[open]") &&
     !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)
   ) {
     e.preventDefault();
@@ -855,9 +875,7 @@ function bindExtra() {
 }
 window.addEventListener("pagehide", () => {
   clearTimeout(saving);
-  try {
-    localStorage.setItem("binksy-logo-system", JSON.stringify(projects));
-  } catch {}
+  storeProjects(projects).catch(() => {});
 });
 
 function bindLanguage() {
@@ -902,12 +920,12 @@ function bindProjectDeletion() {
         dialog.innerHTML = `<form method="dialog"><h2>${esc(t("Supprimer « {name} » ?", { name: target.brand }))}</h2><p>${t("Le projet enregistré sera supprimé de cet appareil. Les fichiers .binksy déjà exportés seront conservés.")}</p><div class="dialog-actions"><button value="cancel" autofocus>${t("Annuler")}</button><button class="destructive" value="delete">${t("Supprimer")}</button></div></form>`;
         document.body.append(dialog);
         dialog.showModal();
-        dialog.onclose = () => {
+        dialog.onclose = async () => {
           if (dialog.returnValue === "delete") {
             clearTimeout(saving);
             const next = projects.filter((x) => x.id !== id);
             try {
-              localStorage.setItem("binksy-logo-system", JSON.stringify(next));
+              await storeProjects(next);
               projects = next;
               if (p.id === id) {
                 p = project();

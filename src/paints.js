@@ -67,6 +67,7 @@ export function restoreRoles(asset, saved) {
         name: String(r.name || r.id).slice(0, 100),
         paint: hexColor(r.paint) || "#000000",
         locked: r.locked === true,
+        logicalGroup: r.logicalGroup === true,
         targets,
       });
   }

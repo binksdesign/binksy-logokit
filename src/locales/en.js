@@ -893,3 +893,21 @@ Object.assign(en, {
 });
 
 Object.assign(en, {"SVG / PNG / PDF transparents. JPEG avec fond. Cadrage centré réglable par variante et par dimension. Couleurs RVB.": "Transparent SVG / PNG / PDF. JPEG with background. Centered framing adjustable per variant and size. RGB colors."});
+
+Object.assign(en, {
+  "Associations de couleurs": "Colour pairings",
+  "Cochez les associations à valider. Décochez celles à éviter.": "Check the pairings to approve. Uncheck those to avoid.",
+  sur: "on", "Validée": "Approved",
+  "Choisir un modèle compatible": "Choose a compatible model",
+  "Images et outils requis": "Images and tools required",
+  "Rechercher par nom ou éditeur": "Search by name or provider",
+  "Filtrer par prix": "Filter by price",
+  "TOUS": "ALL", "GRATUITS": "FREE", "PEU CHER": "LOW COST",
+  "MOYENNEMENT CHER": "MID-PRICE", "CHER": "EXPENSIVE",
+  "TARIF NON COMMUNIQUÉ": "PRICE NOT PROVIDED",
+  "modèles compatibles": "compatible models",
+  "Aucun modèle compatible trouvé": "No compatible model found",
+  "Essayez un autre terme ou filtre, puis actualisez le catalogue.": "Try another search or filter, then refresh the catalogue.",
+  "Un ID personnalisé n’est pas vérifié par le catalogue.": "A custom ID is not verified by the catalogue.",
+  "Modèle actif": "Active model"
+});

@@ -21,7 +21,7 @@ export function formatControls(p) {
     )
     .join(
       "",
-    )}<button type="button" data-custom-format>${t("Créer un format personnalisé")}</button>${selected.filter(f=>f.kind === "web").map(f=>`<section data-standard-framing="${esc(f.id)}"><h4>${f.width} × ${f.height} px</h4>${framingControls(p,p.enabled.filter(v=>layout(p,v).parts.length),f)}</section>`).join("")}<details open><summary>${t("Destinations")}</summary>${["WEB", "PRINT"].map((d) => `<label class="check"><input type="checkbox" data-destination="${d}" ${(p.exports.destinations || ["WEB", "PRINT"]).includes(d) ? "checked" : ""}>${d} · ${d === "WEB" ? 72 : 300} DPI</label>`).join("")}<p>${t("Les cas d’usage sont livrés à 72 DPI.")}</p></details></section>`;
+    )}<button type="button" data-custom-format>${t("Créer un format personnalisé")}</button>${selected.map(f=>`<section data-standard-framing="${esc(f.id)}"><h4>${esc(f.kind === "use" ? t(f.name) + " · " : "")}${f.width} × ${f.height} px</h4>${framingControls(p,p.enabled.filter(v=>layout(p,v).parts.length),f)}</section>`).join("")}<details open><summary>${t("Destinations")}</summary>${["WEB", "PRINT"].map((d) => `<label class="check"><input type="checkbox" data-destination="${d}" ${(p.exports.destinations || ["WEB", "PRINT"]).includes(d) ? "checked" : ""}>${d} · ${d === "WEB" ? 72 : 300} DPI</label>`).join("")}<p>${t("Les cas d’usage sont livrés à 72 DPI.")}</p></details></section>`;
 }
 export function bindFormats(root, p, edit, created = () => {}) {
   root.querySelectorAll("[data-standard-framing]").forEach(section=>{const f=normalizeFormats(p.exports).available.find(f=>f.id===section.dataset.standardFraming);if(f)bindFraming(section,p,f,edit);});

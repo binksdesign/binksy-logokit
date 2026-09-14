@@ -4,6 +4,7 @@ import {
   FALLBACK_MODELS,
   endpoint,
   listModels,
+  compatibleModels,
   chatCompletion,
   acknowledgeTool,
 } from "./ai-providers.js";
@@ -62,28 +63,24 @@ export function openAssistant(
     settings = false,
     busy = false,
     status = "",
-    preview = false;
+    preview = false,
+    modelSearch = "",
+    priceFilter = "all";
   if (!PROVIDERS[providerId]) providerId = "openrouter";
   let config = {},
     models = [];
   const current = () => PROVIDERS[providerId];
   const load = () => {
     config = read(prefix + providerId) || {};
-    models =
-      read(
+    models = compatibleModels(read(
         prefix +
           providerId +
           ":models:" +
           (current().base || config.base || ""),
-      )?.models || [];
+      )?.models || []);
     if (!models.length)
-      models = (FALLBACK_MODELS[providerId] || []).map((id) => ({
-        id,
-        name: id,
-        fallback: true,
-      }));
-    if (config.model && !models.some((m) => m.id === config.model))
-      models.unshift({ id: config.model, name: config.model });
+      models = compatibleModels(FALLBACK_MODELS[providerId] || []);
+    if (!models.some((m) => m.id === config.model)) config.model = models[0]?.id || "";
   };
   load();
   const q = (s) => dialog.querySelector(s),
@@ -96,7 +93,7 @@ export function openAssistant(
     endpoint(current(), base);
     config = {
       base,
-      model: q("[data-model]")?.value || config.model || models[0]?.id || "",
+      model: q("[data-model]:checked")?.value || q("[data-chat-model]")?.value || config.model || models[0]?.id || "",
       ...(q("[data-remember]")?.checked ? { key: key() } : {}),
     };
     localStorage.setItem(prefix + providerId, JSON.stringify(config));
@@ -240,10 +237,12 @@ export function openAssistant(
   };
   const draw = () => {
     const selected = config.model || models[0]?.id || "",
-      state = live();
+      state = live(),
+      priceLabels = {free:"GRATUITS",low:"PEU CHER",medium:"MOYENNEMENT CHER",high:"CHER"},
+      visibleModels = models.filter(m => (priceFilter === "all" || m.priceTier === priceFilter) && (!modelSearch || `${m.name} ${m.id}`.toLowerCase().includes(modelSearch)));
     let content;
     if (settings)
-      content = `<div class="ai-settings"><button data-back>← ${t("Retour au chat")}</button><label>${t("Fournisseur")}<select data-provider ${busy ? "disabled" : ""}>${Object.values(
+      content = `<div class="ai-settings"><button type="button" data-back>← ${t("Retour au chat")}</button><label>${t("Fournisseur")}<select data-provider ${busy ? "disabled" : ""}>${Object.values(
         PROVIDERS,
       )
         .map(
@@ -252,16 +251,16 @@ export function openAssistant(
         )
         .join(
           "",
-        )}</select></label><label>${t("Clé API")}<input data-key type="password" autocomplete="off" placeholder="${key() ? "••••••••" : ""}"></label><label class="ai-remember"><input data-remember type="checkbox" ${config.key ? "checked" : ""}>${t("Mémoriser sur cet appareil")}</label><label>${t("Modèle")}<input data-search type="search" placeholder="${t("Rechercher un modèle")}"><select data-model ${busy ? "disabled" : ""}>${models.map((m) => `<option value="${esc(m.id)}" ${m.id === selected ? "selected" : ""}>${esc(m.name)}</option>`).join("")}</select></label><button data-refresh ${busy ? "disabled" : ""}>${t("Actualiser les modèles")}</button><details><summary>${t("Avancé")}</summary>${current().id === "custom" ? `<label>${t("Adresse API")}<input data-base value="${esc(config.base || "")}"></label>` : ""}<label>${t("ID modèle personnalisé")}<input data-custom-model></label><button data-custom-add>${t("Utiliser ce modèle")}</button><button data-forget>${t("Supprimer la clé")}</button></details><div class="ai-settings-actions"><button data-save>${t("Enregistrer")}</button><button data-test ${busy ? "disabled" : ""}>${t("Tester la connexion")}</button></div></div>`;
+        )}</select></label><label>${t("Clé API")}<input data-key type="password" autocomplete="off" placeholder="${key() ? "••••••••" : ""}"></label><label class="ai-remember"><input data-remember type="checkbox" ${config.key ? "checked" : ""}>${t("Mémoriser sur cet appareil")}</label><section class="ai-model-picker" aria-labelledby="ai-model-title"><div><strong id="ai-model-title">${t("Choisir un modèle compatible")}</strong><span>${t("Images et outils requis")}</span></div><input data-search type="search" value="${esc(modelSearch)}" placeholder="${t("Rechercher par nom ou éditeur")}" aria-label="${t("Rechercher un modèle")}"><div class="ai-price-filters" role="group" aria-label="${t("Filtrer par prix")}">${[["all","TOUS"],...Object.entries(priceLabels)].map(([id,label])=>`<button type="button" data-price-filter="${id}" aria-pressed="${priceFilter===id}">${t(label)}</button>`).join("")}</div><p class="ai-model-count" role="status">${visibleModels.length} ${t("modèles compatibles")}</p><div class="ai-model-list">${visibleModels.map(m=>`<label class="ai-model-option"><input data-model type="radio" name="ai-model" value="${esc(m.id)}" ${m.id===selected?"checked":""}><span><strong>${esc(m.name)}</strong><small>${esc(m.id)}</small></span><em>${t(priceLabels[m.priceTier] || "TARIF NON COMMUNIQUÉ")}</em></label>`).join("") || `<div class="ai-model-empty"><strong>${t("Aucun modèle compatible trouvé")}</strong><span>${t("Essayez un autre terme ou filtre, puis actualisez le catalogue.")}</span></div>`}</div></section><button type="button" data-refresh ${busy ? "disabled" : ""}>${t("Actualiser les modèles")}</button><details><summary>${t("Avancé")}</summary>${current().id === "custom" ? `<label>${t("Adresse API")}<input data-base value="${esc(config.base || "")}"></label>` : ""}<label>${t("ID modèle personnalisé")}<input data-custom-model></label><p>${t("Un ID personnalisé n’est pas vérifié par le catalogue.")}</p><button type="button" data-custom-add>${t("Utiliser ce modèle")}</button><button type="button" data-forget>${t("Supprimer la clé")}</button></details><div class="ai-settings-actions"><button type="button" data-save>${t("Enregistrer")}</button><button type="button" class="ai-action" data-test ${busy ? "disabled" : ""}>${t("Tester la connexion")}</button></div></div>`;
     else
-      content = `<div class="ai-messages" aria-live="polite">${session.messages.length ? session.messages.map((m) => `<article class="ai-message ai-${m.role}"><span>${t(m.role === "user" ? "Vous" : "Assistant IA")}</span><p>${esc(m.content)}</p></article>`).join("") : `<div class="ai-empty"><span aria-hidden="true">✦</span><h3>${t("Que souhaitez-vous ajuster ?")}</h3><p>${t("Décrivez une modification. Vous pourrez l’affiner avant de l’appliquer.")}</p>${!key() ? `<button data-configure>${t("Configurer l’assistant")}</button>` : ""}</div>`}${session.active?.actions.length ? `<section class="ai-proposal"><span>${t("Proposition")} · ${session.revision}</span><ul>${session.active.actions.map((a) => `<li>${esc(actionSummary(a, state.p))}</li>`).join("")}</ul>${preview ? renderPreview(state.p, session.active, session.scope) : ""}<div><button class="primary" data-apply ${busy ? "disabled" : ""}>${t("Appliquer")}</button>${state.stage === "guideline" ? `<button data-preview>${t(preview ? "Masquer l’aperçu" : "Aperçu")}</button>` : ""}</div></section>` : ""}${busy ? `<p>${t("Préparation de la proposition…")}</p>` : ""}</div><form class="ai-composer"><label class="ai-scope">${t("Portée")}<select data-scope><option value="currentPage" ${scopeMode === "currentPage" ? "selected" : ""}>${t("Page actuelle")}</option><option value="document" ${scopeMode === "document" ? "selected" : ""}>${t("Tout le document")}</option></select></label><textarea data-prompt aria-label="${t("Votre demande")}" placeholder="${t("Votre demande")}" rows="2" maxlength="6000"></textarea><button type="submit" aria-label="${t("Envoyer")}" ${busy ? "disabled" : ""}>↑</button></form>`;
-    dialog.innerHTML = `<header><strong>✦ ${t("Assistant IA")}</strong><div><button data-settings aria-label="${t("Réglages IA")}">⚙</button><button data-close aria-label="${t("Fermer")}">×</button></div></header>${content}<output role="status">${esc(status)}</output>`;
+      content = `<div class="ai-messages" aria-live="polite">${session.messages.length ? session.messages.map((m) => `<article class="ai-message ai-${m.role}"><span>${t(m.role === "user" ? "Vous" : "Assistant IA")}</span><p>${esc(m.content)}</p></article>`).join("") : `<div class="ai-empty"><span aria-hidden="true">✦</span><h3>${t("Que souhaitez-vous ajuster ?")}</h3><p>${t("Décrivez une modification. Vous pourrez l’affiner avant de l’appliquer.")}</p>${!key() ? `<button type="button" data-configure>${t("Configurer l’assistant")}</button>` : ""}</div>`}${session.active?.actions.length ? `<section class="ai-proposal"><span>${t("Proposition")} · ${session.revision}</span><ul>${session.active.actions.map((a) => `<li>${esc(actionSummary(a, state.p))}</li>`).join("")}</ul>${preview ? renderPreview(state.p, session.active, session.scope) : ""}<div><button class="primary" data-apply ${busy ? "disabled" : ""}>${t("Appliquer")}</button>${state.stage === "guideline" ? `<button type="button" data-preview>${t(preview ? "Masquer l’aperçu" : "Aperçu")}</button>` : ""}</div></section>` : ""}${busy ? `<p>${t("Préparation de la proposition…")}</p>` : ""}</div><form class="ai-composer"><label class="ai-chat-model">${t("Modèle actif")}<select data-chat-model ${busy ? "disabled" : ""}>${models.map(m=>`<option value="${esc(m.id)}" ${m.id===selected?"selected":""}>${esc(m.name)}</option>`).join("")}</select></label><label class="ai-scope">${t("Portée")}<select data-scope><option value="currentPage" ${scopeMode === "currentPage" ? "selected" : ""}>${t("Page actuelle")}</option><option value="document" ${scopeMode === "document" ? "selected" : ""}>${t("Tout le document")}</option></select></label><textarea data-prompt aria-label="${t("Votre demande")}" placeholder="${t("Votre demande")}" rows="2" maxlength="6000"></textarea><button class="ai-action" type="submit" aria-label="${t("Envoyer")}" ${busy ? "disabled" : ""}>↑</button></form>`;
+    dialog.innerHTML = `<header><strong>✦ ${t("Assistant IA")}</strong><div><button type="button" data-settings aria-label="${t("Réglages IA")}">⚙</button><button type="button" data-close aria-label="${t("Fermer")}">×</button></div></header>${content}<output role="status">${esc(status)}</output>`;
     if(recommendation && !settings) {
       q('.ai-composer')?.remove();
       q('.ai-empty')?.remove();
       const area=q('.ai-messages');
       area?.querySelectorAll('.ai-user').forEach(el=>el.remove());
-      const retry=document.createElement('button');retry.textContent=t('Régénérer');retry.disabled=busy;retry.onclick=send;area?.append(retry);
+      const retry=document.createElement('button');retry.type='button';retry.className='ai-action';retry.textContent=t('Régénérer');retry.disabled=busy;retry.onclick=send;area?.append(retry);
     }
     q("[data-close]").onclick = () => dialog.close();
     q("[data-settings]").onclick = () => {
@@ -294,22 +293,20 @@ export function openAssistant(
       q("[data-key]").value = "";
       q("[data-key]").placeholder = "";
     });
-    q("[data-model]")?.addEventListener("change", () => {
-      try {
-        save();
-      } catch (e) {
-        status = t(e.message);
-        draw();
-      }
-    });
+    dialog.querySelectorAll("[data-model]").forEach(el=>el.addEventListener("change", () => {
+      if (!el.checked) return;
+      try { save(); }
+      catch (e) { status = t(e.message); draw(); }
+    }));
     q("[data-search]")?.addEventListener("input", (e) => {
-      const query = e.target.value.toLowerCase();
-      q("[data-model]")
-        .querySelectorAll("option")
-        .forEach(
-          (o) => (o.hidden = !o.textContent.toLowerCase().includes(query)),
-        );
+      modelSearch = e.target.value.trim().toLowerCase();
+      draw();
+      const search=q("[data-search]");
+      search?.focus();
+      search?.setSelectionRange(search.value.length,search.value.length);
     });
+    q("[data-chat-model]")?.addEventListener("change", e=>{config.model=e.target.value;localStorage.setItem(prefix+providerId,JSON.stringify(config));});
+    dialog.querySelectorAll("[data-price-filter]").forEach(el=>el.onclick=()=>{priceFilter=el.dataset.priceFilter;draw();});
     q("[data-refresh]")?.addEventListener("click", refresh);
     q("[data-test]")?.addEventListener("click", test);
     q("[data-save]")?.addEventListener("click", () => {
@@ -334,7 +331,7 @@ export function openAssistant(
       const id = q("[data-custom-model]").value.trim().slice(0, 200);
       if (id) {
         save();
-        models.unshift({ id, name: id });
+        models.unshift({ id, name: id, vision:true, tools:true, priceTier:'unknown', custom:true });
         config.model = id;
         localStorage.setItem(prefix + providerId, JSON.stringify(config));
         draw();

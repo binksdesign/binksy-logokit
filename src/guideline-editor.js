@@ -67,7 +67,7 @@ function thumbnail(p, a, i) {
 const field = (label, control) =>
   `<label class="field"><span>${esc(t(label))}</span>${control.replace(/<(input|select|textarea)\b/g, `<$1 aria-label="${esc(t(label))}"`)}</label>`;
 const button = (action, label) =>
-  `<button data-bg="${action}">${t(label)}</button>`;
+  `<button type="button" data-bg="${action}">${t(label)}</button>`;
 const option = (v, label, current) =>
   `<option value="${esc(v)}" ${v === current ? "selected" : ""}>${esc(t(label))}</option>`;
 const input = (key, value, type = "text") =>
@@ -76,7 +76,7 @@ export function mountGuideline(host, p, edit, navigate, notice) {
   const previous = mountedProject === p.id && mountedHost ? mountedHost : host;
   mountedHost = host;
   mountedProject = p.id;
-  const scrolls = [".bg-pages", ".bg-properties", ".bg-center"].map(
+  const scrolls = [".bg-pages", ".bg-properties", ".bg-center", ".bg-wizard-content"].map(
     (selector) => [selector, previous.querySelector(selector)?.scrollTop || 0],
   );
   const openPanels = new Set(
@@ -677,8 +677,14 @@ export function mountGuideline(host, p, edit, navigate, notice) {
   selectionControls(canvas, p, current, selected, update, () =>
     mountGuideline(host, p, edit, navigate, notice),
   );
-  for (const [selector, top] of scrolls)
-    host.querySelector(selector).scrollTop = top;
+  const restoreScroll = () => {
+    for (const [selector, top] of scrolls) {
+      const node = host.querySelector(selector);
+      if (node) node.scrollTop = top;
+    }
+  };
+  restoreScroll();
+  requestAnimationFrame(restoreScroll);
   loadFonts(g).catch((e) => notice(t(e.message)));
 }
 

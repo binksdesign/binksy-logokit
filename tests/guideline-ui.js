@@ -49,7 +49,7 @@ export async function guidelineUI(project, test) {
     await wait(() => q('[data-view="guideline"]'));
     click('[data-view="guideline"]');
     await wait(() => q(".bg-wizard"));
-    assert(d().querySelectorAll('[data-setup-step]').length === 6);
+    assert(d().querySelectorAll('[data-setup-step]').length === 7);
     click('[data-setup-return]');
     await wait(() => q(".bg-canvas"));
     assert(d().querySelectorAll("nav [data-view]").length === 5);
@@ -158,8 +158,14 @@ export async function guidelineUI(project, test) {
       assert(footer.bottom<=frame.contentWindow.innerHeight+1,'Wizard actions stay inside viewport at '+width);
     }
     frame.style.width=previousWidth;frame.style.height=previousHeight;
-    for(let step=0;step<6;step++) {
+    for(let step=0;step<7;step++) {
       assert(q('[data-setup-step="'+step+'"]').getAttribute('aria-current')==='step');
+      if(step===3) {
+        assert(d().querySelectorAll('[data-setup-pair]').length===project.colors.length*(project.colors.length-1));
+        const pair=q('[data-setup-pair]'), before=q('.bg-wizard-content').scrollTop;
+        pair.click();await new Promise(resolve=>requestAnimationFrame(resolve));
+        assert(Math.abs(q('.bg-wizard-content').scrollTop-before)<=1,'Pair choice keeps scroll position');
+      }
       click('[data-setup-next]');
     }
     await wait(()=>q('.bg-canvas'));

@@ -17,13 +17,14 @@ import {
 } from "./guideline-controls.js";
 import { PAGE_TYPES, MISUSES, uid } from "./guideline-model.js";
 import { escape as esc } from "./guideline-svg.js";
-import { variantName, isReadyVariant } from "./model.js";
+import { variantName, isReadyVariant, contrast } from "./model.js";
 import { t } from "./i18n.js";
 
 const STEPS = [
   "Typographies",
   "Palette finale",
   "Pantone",
+  "Associations de couleurs",
   "Couverture",
   "Mockups",
   "Interdits logo",
@@ -61,6 +62,12 @@ export function mountGuideWizard(host, p, edit, notice) {
       )
       .join("");
   if (step === 3)
+    content = `<p class="bg-wizard-note">${t("Cochez les associations à valider. Décochez celles à éviter.")}</p><div class="bg-pair-review">${colors.flatMap(foreground=>colors.filter(background=>background.id!==foreground.id).map(background=>{
+      const key=foreground.id+":"+background.id, decision=g.pairs[key], recommended=contrast(foreground.hex,background.hex)>=4.5;
+      const allowed=decision?.manual ? decision.allowed : recommended;
+      return `<label class="bg-pair-choice" style="--pair-bg:${background.hex};--pair-fg:${foreground.hex}"><input type="checkbox" data-setup-pair="${esc(key)}" ${allowed?"checked":""}><span class="bg-pair-sample">Aa</span><span><strong>${esc(foreground.name)} ${t("sur")} ${esc(background.name)}</strong><small>${contrast(foreground.hex,background.hex).toFixed(2)}:1 · ${t(allowed?"Validée":"À éviter")}</small></span></label>`;
+    })).join("")}</div>`;
+  if (step === 4)
     content =
       `<div class="bg-choice"><button data-cover-mode="logo" aria-pressed="${s.cover.mode === "logo"}">${t("Version du logo")}</button><button data-cover-mode="image" aria-pressed="${s.cover.mode === "image"}">${t("Image")}</button></div>` +
       (s.cover.mode === "logo"
@@ -73,7 +80,7 @@ export function mountGuideWizard(host, p, edit, notice) {
             g.resources.find((r) => r.id === s.cover.media?.resource),
             "cover",
           ));
-  if (step === 4)
+  if (step === 5)
     content = `<p class="bg-wizard-note">${t("Une image par page. Jusqu’à 3 mockups.")}</p>${s.mockups
       .map(
         (m, i) =>
@@ -86,7 +93,7 @@ export function mountGuideWizard(host, p, edit, notice) {
       .join(
         "",
       )}<button data-mockup-add ${s.mockups.length >= 3 ? "disabled" : ""}>+ ${t("Ajouter un mockup")}</button>`;
-  if (step === 5)
+  if (step === 6)
     content =
       field(
         "Variante des interdits",
@@ -102,7 +109,7 @@ export function mountGuideWizard(host, p, edit, notice) {
           "",
         )}</div><details><summary>${t("Pages de marque facultatives")}</summary>${EDITORIAL_TYPES.map((type) => `<label class="check"><input data-setup-content="${type}" type="checkbox" ${s.content.includes(type) ? "checked" : ""}>${t(PAGE_TYPES[type])}</label>`).join("")}</details>`;
   host.setAttribute("data-no-i18n", "");
-  host.innerHTML = `<section class="bg-wizard"><header><span>05 / BRAND GUIDELINE</span><h1>${t(STEPS[step])}</h1></header><nav aria-label="${t("Préparation du guide")}">${STEPS.map((label, i) => `<button data-setup-step="${i}" aria-current="${i === step ? "step" : "false"}"><span>${i + 1}</span>${t(label)}</button>`).join("")}</nav><div class="bg-wizard-content">${content}</div><footer><button data-setup-prev ${step === 0 ? "disabled" : ""}>${t("Précédent")}</button>${g.pages.length ? `<button data-setup-return>${t("Retour au document")}</button>` : ""}<button class="primary" data-setup-next>${t(step === 5 ? "Générer le Brand Guideline" : "Continuer")}</button></footer></section>`;
+  host.innerHTML = `<section class="bg-wizard"><header><span>05 / BRAND GUIDELINE</span><h1>${t(STEPS[step])}</h1></header><nav aria-label="${t("Préparation du guide")}">${STEPS.map((label, i) => `<button type="button" data-setup-step="${i}" aria-current="${i === step ? "step" : "false"}"><span>${i + 1}</span>${t(label)}</button>`).join("")}</nav><div class="bg-wizard-content">${content}</div><footer><button type="button" data-setup-prev ${step === 0 ? "disabled" : ""}>${t("Précédent")}</button>${g.pages.length ? `<button type="button" data-setup-return>${t("Retour au document")}</button>` : ""}<button type="button" class="primary" data-setup-next>${t(step === 6 ? "Générer le Brand Guideline" : "Continuer")}</button></footer></section>`;
   host
     .querySelectorAll("[data-setup-step]")
     .forEach(
@@ -117,14 +124,21 @@ export function mountGuideWizard(host, p, edit, notice) {
   host.querySelector("[data-setup-next]").onclick = () => {
     if (!finalPalette(p).length)
       return notice(t("Ajoutez au moins une couleur."));
-    if (step === 3 && s.cover.mode === "image" && !s.cover.media?.resource)
+    if (step === 4 && s.cover.mode === "image" && !s.cover.media?.resource)
       return notice(t("Importez une image de couverture."));
-    if (step === 5 && s.mockups.some((m) => !m.media?.resource))
+    if (step === 6 && s.mockups.some((m) => !m.media?.resource))
       return notice(
         t("Importez les mockups ou retirez les emplacements vides."),
       );
-    update(() => (step === 5 ? generateGuide(p) : s.step++));
+    update(() => {
+      if (step === 3) s.associationsReviewed = true;
+      step === 6 ? generateGuide(p) : s.step++;
+    });
   };
+  host.querySelectorAll("[data-setup-pair]").forEach(el=>el.onchange=()=>update(()=>{
+    g.pairs[el.dataset.setupPair]={allowed:el.checked,hidden:false,manual:true,source:"manual"};
+    s.associationsReviewed=true;
+  }));
   host.querySelector('[data-add-color-role]')?.addEventListener('click',()=>{
     const name=prompt(t('Nom du rôle personnalisé'))?.trim().slice(0,100);
     if(name)update(()=>{g.customColorRoles=[...new Set([...(g.customColorRoles||[]),name])];});

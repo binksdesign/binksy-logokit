@@ -158,6 +158,23 @@
   display: flex;
   gap: 8px;
 }
+.ai-model-picker { margin:18px 0; }
+.ai-model-picker > div:first-child { display:flex; justify-content:space-between; gap:12px; align-items:baseline; }
+.ai-model-picker > div:first-child span,.ai-model-count { color:#696960; font-size:11px; }
+.ai-price-filters { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+.ai-price-filters button { padding:7px 9px; font-size:10px; letter-spacing:.035em; }
+.ai-price-filters button[aria-pressed="true"] { border-color:#171717; background:#171717; color:#fff; }
+.ai-model-list { display:grid; gap:7px; max-height:285px; overflow:auto; padding:1px; }
+.ai-model-option { display:grid!important; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:9px!important; margin:0!important; padding:10px; border:1px solid #d5d5ce; background:#fff; cursor:pointer; }
+.ai-model-option:has(input:checked) { border-color:#ff6500; box-shadow:inset 3px 0 #ff6500; }
+.ai-model-option input { width:auto; }
+.ai-model-option span { min-width:0; overflow-wrap:anywhere; }
+.ai-model-option strong,.ai-model-option small { display:block; }
+.ai-model-option small { margin-top:3px; color:#696960; }
+.ai-model-option em { padding:4px 6px; background:#f0f0e9; font-size:9px; font-style:normal; white-space:nowrap; }
+.ai-model-empty { display:grid; gap:5px; padding:20px 12px; border:1px dashed #b9b9b0; }
+.ai-chat-model { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:8px; width:100%; font-size:11px; }
+.ai-chat-model select { min-width:0; }
 .ai-preview svg {
   width: 100%;
   height: auto;

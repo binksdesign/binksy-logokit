@@ -211,6 +211,8 @@ export async function listModels(provider, key, custom, fetcher) {
           name: String(m.display_name || m.displayName || m.id || m.name),
           vision: Array.isArray(m.architecture?.input_modalities) ? m.architecture.input_modalities.includes("image") : undefined,
           tools: Array.isArray(m.supported_parameters) ? m.supported_parameters.includes('tools') : undefined,
+          pricing: m.pricing,
+          context: Number(m.context_length || m.inputTokenLimit) || undefined,
         })),
     );
     path =
@@ -220,18 +222,41 @@ export async function listModels(provider, key, custom, fetcher) {
           ? "/models?after_id=" + encodeURIComponent(result.last_id)
           : null;
   }
-  return models.filter((m) => m.id).slice(0, 5000);
+  return compatibleModels(models.filter((m) => m.id)).slice(0, 5000);
 }
 
 // Maintained fallbacks are secondary to each provider's live catalogue.
 export const FALLBACK_MODELS = {
-  openai: ['gpt-4.1-mini','gpt-4.1'], anthropic: ['claude-sonnet-4-5','claude-haiku-4-5'],
-  gemini:['gemini-2.5-flash','gemini-2.5-pro'], openrouter:['openrouter/auto'],
-  nvidia:['meta/llama-3.3-70b-instruct'], opencode:['kimi-k2.5'], 'opencode-go':['glm-5.1','kimi-k2.6'],
-  mistral:['mistral-small-latest','mistral-large-latest'], groq:['llama-3.3-70b-versatile'], deepseek:['deepseek-chat','deepseek-reasoner'],
-  xai:['grok-4'], together:['meta-llama/Llama-3.3-70B-Instruct-Turbo'], fireworks:['accounts/fireworks/models/llama-v3p3-70b-instruct'],
-  cerebras:['llama-3.3-70b'], perplexity:['sonar','sonar-pro'], qwen:['qwen-plus','qwen-max'], moonshot:['kimi-k2.5'], custom:[],
+  openai: [model('gpt-4.1-mini','low'),model('gpt-4.1','medium')],
+  anthropic: [model('claude-haiku-4-5','low'),model('claude-sonnet-4-5','medium')],
+  gemini:[model('gemini-2.5-flash','low'),model('gemini-2.5-pro','medium')],
+  openrouter:[model('google/gemini-2.5-flash','low'),model('openai/gpt-4.1-mini','low')],
+  mistral:[model('pixtral-large-latest','medium')],
+  xai:[model('grok-4','high')],
+  qwen:[model('qwen-vl-max','medium')],
+  moonshot:[model('kimi-k2.5','medium')],
+  nvidia:[],opencode:[],'opencode-go':[],groq:[],deepseek:[],together:[],fireworks:[],cerebras:[],perplexity:[],custom:[],
 };
+function model(id, priceTier) {
+  return {id,name:id,vision:true,tools:true,priceTier,fallback:true};
+}
+const VISION_MODEL = /(gpt-(?:4o|4\.1|5)|claude-(?:3|4)|gemini|pixtral|mistral-(?:medium|large)-.*vision|grok-(?:2-vision|4)|qwen[^/]*(?:vl|omni)|kimi-k2\.5|llama[^/]*(?:vision|vl)|nemotron[^/]*vl)/i;
+export function modelPriceTier(entry) {
+  if (['free','low','medium','high'].includes(entry?.priceTier)) return entry.priceTier;
+  const prompt = Number(entry?.pricing?.prompt), completion = Number(entry?.pricing?.completion);
+  if (![prompt, completion].some(Number.isFinite)) return 'unknown';
+  const perMillion = Math.max(Number.isFinite(prompt) ? prompt : 0, Number.isFinite(completion) ? completion : 0) * 1e6;
+  if (perMillion === 0) return 'free';
+  if (perMillion <= 2) return 'low';
+  if (perMillion <= 10) return 'medium';
+  return 'high';
+}
+export function compatibleModel(entry) {
+  return !!entry?.id && entry.tools !== false && (entry.vision === true || VISION_MODEL.test(entry.id + ' ' + (entry.name || '')));
+}
+export function compatibleModels(entries) {
+  return entries.filter(compatibleModel).map(entry=>({...entry,vision:true,tools:true,priceTier:modelPriceTier(entry)}));
+}
 export function modelProtocol(provider,model){
   if(provider.id==='opencode-go') {
     if(/^(minimax|qwen)/i.test(model))return {...provider,protocol:'anthropic'};

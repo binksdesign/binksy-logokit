@@ -36,7 +36,7 @@ function constructions(p) {
     .join("")}</section>`;
 }
 export function palettePanel(p) {
-  return `<section class="palette-panel"><h2>${t("Palette de couleurs")}</h2><div><button data-ai-recommendation="colorNames">${t("Recommandation de l’IA")} · ${t("Noms des couleurs")}</button><button data-ai-recommendation="colorRoles">${t("Recommandation de l’IA")} · ${t("Rôles des couleurs")}</button></div><div class="palette-swatches">${p.colors.map((col) => `<button class="palette-swatch" data-edit-color="${esc(col.id)}" style="--swatch:${col.hex}" aria-label="${esc(col.name)} · ${col.hex}" title="${esc(col.name)} · ${col.hex}"><span data-no-i18n>${esc(col.name)}</span></button>`).join("")}<button class="palette-add" data-action="add-color">+ ${t("Ajouter une couleur")}</button></div></section>`;
+  return `<section class="palette-panel"><h2>${t("Palette de couleurs")}</h2><div><button class="ai-action" data-ai-recommendation="colorNames">${t("Recommandation de l’IA")} · ${t("Noms des couleurs")}</button><button class="ai-action" data-ai-recommendation="colorRoles">${t("Recommandation de l’IA")} · ${t("Rôles des couleurs")}</button></div><div class="palette-swatches">${p.colors.map((col) => `<button class="palette-swatch" data-edit-color="${esc(col.id)}" style="--swatch:${col.hex}" aria-label="${esc(col.name)} · ${col.hex}" title="${esc(col.name)} · ${col.hex}"><span data-no-i18n>${esc(col.name)}</span></button>`).join("")}<button class="palette-add" data-action="add-color">+ ${t("Ajouter une couleur")}</button></div></section>`;
 }
 function properties(p, number, selected, inspector) {
   const c = p.compositions[p.active],
@@ -159,7 +159,7 @@ export function workspace(
         : "";
   const right =
     view === "compose" && ready
-      ? properties(p, number, selected, inspector) + `<section><h2>${t("Recommandation de l’IA")}</h2><button data-ai-recommendation="clearspace">${t("Zone de sécurité")}</button><button data-ai-recommendation="minimum">${t("Taille minimale")}</button></section>`
+      ? properties(p, number, selected, inspector) + `<section><h2>${t("Recommandation de l’IA")}</h2><button class="ai-action" data-ai-recommendation="clearspace">${t("Zone de sécurité")}</button><button class="ai-action" data-ai-recommendation="minimum">${t("Taille minimale")}</button></section>`
       : view === "delivery"
         ? disclosure("export", "Personnaliser l’export", exportPanel()) + (p.mode!=="clearspace"?`<section><h2>Brand Guideline</h2><p>${t(p.brandGuideline.enabled?"Guide inclus dans le kit":"Guide non inclus")}${p.brandGuideline.enabled?` · ${p.brandGuideline.pages.length} ${t("pages")}`:""}</p><button data-view="guideline">${t("Modifier le guide")}</button></section>`:"")
         : view === "family"

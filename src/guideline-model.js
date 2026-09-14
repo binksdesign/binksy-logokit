@@ -188,7 +188,8 @@ export function validateGuide(input, mode) {
   }));
   const setup = input.setup;
   if (setup) g.setup = {
-    step: limit(setup.step, 0, 5), complete: setup.complete === true,
+    step: limit(setup.step + (setup.associationsReviewed == null && setup.step >= 3 ? 1 : 0), 0, 6), complete: setup.complete === true,
+    associationsReviewed: setup.associationsReviewed === true,
     cover: { mode: setup.cover?.mode === 'image' ? 'image' : 'logo', variant: cleanText(setup.cover?.variant, 100), media: validateMedia(setup.cover?.media) },
     mockups: (Array.isArray(setup.mockups) ? setup.mockups : []).slice(0, 3).map(m => ({id: /^[\w-]{1,100}$/.test(m.id) ? m.id : uid(), media: validateMedia(m.media), title: cleanText(m.title, 300), caption: cleanText(m.caption, 1000), layout: m.layout === 'editorial' ? 'editorial' : 'hero'})),
     misuses: (Array.isArray(setup.misuses) ? setup.misuses : []).filter(v => v !== 'correct' && Object.hasOwn(MISUSES, v)),

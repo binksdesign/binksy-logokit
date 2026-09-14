@@ -7,7 +7,8 @@ import { validateGuide } from '../src/guideline-model.js';
 import { editorialPage } from '../src/guideline-editorial.js';
 import { ProposalSession, proposalProject } from '../src/ai-agent.js';
 import { framing, rasterTargets } from '../src/export-formats.js';
-import { chatCompletion, PROVIDERS, listModels } from '../src/ai-providers.js';
+import { chatCompletion, PROVIDERS, listModels, compatibleModels, modelPriceTier } from '../src/ai-providers.js';
+import { typeStyle } from '../src/guideline-theme.js';
 const fixture = () => {
  const p=project();
  const role={id:'paint-black',paint:'#000000',name:'Noir',targets:[{index:1,prop:'fill'}],locked:false};
@@ -20,6 +21,8 @@ test('Use-case framing stays independent across variants, colours and dimensions
  assert.equal(framing(e,'story','horizontal'),.65);assert.equal(framing(e,'story','icon'),.2);assert.equal(framing(e,'story','vertical'),.8);assert.equal(framing(e,'profile','horizontal'),.9);
  assert.equal(rasterTargets(e,'horizontal').find(t=>t.id==='story').scale,.65);
  assert.equal(rasterTargets(e,'icon').find(t=>t.id==='story').scale,.2);
+ const story=rasterTargets(e,'horizontal').find(t=>t.id==='story');
+ assert.deepEqual([story.width,story.height],[1080,1920]);
  assert.deepEqual(rasterTargets(e,'horizontal').filter(t=>t.kind==='web').map(t=>[t.width,t.height,t.scale]),[[3000,3000,.8],[3000,3000,.8]]);
 });
 test('Current-page scope rejects wrong IDs, document globals and source edits',()=>{
@@ -65,6 +68,31 @@ test('OpenRouter transports image parts, authenticates, requests tools, and expo
  assert.equal(request.url,'https://openrouter.ai/api/v1/chat/completions');assert.equal(request.headers.Authorization,'Bearer synthetic-test-key');assert.deepEqual(request.body.messages[1].content,parts);assert.equal(request.body.stream,false);assert.equal(result.proposal.message,'Prêt');
  const models=await listModels(PROVIDERS.openrouter,'','',async()=>({ok:true,text:async()=>JSON.stringify({data:[{id:'vision',architecture:{input_modalities:['text','image']},supported_parameters:['tools']}]})}));
  assert.equal(models[0].vision,true);assert.equal(models[0].tools,true);
+});
+
+test('Model catalogue keeps image and tool models and exposes clear price tiers',()=>{
+ const models=compatibleModels([
+  {id:'text-only',vision:false,tools:true},
+  {id:'vision-no-tools',vision:true,tools:false},
+  {id:'openai/gpt-4.1-mini',vision:true,tools:true,pricing:{prompt:'0.0000004',completion:'0.0000016'}},
+  {id:'free-vision',vision:true,tools:true,pricing:{prompt:'0',completion:'0'}},
+ ]);
+ assert.deepEqual(models.map(m=>m.id),['openai/gpt-4.1-mini','free-vision']);
+ assert.equal(models[0].priceTier,'low');assert.equal(models[1].priceTier,'free');
+ assert.equal(modelPriceTier({pricing:{prompt:'0.000004',completion:'0.000012'}}),'high');
+});
+
+test('Caption typography is not silently replaced by the optional accent role',()=>{
+ const p=fixture(),g=p.brandGuideline;
+ g.resources.push({id:'caption-font',type:'font',family:'Caption',weight:400},{id:'accent-font',type:'font',family:'Accent',weight:400});
+ g.typography.caption={font:'caption-font',size:9};g.typography.accent={font:'accent-font',size:14};g.accentTypography={enabled:true};
+ assert.equal(typeStyle(g,'caption').font,'caption-font');assert.equal(typeStyle(g,'caption').size,9);
+ assert.equal(typeStyle(g,'accent').font,'accent-font');
+});
+
+test('Legacy six-step guide preparation resumes on the shifted final step',()=>{
+ const p=fixture(),raw=structuredClone(p.brandGuideline);raw.setup={step:5,complete:true,cover:{},mockups:[],misuses:[],content:[]};
+ const restored=validateGuide(raw,p.mode);assert.equal(restored.setup.step,6);assert.equal(restored.setup.associationsReviewed,false);
 });
 
 test('Minimum examples paginate without scaling when source dimensions need more room',()=>{

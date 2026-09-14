@@ -52,7 +52,6 @@ export function typeStyle(g, role = "body") {
     tracking: 0,
     font: g.typography.body?.font || "",
     ...g.typography[role],
-    ...(role === "caption" && g.accentTypography?.enabled ? g.typography.accent : {}),
   };
   const font = g.resources.find(
     (r) => r.id === style.font && r.type === "font",

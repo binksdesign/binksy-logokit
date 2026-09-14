@@ -65,6 +65,7 @@ export function prepareGuide(p) {
     g.setup = {
       step: 0,
       complete: false,
+      associationsReviewed: false,
       cover: {
         mode: cover?.media ? "image" : "logo",
         variant: cover?.variants[0] || p.enabled[0] || p.active,

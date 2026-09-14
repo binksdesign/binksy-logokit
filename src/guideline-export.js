@@ -112,6 +112,19 @@ async function effectImage(root) {
     }
   }
 }
+async function externalizeImageData(root) {
+  const urls = [];
+  for (const image of root.querySelectorAll("image")) {
+    const href = image.getAttribute("href") || image.getAttribute("xlink:href");
+    if (!href?.startsWith("data:image/")) continue;
+    const blob = await (await fetch(href)).blob();
+    const url = URL.createObjectURL(blob);
+    urls.push(url);
+    image.setAttribute("href", url);
+    image.removeAttribute("xlink:href");
+  }
+  return () => urls.forEach((url) => URL.revokeObjectURL(url));
+}
 export async function guidelinePDF(p) {
   p = {...p,brandGuideline:{...p.brandGuideline,pages:paginateMinimumPages(p).filter(a=>!a.disabled)}};
   const g = p.brandGuideline;
@@ -147,6 +160,7 @@ export async function guidelinePDF(p) {
       "image/svg+xml",
     ).documentElement;
     const dispose = mount(root);
+    let releaseImages = () => {};
     try {
       // jsPDF embeds TTF; OTF uses exact outlines, never a substituted typeface.
       for (const e of pageElements(p, g.pages[i], i).filter(
@@ -161,12 +175,17 @@ export async function guidelinePDF(p) {
           node.querySelector("text")?.setAttribute("font-weight", "normal");
       }
       await effectImage(root);
+      // svg2pdf parses data URLs with one large regular expression. Real-world
+      // embedded images can overflow that parser's call stack, so feed it Blob
+      // URLs while keeping the source project and SVG exports unchanged.
+      releaseImages = await externalizeImageData(root);
       if (root.querySelector("filter,mask,pattern"))
         throw Error(
           "PDF : effet du logo non pris en charge. Exportez les SVG.",
         );
       await doc.svg(root, { x: 0, y: 0, width: W, height: H });
     } finally {
+      releaseImages();
       dispose();
     }
   }

@@ -54,6 +54,12 @@ export async function guidelineUI(project, test) {
     await wait(() => q(".bg-canvas"));
     assert(d().querySelectorAll("nav [data-view]").length === 5);
     assert(d().querySelectorAll("[data-bg-page]").length === 12);
+    const pdfButton = q('[data-bg="pdf"]');
+    assert(pdfButton?.disabled, "Brand Guideline PDF export must be disabled");
+    assert(pdfButton?.getAttribute("aria-disabled") === "true", "Disabled PDF export must expose its state");
+    assert(pdfButton?.parentElement?.dataset.tooltip === "Bientôt disponible, exportez en svg", "Disabled PDF export tooltip");
+    pdfButton.click();
+    assert(q(".bg-canvas"), "Disabled PDF export must not leave the guide");
   });
   await test("Application: text edits, Undo / Redo, page operations", async () => {
     change("[data-bg-title]", "Titre QA");

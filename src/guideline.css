@@ -327,6 +327,18 @@
   border-color: #24251f;
   color: #fff;
 }
+.bg-disabled-action {
+  display: inline-flex;
+  align-items: stretch;
+}
+.bg-toolbar .bg-disabled-action > [data-bg="pdf"],
+.bg-toolbar .bg-disabled-action > [data-bg="pdf"]:hover {
+  background: #d7d7d0;
+  border-color: #c5c5bd;
+  color: #77776f;
+  cursor: not-allowed;
+  opacity: 1;
+}
 .bg-toolbar .check {
   font-size: 10px;
   color: #64645c;
@@ -643,7 +655,7 @@
   .bg-toolbar [data-bg="export"] {
     order: 5;
   }
-  .bg-toolbar [data-bg="pdf"] {
+  .bg-toolbar .bg-disabled-action {
     order: 6;
     margin-left: auto;
   }

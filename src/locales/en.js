@@ -865,6 +865,7 @@ Object.assign(en,{
   "Préparation du document…": "Preparing the document…",
   "Police du document indisponible.": "Document font unavailable.",
   "Télécharger le PDF": "Download PDF",
+  "Bientôt disponible, exportez en svg": "Coming soon, export as SVG",
   "Pages": "Pages"
 });
 Object.assign(en, {

@@ -31,5 +31,5 @@ export function readyProperties(p) {
   return `<div class="properties-title">PROPRIÉTÉS</div>${v ? `<section><label class="field"><span>Nom de la variante</span><input id="variant-name" aria-label="Nom de la variante" value="${esc(v.name)}" maxlength="100"></label><p class="muted">Construction d’origine conservée.</p></section>${clearPanel(p)}<section><div class="two-fields"><label>Print · mm<input data-comp="minPrint" type="number" min="1" max="1000" value="${p.compositions[p.active].minPrint}"></label><label>Digital · px<input data-comp="minDigital" type="number" min="1" max="10000" value="${p.compositions[p.active].minDigital}"></label></div></section>` : "<section><p>Importez une première variante SVG.</p></section>"}`;
 }
 export function agentRules() {
-  return `<div class="landing"><header><div class="identity">${identity()}</div><button data-view="home">${t("Accueil")}</button></header><main class="agent-doc" aria-label="${t("RÈGLES AGENT IA")}"><div class="eyebrow">BINKSY LOGOKIT · V3</div><h1>${t("RÈGLES AGENT IA")}</h1>${agentContent()}</main></div>`;
+  return `<div class="landing agent-page"><header><div class="identity">${identity()}</div><button data-view="home">${t("Accueil")}</button></header><main class="agent-doc" aria-label="${t("RÈGLES AGENT IA")}">${agentContent()}</main></div>`;
 }

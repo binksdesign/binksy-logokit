@@ -1149,10 +1149,13 @@ section {
   border: 1px solid transparent;
   border-radius: 2px;
 }
-.landing-route:hover,
-.agent-route:hover {
+.landing-route:hover {
   background: #252525;
   color: #fff;
+}
+footer .agent-route:hover {
+  background: #e3e3e3;
+  color: inherit;
 }
 .home-layout {
   display: grid;

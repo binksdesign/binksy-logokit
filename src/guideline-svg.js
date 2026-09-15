@@ -70,12 +70,13 @@ export function textMetrics(e,g) {
 }
 export function fittedText(e, g) {
   let result = { ...e };
+  const minimum=e.minSize || 6;
   while (
-    result.size > 6 &&
+    result.size > minimum &&
     textMetrics(result,g).height >
       result.h
   )
-    result.size = Math.max(6, result.size - 0.25);
+    result.size = Math.max(minimum, result.size - 0.25);
   return result;
 }
 export function renderText(e, g, paths = false) {
@@ -169,6 +170,11 @@ export function elementSVG(p, e, prefix = "g", paths = false) {
     const frame = imageFrame(e, r, e), id = prefix + '-clip';
     return `<defs><clipPath id="${id}"><rect x="${e.x}" y="${e.y}" width="${e.w}" height="${e.h}"/></clipPath></defs><image clip-path="url(#${id})" href="${r.data}" x="${frame.x}" y="${frame.y}" width="${frame.w}" height="${frame.h}" preserveAspectRatio="none"/>`;
   }
+  if (e.type === 'status') {
+    const color=e.state==='avoid'?'#c62828':e.state==='allowed'?'#806000':'#16803c';
+    const mark=e.state==='avoid'?'M4 4L12 12M12 4L4 12':e.state==='allowed'?'M4 8H12':'M3 8L6 11L13 4';
+    return `<svg x="${e.x}" y="${e.y}" width="${e.w}" height="${e.h}" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="${color}"/><path d="${mark}" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
   if (e.type === "logo") {
     let source = p;
     if (["proportions", "spacing"].includes(e.effect))
@@ -224,9 +230,9 @@ export function guidelineSVG(
   const content = pageElements(p,page,index).map(e=>{
     const group=groups[e.type] || 'DECORATION';
     counts[group]=(counts[group] || 0)+1;
-    return `<g id="${group}_${counts[group]}" data-name="${group}"><g id="${escape(page.id+'-'+e.id)}" data-name="${escape(e.id)}" ${editor ? `data-guide-element="${escape(e.id)}" tabindex="0" role="button" aria-label="${escape(e.text || e.type)}"` : ''}>${elementSVG(p,e,'bg-'+page.id+'-'+e.id,paths)}</g></g>`;
+    return `<g id="${group}_${counts[group]}" data-name="${group}"><g id="${escape(page.id+'-'+e.id)}" data-name="${escape(e.id)}" ${editor ? `data-guide-element="${escape(e.id)}" tabindex="0" role="button" aria-label="${escape(e.text || e.type)}"` : ''}><g opacity="${e.opacity ?? 1}" transform="rotate(${e.rotation || 0} ${e.x+e.w/2} ${e.y+e.h/2})">${elementSVG(p,e,'bg-'+page.id+'-'+e.id,paths)}</g></g></g>`;
   }).join('');
-  let result = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}" role="img" aria-label="${escape(page.title || page.type)}"><g id="BACKGROUND"><rect width="${W}" height="${H}" fill="${page.background || T.background}"/></g>${content}</svg>`;
+  let result = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}" role="img" aria-label="${escape(page.title || page.type)}"><g id="BACKGROUND"><rect width="${W}" height="${H}" fill="${page.background || T.background}"/></g>${editor ? content : `<defs><clipPath id="page-crop-${escape(page.id)}"><rect width="${W}" height="${H}"/></clipPath></defs><g clip-path="url(#page-crop-${escape(page.id)})">${content}</g>`}</svg>`;
   if (portable)
     for (const r of fontResources(g))
       result = result.replaceAll(

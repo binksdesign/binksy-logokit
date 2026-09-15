@@ -1,5 +1,5 @@
 import { identity, arrow, esc, readyAssets, clearPanel } from "./ui.js";
-import { layout, variantIds, variantName, isReadyVariant } from "./model.js";
+import { variantIds, variantName, isReadyVariant } from "./model.js";
 import { compositionSVG, assetMarkup } from "./svg.js";
 import { rolePanel } from "./workshop.js";
 import { t } from "./i18n.js";
@@ -39,35 +39,10 @@ export function palettePanel(p) {
   return `<section class="palette-panel"><h2>${t("Palette de couleurs")}</h2><div><button class="ai-action icon-action" data-ai-recommendation="colorNames" aria-label="${t("Noms des couleurs")}" data-tooltip="${t("Noms des couleurs")}">✦</button><button class="ai-action icon-action" data-ai-recommendation="colorRoles" aria-label="${t("Rôles des couleurs")}" data-tooltip="${t("Rôles des couleurs")}">✦</button></div><div class="palette-swatches">${p.colors.map((col) => `<button class="palette-swatch" data-edit-color="${esc(col.id)}" style="--swatch:${col.hex}" aria-label="${esc(col.name)} · ${col.hex}" title="${esc(col.name)} · ${col.hex}"><span data-no-i18n>${esc(col.name)}</span></button>`).join("")}<button class="palette-add" data-action="add-color">+ ${t("Ajouter une couleur")}</button></div></section>`;
 }
 function properties(p, number, selected, inspector) {
-  const c = p.compositions[p.active],
-    l = layout(p);
-  const advanced = `<section><div class="segmented">${l.parts.map((q) => `<button data-element="${q.key}" aria-pressed="${selected === q.key}">${t(q.key === "icon" ? "Icône" : "Logotype")}</button>`).join("")}</div>${isReadyVariant(p) || p.mode !== "compose" ? "" : number("Position X", selected + "X", c[selected + "X"], -10, 10, 0.01, "X") + number("Position Y", selected + "Y", c[selected + "Y"], -10, 10, 0.01, "X")}${l.parts
-    .filter((q) => q.key !== "ready")
-    .map(
-      (q) =>
-        `<label class="field"><span>${t(q.key === "icon" ? "Largeur du brandmark · px" : "Largeur du logotype · px")}</span><input data-width="${q.key}" type="number" min="1" max="100000" step="any" value="${q.w.toFixed(2)}"></label>`,
-    )
-    .join(
-      "",
-    )}<button data-action="reset">${t("Réinitialiser la composition")}</button></section>`;
-  const visual = (key, values) =>
-    `<div class="visual-options">${values
-      .map(([value, label]) => {
-        const draft = {
-          ...p,
-          compositions: {
-            ...p.compositions,
-            [p.active]: { ...c, [key]: value },
-          },
-        };
-        return `<button data-${key}="${value}" aria-pressed="${c[key] === value}"><div>${compositionSVG(draft, p.active)}</div>${t(label)}</button>`;
-      })
-      .join("")}</div>`;
+  const c = p.compositions[p.active];
   const tabs =
     p.mode === "compose" && !isReadyVariant(p)
       ? [
-          ["composition", "Composition"],
-          ["position", "Position"],
           ["guides", "Guides"],
           ["more", "Tailles minimales"],
         ]
@@ -78,34 +53,7 @@ function properties(p, number, selected, inspector) {
   if (p.mode === "clearspace" || !tabs.some(([id]) => id === inspector))
     inspector = "guides";
   const minimum = `<section><h3>${t("Tailles minimales")} <button class="ai-action icon-action" data-ai-recommendation="minimum" aria-label="${t("Recommandation IA")}" data-tooltip="${t("Recommandation IA")}">✦</button></h3><div class="minimum-preview" style="max-width:${Math.min(c.minDigital, 240)}px">${compositionSVG(p, p.active)}</div><div class="two-fields"><label>Print · mm<input data-comp="minPrint" type="number" min="1" max="1000" value="${c.minPrint}"></label><label>Digital · px<input data-comp="minDigital" type="number" min="1" max="10000" value="${c.minDigital}"></label></div></section>`;
-  const composition = `<section>${l.parts
-    .filter((q) => q.key !== "ready")
-    .map((q) =>
-      number(
-        q.key === "icon" ? "Taille de l’icône" : "Taille du logotype",
-        q.key + "Height",
-        q.h,
-        1,
-        100000,
-        1,
-        " px",
-      ),
-    )
-    .join("")}${
-    p.mode === "compose" && !isReadyVariant(p) && l.parts.length === 2
-      ? number("Espacement", "gap", c.gap, 0, 5, 0.01, "X") +
-        visual("align", [
-          ["start", "Début"],
-          ["center", "Centre"],
-          ["end", "Fin"],
-        ]) +
-        visual("center", [
-          ["real", "Centrage exact"],
-          ["optical", "Centrage visuel"],
-        ])
-      : ""
-  }</section>`;
-  const guides = `<section><div class="canvas-expert">${["grid", "snap"].map((key, i) => `<label class="check"><input type="checkbox" data-setting="${key}" ${p[key] ? "checked" : ""}>${t(["Grille", "Magnétisme"][i])}</label>`).join("")}</div><button class="ai-action icon-action" data-ai-recommendation="clearspace" aria-label="${t("Recommandation IA")}" data-tooltip="${t("Recommandation IA")}">✦</button>${clearPanel(p)}</section>`;
+  const guides = `<section><div class="canvas-expert">${["grid", "snap"].map((key, i) => `<label class="check"><input type="checkbox" data-setting="${key}" ${p[key] ? "checked" : ""}>${t(["Grille", "Magnétisme"][i])}</label>`).join("")}<button class="ai-action icon-action" data-ai-recommendation="clearspace" aria-label="${t("Recommandation IA")}" data-tooltip="${t("Recommandation IA")}">✦</button></div>${clearPanel(p)}</section>`;
   return `<section class="inspector-title"><h2 data-no-i18n>${esc(variantName(p, p.active))}</h2>${isReadyVariant(p) || p.mode !== "compose" ? `<label class="field">${t("Nom de la version")}<input id="variant-name" value="${esc(p.ready.find((v) => v.id === p.active)?.name || "")}" maxlength="100"></label>` : ""}</section><div class="inspector-tabs" role="tablist" aria-label="${t("Réglages de la version")}">${tabs
     .filter(([id]) => p.mode !== "clearspace" || id === "guides")
     .map(
@@ -114,7 +62,7 @@ function properties(p, number, selected, inspector) {
     )
     .join(
       "",
-    )}</div><div class="inspector-content" role="tabpanel">${inspector === "composition" ? composition : inspector === "position" ? advanced : inspector === "guides" ? guides : minimum + (isReadyVariant(p) ? "" : `<section><button data-action="reset">${t("Réinitialiser la composition")}</button></section>`)}</div>`;
+    )}</div><div class="inspector-content" role="tabpanel">${inspector === "guides" ? guides : minimum + (isReadyVariant(p) ? "" : `<section><button data-action="reset">${t("Réinitialiser la composition")}</button></section>`)}</div>`;
 }
 
 export function workspace(
@@ -179,5 +127,5 @@ export function workspace(
       : p.mode === "clearspace"
         ? "Préparer l’export"
         : "Choisir les couleurs";
-  return `<header><div class="identity">${identity()}</div><nav aria-label="${t("Étapes du Logo Kit")}">${route.map(([id, label], i) => `<button data-view="${id}" ${i && !ready ? "disabled" : ""} aria-current="${view === id ? "step" : "false"}" class="${view === id ? "active" : ""}"><small>0${i + 1}</small>${t(label)}</button>`).join("")}</nav><div class="header-actions">${view === "guideline" ? `<button class="ai-launcher" data-ai-assistant><span aria-hidden="true">✦</span> ${t("Assistant IA")}</button>` : ""}<button data-action="undo" aria-label="${t("Annuler")}" ${history.past.length ? "" : "disabled"}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="miter" aria-hidden="true"><path d="m9 4-5 5 5 5M4 9h15v11"/></svg></button><button data-action="redo" aria-label="${t("Rétablir")}" ${history.future.length ? "" : "disabled"}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="miter" aria-hidden="true"><path d="m15 4 5 5-5 5M20 9H5v11"/></svg></button><button data-action="export-project">${t("Sauvegarder .binksy")}</button></div></header><div class="workspace guided-workspace ${focus ? "focus-mode" : ""}" data-step="${view}" data-mode="${p.mode}">${left ? `<aside class="left">${left}</aside>` : ""}<main class="editor-main">${["import", "compose"].includes(view) ? `<div class="step-heading"><span class="eyebrow">0${index + 1} / ${t(view === "compose" && p.mode === "clearspace" ? "Zone de sécurité" : steps[index][1])}</span><h1>${t(guidance)}</h1></div><div class="canvas-toolbar"><strong data-no-i18n>${esc(p.brand)}</strong><div class="canvas-colors">${view === "compose" ? `<button data-action="focus" aria-pressed="${focus}">${t(focus ? "Afficher les panneaux" : "Mode focus")}</button><select id="zoom" aria-label="Zoom">${[0.5, 0.75, 1, 1.5, 2].map((n) => `<option value="${n}" ${n === 1 ? "selected" : ""}>${n * 100}%</option>`).join("")}</select>` : ""}<button data-canvas="#ffffff" aria-label="${t("Canvas blanc")}">${t("Clair")}</button><button data-canvas="#000000" aria-label="${t("Canvas noir")}">${t("Sombre")}</button></div></div><div id="stage" class="stage"></div><div class="canvas-footer"><span id="measure"></span></div><div class="step-next"><span data-no-i18n>${esc(variantName(p, p.active))}</span><button class="primary" data-view="${next}" ${ready ? "" : "disabled"}>${t(nextLabel)}${arrow}</button></div>` : '<div id="workshop"></div>'}</main>${right ? `<aside class="right" aria-label="${t("Propriétés")}" tabindex="0">${right}</aside>` : ""}</div><footer><span id="save-state">${t("Enregistré sur cet appareil")}</span><button data-view="agent">${t("Règles agent IA")}</button></footer><div id="notice" role="status" hidden></div><input id="project-file" type="file" accept=".json,.binksy" hidden>`;
+  return `<header><div class="identity">${identity()}</div><nav aria-label="${t("Étapes du Logo Kit")}">${route.map(([id, label], i) => `<button data-view="${id}" ${i && !ready ? "disabled" : ""} aria-current="${view === id ? "step" : "false"}" class="${view === id ? "active" : ""}"><small>0${i + 1}</small>${t(label)}</button>`).join("")}</nav><div class="header-actions">${view === "guideline" ? `<button class="ai-launcher" data-ai-assistant aria-label="${t("Assistant IA")}" data-tooltip="${t("Assistant IA")}"><span aria-hidden="true">✦</span></button>` : ""}<button data-action="undo" aria-label="${t("Annuler")}" ${history.past.length ? "" : "disabled"}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="miter" aria-hidden="true"><path d="m9 4-5 5 5 5M4 9h15v11"/></svg></button><button data-action="redo" aria-label="${t("Rétablir")}" ${history.future.length ? "" : "disabled"}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="miter" aria-hidden="true"><path d="m15 4 5 5-5 5M20 9H5v11"/></svg></button><button data-action="export-project">${t("Sauvegarder .binksy")}</button></div></header><div class="workspace guided-workspace ${focus ? "focus-mode" : ""}" data-step="${view}" data-mode="${p.mode}">${left ? `<aside class="left">${left}</aside>` : ""}<main class="editor-main">${["import", "compose"].includes(view) ? `<div class="step-heading"><span class="eyebrow">0${index + 1} / ${t(view === "compose" && p.mode === "clearspace" ? "Zone de sécurité" : steps[index][1])}</span><h1>${t(guidance)}</h1></div><div class="canvas-toolbar"><strong data-no-i18n>${esc(p.brand)}</strong><div class="canvas-colors">${view === "compose" ? `<button data-action="focus" aria-pressed="${focus}">${t(focus ? "Afficher les panneaux" : "Mode focus")}</button><select id="zoom" aria-label="Zoom">${[0.5, 0.75, 1, 1.5, 2].map((n) => `<option value="${n}" ${n === 1 ? "selected" : ""}>${n * 100}%</option>`).join("")}</select>` : ""}<button data-canvas="#ffffff" aria-label="${t("Canvas blanc")}">${t("Clair")}</button><button data-canvas="#000000" aria-label="${t("Canvas noir")}">${t("Sombre")}</button></div></div><div id="stage" class="stage"></div><div class="canvas-footer"><span id="measure"></span></div><div class="step-next"><span data-no-i18n>${esc(variantName(p, p.active))}</span><button class="primary" data-view="${next}" ${ready ? "" : "disabled"}>${t(nextLabel)}${arrow}</button></div>` : '<div id="workshop"></div>'}</main>${right ? `<aside class="right" aria-label="${t("Propriétés")}" tabindex="0">${right}</aside>` : ""}</div><footer><span id="save-state">${t("Enregistré sur cet appareil")}</span><button data-view="agent">${t("Règles agent IA")}</button></footer><div id="notice" role="status" hidden></div><input id="project-file" type="file" accept=".json,.binksy" hidden>`;
 }

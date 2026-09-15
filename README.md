@@ -7,7 +7,7 @@ Atelier SVG local, sans compte ni backend. Évolution du moteur BINKSY LOGO SYST
 L’accueil propose **Variantes à créer**, **Variantes déjà prêtes** et **Juste la zone de sécurité**.
 
 1. **Importer** : nom de marque, icône/logotype et, en complément, plusieurs SVG assemblés dans **Variantes déjà prêtes**. Chaque carte propose aperçu, nom, remplacement et suppression. La palette est disponible dès le départ dans les deux modes Logo Kit ; projet et police restent secondaires.
-2. **Assembler le logo** : canvas prioritaire, navigation par previews et inspecteur Composition / Position / Guides / Tailles minimales. Tailles, déplacement, poignées, positions précises, largeurs, centrages exact/visuel, grille, magnétisme et tailles minimales sont conservés. Mode focus masque les panneaux.
+2. **Assembler le logo** : canvas prioritaire, navigation par previews et inspecteur Guides / Tailles minimales et barre contextuelle de précision. Tailles, déplacement, poignées, positions précises, largeurs, centrages exact/visuel, grille, magnétisme et tailles minimales sont conservés. Mode focus masque les panneaux.
 3. **Versions du logo** : une vue d’ensemble ouvre le dossier de chaque variante. Original, Couleurs simples, Multicolores, Dégradés, JPEG et Dimensions se trouvent dans des sections repliables. Recommandées présélectionne ; Tout voir ouvre le catalogue BigInt ; Système complet sélectionne toutes les combinaisons. Les réglages de rôles sont dans Modifier les couleurs du logo, l’éditeur de dégradé apparaît sur demande. JPEG montre les vrais fonds/marges avec choix individuels et associations partagées.
 4. **Exporter** : previews, nombre de versions, déclinaisons et fichiers, puis export direct du kit. Les quatre formats SVG / PNG / JPEG / PDF sont activés à l’entrée dans cette étape, sans choix Web / Print / Complet. Tailles standards multiples (1000 à 5000 px), cas d’usage et formats personnalisés nommés. WEB : 72 DPI ; PRINT : PDF vectoriel, bitmaps 300 DPI facultatifs. Personnaliser l’export reste facultatif ; Fichiers à exporter conserve les exclusions.
 
@@ -174,7 +174,7 @@ AI: requests are non-streaming JSON. Empty/output-limited responses retry once; 
 
 Le canvas du guide porte une toolbar contextuelle : rôle, police, graisse disponible, taille, couleur et alignement pour le texte ; variante et couleur réelle pour le logo ; remplacement direct, ajustement et zoom pour l’image. Double-clic pour saisir un texte ; `•••` conserve position, dimensions, leading, tracking, ordre et suppression. Les réglages page et document restent séparés. Une exception locale affiche **Réinitialiser au style** ; déplacer ou redimensionner un bloc ne fige plus sa typographie.
 
-**Accent** s’ajoute depuis les réglages globaux, avec import TTF/OTF, police, graisse, taille, interlignage et tracking. La hiérarchie réserve des pages supplémentaires. Logo et variantes choisit une couleur disponible commune par défaut, sans fond individuel. Une couleur peut s’appliquer à toutes les variantes de la page lorsqu’elle est disponible partout.
+**Accent** s’ajoute depuis les réglages globaux, avec import TTF/OTF, police, graisse, taille, interlignage et tracking. La hiérarchie s’ajuste sur une seule page. Logo et variantes choisit une couleur disponible commune par défaut, sans fond individuel. Une couleur peut s’appliquer à toutes les variantes de la page lorsqu’elle est disponible partout.
 
 Les associations utilisent un état commun (`guideline-pairs.js`) : Recommandée (contraste ≥ 4,5), Autorisée (≥ 3) ou À éviter, avec priorité aux décisions manuelles. Toutes les paires, y compris identiques, restent visibles sans atténuation. Les pages sont paginées à une taille lisible. Les anciens choix masqués restent lisibles dans les fichiers historiques et apparaissent désormais dans le guide.
 
@@ -193,3 +193,17 @@ Vérification ciblée : `/tests/visual-ux.html` couvre rôles et réouverture, 2
 Validation de cette passe : 30 tests Node ciblés et 9 scénarios navigateur passent ; build Vite réussi. La suite complète conserve deux échecs préexistants de mocks de catalogue IA, reproduits sur `0453890`. Les exports PDF sont générés réellement avec Arial/Georgia (TTF), Clash Display/STIX General (OTF), en 16:9 et A4 portrait/paysage ; leur inspection visuelle dans un lecteur PDF et Illustrator reste à effectuer. Aucun appel IA authentifié réel n’a été validé.
 
 **English validation:** 30 focused Node tests, 9 browser scenarios and the production build pass. Two pre-existing AI model catalogue mock failures were reproduced on `0453890`. Real four-font PDF exports were generated in all three page formats; visual inspection in a PDF reader/Illustrator and authenticated provider calls remain unverified.
+
+## Canvas et décoration
+
+La construction utilise déplacement, poignées et barre de précision contextuelle. Le clic vide désélectionne sans masquer les aides activées. Guides et Tailles minimales restent dans la sidebar. Les cartes JPEG utilisent uniquement le cadrage partagé et ne montrent plus de ratio de contraste. Les infobulles passent par un popover global.
+
+Les images du guide acceptent débordement, rotation, opacité et ordre relatif aux autres éléments. L’export rogne au format de page. La hiérarchie adapte ses espacements et spécimens sur une page ; les associations présentent coche verte, croix rouge et état autorisé distinct.
+
+English: Canvas manipulation and contextual precision replace permanent composition panels. Empty-space deselection preserves enabled guides. JPEG cards use shared framing without contrast ratios. Global tooltip popovers escape containers. Guide images support overflow, rotation, opacity and stacking; exports clip to the page. Hierarchy fits one page and pairing examples carry explicit visual status marks.
+
+Vérification ciblée : `tests/canvas-ux.html` utilise uniquement un projet synthétique sur une origine de test distincte.
+
+Validation de cette passe : build Vite et `git diff --check` réussis ; quatre scénarios navigateur passent (réouverture/rognage des images, PDF réel et hiérarchie avec grand titre dans les trois formats). Manipulation du canvas, désélection avec guides, précision, annulation, rotation/redimensionnement d’image, calques, JPEG, infobulles et largeur mobile ont été vérifiés manuellement. Sur les 24 tests Node ciblés, 22 passent ; les deux échecs de mocks du catalogue IA sont reproduits sur le commit de départ `091d1f6`. Aucun appel fournisseur IA réel ni déploiement dans cette passe.
+
+English: Production build and diff checks pass, as do four focused browser scenarios covering image persistence/clipping and real PDFs with single-page hierarchy in all three formats. Manual checks cover canvas manipulation, deselection with guides, precision, undo, image transforms/stacking, JPEG cards, tooltips and mobile width. Of 24 focused Node tests, 22 pass; two AI model catalogue mock failures reproduce on baseline `091d1f6`. No live provider call or deployment was performed.

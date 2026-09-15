@@ -391,7 +391,8 @@ export function editorialPage(p, a, index) {
       const id=fg.id+'-'+bg.id, x=m+(i%cols)*(w+gap), y=top+Math.floor(i/cols)*100;
       rect('pair-field-'+id,x,y,w,h-24,bg.hex);
       text('pair-text-'+id,'Aa — '+p.brand,x+12,y+10,w-24,38,'heading',{fill:fg.hex});
-      caption('pair-status-'+id,t({recommended:'✓ Recommandée',allowed:'○ Autorisée',avoid:'× À éviter'}[state]),x,y+h-20,w);
+      add('status','pair-mark-'+id,x,y+h-20,14,14,{state});
+      caption('pair-status-'+id,t({recommended:'À FAIRE',allowed:'Autorisée',avoid:'À ÉVITER'}[state]),x+21,y+h-20,w-21);
     });
   } else if (a.type === "fonts") {
     const fonts = g.resources.filter((r) => r.type === "font"),
@@ -436,11 +437,22 @@ export function editorialPage(p, a, index) {
       );
     });
   } else if (a.type === "hierarchy") {
-    const roles = a.hierarchyRoles || [...ROLES,...(g.accentTypography?.enabled ? ["accent"] : [])];
-    const rh = ch / roles.length;
+    const roles = [...ROLES,...(g.accentTypography?.enabled ? ["accent"] : [])];
+    // Remove row spacing, then padding, before reducing the type specimens.
+    const styles=roles.map(role=>typeStyle(g,role));
+    const natural=styles.map(s=>s.size*Math.min(s.leading,1.2)*2);
+    const total=natural.reduce((a,b)=>a+Math.max(32,b+8),0);
+    const gap=Math.max(0,Math.min(12,(ch-total)/Math.max(1,roles.length-1)));
+    const padding=total>ch ? 2 : 8;
+    const available=ch-gap*(roles.length-1);
+    const heightAt=scale=>natural.reduce((sum,h)=>sum+Math.max(32,h*scale+padding),0);
+    let low=0,high=1;
+    for(let i=0;i<24;i++){const mid=(low+high)/2;if(heightAt(mid)<=available)low=mid;else high=mid;}
+    const scale=heightAt(1)<=available?1:low;
+    let cursor=top;
     roles.forEach((role, i) => {
-      const s = typeStyle(g, role),
-        y = top + i * rh;
+      const s=styles[i],rh=Math.max(32,natural[i]*scale+padding),y=cursor;
+      cursor+=rh+gap;
       caption("type-role-" + role, t(role), m, y, cw * 0.26);
       text(
         "type-sample-" + role,
@@ -458,8 +470,9 @@ export function editorialPage(p, a, index) {
         m + cw * 0.28,
         y,
         cw * 0.43,
-        rh - 8,
+        rh - padding,
         role,
+        { size: Math.max(8, s.size*scale), minSize:8, leading: Math.min(s.leading,1.2) },
       );
       text(
         "type-values-" + role,
@@ -467,7 +480,7 @@ export function editorialPage(p, a, index) {
         m + cw * 0.75,
         y,
         cw * 0.25,
-        rh - 8,
+        rh - 2,
         "caption",
       );
     });

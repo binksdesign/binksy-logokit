@@ -32,8 +32,8 @@ export function mountContextToolbar(canvas,p,page,e,update,notice) {
     html=select('variant','Variante',variantIds(p).map(v=>[v,variantName(p,v)]),e.variant)+select('colorId','Version colorimétrique',[['auto','Automatique'],...logoChoices(p,e.variant).map(c=>[c.id,c.name])],e.colorId);
     if(page.type==='logos')html+=`<button type="button" data-context-all title="${t('Appliquer à toutes les variantes de cette page')}" aria-label="${t('Appliquer à toutes les variantes de cette page')}">⇉</button>`;
   } else if(e.type==='image' || e.type==='placeholder') {
-    html=`<label class="file-button">${t('Remplacer')}<input data-context-image type="file" accept="image/png,image/jpeg,image/webp" hidden></label>`+select('fit','Cadrage',[['contain','Ajuster'],['cover','Remplir']],e.fit || 'cover')+input('zoom','Zoom',e.zoom || 1,1,5,.05);
-  } else html=select('fill','Couleur',colors,e.fill);
+    html=`<label class="file-button">${t('Remplacer')}<input data-context-image type="file" accept="image/png,image/jpeg,image/webp" hidden></label>`+select('fit','Cadrage',[['contain','Ajuster'],['cover','Remplir']],e.fit || 'cover')+input('zoom','Zoom',e.zoom || 1,1,5,.05)+input('rotation','Rotation',e.rotation || 0,-360,360)+input('opacity','Opacité',e.opacity ?? 1,0,1,.05);
+  } else if(e.type !== 'status') html=select('fill','Couleur',colors,e.fill);
   bar.insertAdjacentHTML('afterbegin',`<div class="bg-context-primary">${html}</div>`);
   bar.onpointerdown=event=>event.stopPropagation();
   bar.querySelectorAll('[data-context]').forEach(el=>el.onchange=()=>{

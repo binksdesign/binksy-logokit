@@ -333,18 +333,19 @@ export function validateGuide(input, mode) {
     a.misuses = (source.misuses || []).filter((v) => Object.hasOwn(MISUSES, v));
     a.elements = (source.elements || []).slice(0, 150).map((e) => ({
       id: /^[\w-]{1,100}$/.test(e.id) ? e.id : uid(),
-      type: ["text", "image", "logo", "rect"].includes(e.type)
+      type: ["text", "image", "logo", "rect", "status"].includes(e.type)
         ? e.type
         : "text",
       text: cleanText(e.text),
+      state: ["recommended","allowed","avoid"].includes(e.state)?e.state:undefined,
       resource: cleanText(e.resource, 100),
       fit: e.fit === 'contain' ? 'contain' : 'cover',
       variant: cleanText(e.variant, 100),
       role: cleanText(e.role, 100),
-      x: limit(e.x, 0, 1),
-      y: limit(e.y, 0, 1),
-      w: limit(e.w, 0.01, 1, 0.3),
-      h: limit(e.h, 0.01, 1, 0.15),
+      x: limit(e.x, -100, 100),
+      y: limit(e.y, -100, 100),
+      w: limit(e.w, 0.01, 100, 0.3),
+      h: limit(e.h, 0.01, 100, 0.15),
       size: Number.isFinite(e.size) ? limit(e.size, 5, 150, 12) : undefined,
       font: typeof e.font === "string" ? cleanText(e.font,100) : undefined,
       weight: Number.isFinite(e.weight) ? limit(e.weight,100,900) : undefined,
@@ -357,12 +358,14 @@ export function validateGuide(input, mode) {
       panX: limit(e.panX, 0, 1, 0.5),
       panY: limit(e.panY, 0, 1, 0.5),
       locked: e.locked === true,
+      rotation: limit(e.rotation,-360,360,0), opacity: limit(e.opacity,0,1,1), z: Number.isFinite(e.z)?e.z:undefined,
     }));
     a.styles = dict(source.styles, (v) => ({
-      x: Number.isFinite(v?.x) ? limit(v.x, 0, 1) : undefined,
-      y: Number.isFinite(v?.y) ? limit(v.y, 0, 1) : undefined,
-      w: Number.isFinite(v?.w) ? limit(v.w, 0.001, 1) : undefined,
-      h: Number.isFinite(v?.h) ? limit(v.h, 0.001, 1) : undefined,
+      rotation: Number.isFinite(v?.rotation)?limit(v.rotation,-360,360):undefined, opacity: Number.isFinite(v?.opacity)?limit(v.opacity,0,1):undefined, z: Number.isFinite(v?.z)?v.z:undefined,
+      x: Number.isFinite(v?.x) ? limit(v.x, -100, 100) : undefined,
+      y: Number.isFinite(v?.y) ? limit(v.y, -100, 100) : undefined,
+      w: Number.isFinite(v?.w) ? limit(v.w, 0.001, 100) : undefined,
+      h: Number.isFinite(v?.h) ? limit(v.h, 0.001, 100) : undefined,
       text: typeof v?.text === "string" ? cleanText(v.text) : undefined,
       size: Number.isFinite(v?.size) ? limit(v.size, 5, 150, 12) : undefined,
       font: typeof v?.font === "string" ? cleanText(v.font,100) : undefined,

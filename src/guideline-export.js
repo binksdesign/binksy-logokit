@@ -37,14 +37,14 @@ export function validateLayout(p) {
   for (const [index, page] of g.pages.filter(a=>!a.disabled).entries())
     for (const element of pageElements(p, page, index)) {
       const e = element.type === "text" ? fittedText(element, g) : element;
-      if (
+      if (e.type !== "image" && (
         e.x < -0.1 ||
         e.y < -0.1 ||
         e.w <= 0 ||
         e.h <= 0 ||
         e.x + e.w > W + 0.1 ||
         e.y + e.h > H + 0.1
-      )
+      ))
         throw Error("Élément hors page : " + (index + 1) + ".");
       if (
         e.type === "text" &&

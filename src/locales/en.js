@@ -1,4 +1,6 @@
 export const en = {
+  "Hauteur": "Height", "Largeur": "Width", "Centrage": "Centering", "Position X": "X position", "Position Y": "Y position", "Afficher la zone de sécurité": "Show clear space",
+  "À FAIRE": "DO", "À ÉVITER": "AVOID", "Opacité": "Opacity", "Rotation": "Rotation", "Envoyer à l’arrière-plan": "Send to back",
   "Retirer la typographie d’accent": "Remove accent typography",
   "Les textes sont vectorisés dans le PDF avec les polices du document.": "PDF text is outlined using the document fonts.",
   "Une signature typographique.": "A typographic signature.",

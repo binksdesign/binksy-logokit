@@ -940,3 +940,26 @@ Object.assign(en, {
   "Un ID personnalisé n’est pas vérifié par le catalogue.": "A custom ID is not verified by the catalogue.",
   "Modèle actif": "Active model"
 });
+
+Object.assign(en, {
+  "Fournisseur IA": "AI provider",
+  "Obtenir une clé API": "Get an API key",
+  "La clé reste sur cet appareil et n’est jamais enregistrée dans le projet `.binksy`.":
+    "The key stays on this device and is never saved in the `.binksy` project.",
+  "Ajoutez votre clé API pour charger les modèles disponibles.":
+    "Add your API key to load available models.",
+  "Mis à jour à l’instant": "Updated just now",
+  "Mis à jour il y a {hours} h": "Updated {hours} h ago",
+  "Actualisation en cours…": "Refreshing…",
+  "Impossible de récupérer les modèles. Vérifiez votre clé API.":
+    "Could not retrieve models. Check your API key.",
+  "Le fournisseur ne permet pas de charger son catalogue depuis le navigateur.":
+    "This provider does not allow its catalogue to load in the browser.",
+  "Aucun modèle compatible disponible.": "No compatible model available.",
+  "Rechercher un modèle…": "Search for a model…",
+  "modèles disponibles": "models available",
+  Actualiser: "Refresh",
+  "Vérifier la configuration": "Check configuration",
+  "Configuration nécessaire": "Configuration required",
+  "Supprimer la clé de cet appareil ?": "Remove this device key?",
+});

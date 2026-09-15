@@ -787,7 +787,6 @@
 .bg-inspector-tabs button { flex: 1; min-width: 0; font-size: 11px; padding: 8px 4px; }
 .bg-inspector-tabs button[aria-selected="true"] { background: #171717; color: white; }
 .bg-properties .bg-checks { grid-template-columns: 1fr; }
-.header-actions [data-ai-assistant] { white-space: nowrap; flex-shrink: 0; line-height: 1; padding: 10px 12px; font-size: 12px; }
 @media(max-width: 700px) {
   .bg-wizard { padding: 0 12px 20px; margin-top: 20px; }
   .bg-wizard > nav { width: 100%; }

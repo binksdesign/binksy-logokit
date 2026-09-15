@@ -240,7 +240,6 @@ export const FALLBACK_MODELS = {
 function model(id, priceTier) {
   return {id,name:id,vision:true,tools:true,priceTier,fallback:true};
 }
-const VISION_MODEL = /(gpt-(?:4o|4\.1|5)|claude-(?:3|4)|gemini|pixtral|mistral-(?:medium|large)-.*vision|grok-(?:2-vision|4)|qwen[^/]*(?:vl|omni)|kimi-k2\.5|llama[^/]*(?:vision|vl)|nemotron[^/]*vl)/i;
 export function modelPriceTier(entry) {
   if (['free','low','medium','high'].includes(entry?.priceTier)) return entry.priceTier;
   const prompt = Number(entry?.pricing?.prompt), completion = Number(entry?.pricing?.completion);
@@ -252,10 +251,14 @@ export function modelPriceTier(entry) {
   return 'high';
 }
 export function compatibleModel(entry) {
-  return !!entry?.id && entry.tools !== false && (entry.vision === true || VISION_MODEL.test(entry.id + ' ' + (entry.name || '')));
+  // Providers do not all expose capability metadata. Keep unknown entries
+  // available, while still excluding models explicitly marked incompatible.
+  return !!entry?.id && entry.tools !== false && entry.vision !== false;
 }
 export function compatibleModels(entries) {
-  return entries.filter(compatibleModel).map(entry=>({...entry,vision:true,tools:true,priceTier:modelPriceTier(entry)}));
+  return entries
+    .filter(compatibleModel)
+    .map((entry) => ({ ...entry, priceTier: modelPriceTier(entry) }));
 }
 export function modelProtocol(provider,model){
   if(provider.id==='opencode-go') {

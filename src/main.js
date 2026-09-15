@@ -44,10 +44,18 @@ const $ = (s) => document.querySelector(s),
           "'": "&#39;",
         })[c],
     );
+const ROUTES = Object.freeze({ home: "/", agent: "/agent-rules" });
+const normalizePath = (pathname) => {
+  const path = pathname || "/";
+  return path === "/" ? "/" : path.replace(/\/+$/, "");
+};
+const viewFromLocation = (pathname = window.location.pathname) =>
+  normalizePath(pathname) === ROUTES.agent ? "agent" : "home";
+let routeReady = false;
 const history = new History();
 let projects = [],
   p,
-  view = "home",
+  view = viewFromLocation(),
   zoom = 1,
   inspector = "guides",
   focus = false,
@@ -102,11 +110,40 @@ function notice(message) {
   clearTimeout(notice.timer);
   notice.timer = setTimeout(() => (n.hidden = true), 9000);
 }
+function syncRoute() {
+  const target = ROUTES[view];
+  if (target) {
+    const current = window.location.pathname || "/";
+    if (current !== target) {
+      const normalizedCurrent = normalizePath(current);
+      const method =
+        !routeReady || normalizedCurrent === target ? "replaceState" : "pushState";
+      window.history[method]({}, "", target);
+    }
+  }
+  routeReady = true;
+  document.title =
+    view === "agent" ? "AI Agent Rules — Binksy LogoKit" : "BINKSY LOGOKIT";
+}
+function handleViewLink(event, element) {
+  if (element.tagName !== "A") return true;
+  if (
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey ||
+    event.button !== 0
+  )
+    return false;
+  event.preventDefault();
+  return true;
+}
 function number(label, key, value, min, max, step = 1, suffix = "") {
   label = t(label);
   return `<label class="field"><span>${label}<output id="o-${key}">${Number(value).toFixed(step < 1 ? 2 : 0)}${suffix}</output></span><div class="range-row"><input aria-label="${label}" type="range" data-comp="${key}" min="${min}" max="${key.endsWith("Height") ? Math.max(1000, Math.ceil(value * 2)) : max}" step="${step}" value="${value}"><input aria-label="${label} précis" type="number" data-comp="${key}" min="${min}" max="${max}" step="${step}" value="${value}"></div></label>`;
 }
 function render() {
+  syncRoute();
   if(view !== "guideline") document.querySelector('.ai-chat[data-kind="chat"]')?.close();
   cancelMeasurement?.();
   if (view !== "compose") focus = false;
@@ -271,7 +308,8 @@ function bind() {
   bindFormats(document,p,edit);
   document.querySelectorAll("[data-view]").forEach(
     (el) =>
-      (el.onclick = () => {
+      (el.onclick = (event) => {
+        if (!handleViewLink(event, el)) return;
         view = el.dataset.view;
         if (view === "guideline" && !p.brandGuideline.setup && p.mode !== "clearspace") { edit(() => prepareGuide(p)); return; }
         if (view === "delivery" && p.mode !== "clearspace" &&
@@ -685,6 +723,10 @@ document.addEventListener("keydown", (e) => {
     action(e.shiftKey ? "redo" : "undo");
   }
 });
+window.addEventListener("popstate", () => {
+  view = viewFromLocation();
+  render();
+});
 render();
 if (import.meta.env.PROD && "serviceWorker" in navigator)
   navigator.serviceWorker
@@ -695,7 +737,8 @@ if (import.meta.env.PROD && "serviceWorker" in navigator)
 function bindLanding() {
   document.querySelectorAll("[data-view]").forEach(
     (el) =>
-      (el.onclick = () => {
+      (el.onclick = (event) => {
+        if (!handleViewLink(event, el)) return;
         view = el.dataset.view;
         render();
       }),

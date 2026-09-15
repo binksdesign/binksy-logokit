@@ -1,0 +1,7 @@
+# Binksy LogoKit
+
+Binksy LogoKit has specific instructions for AI agents.
+Before interacting with the application, read the reference documentation:
+https://logokit.binksdesign.com/agent-rules
+
+The Agent Rules page documents the tool's features, workflows, and usage rules.
